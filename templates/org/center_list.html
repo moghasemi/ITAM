@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  {% if user.is_admin_province or user.is_superuser %}
+    <a class="btn btn-primary" href="{% url 'org:center_create' %}">➕ افزودن مرکز جدید</a>
+  {% endif %}
+  <a class="btn btn-ghost" href="{% url 'org:department_list' %}">واحدهای سازمانی</a>
+  <a class="btn btn-ghost" href="{% url 'org:location_list' %}">محل‌های استقرار</a>
+{% endblock %}
+
+{% block content %}
+<form method="get" class="filter-bar">
+  <div class="filter-field">
+    <label class="filter-label">جستجو</label>
+    <input class="input" type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="نام مرکز، شهرستان، مسئول…">
+  </div>
+  <div class="filter-actions">
+    <button class="btn btn-primary" type="submit">جستجو</button>
+  </div>
+</form>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>نام مرکز</th>
+          <th>نوع / سطح</th>
+          <th>شهرستان / استان</th>
+          <th>کد مرکز</th>
+          <th>مسئول مرکز</th>
+          <th>کارشناس IT</th>
+          <th>تلفن</th>
+          <th>تعداد دارایی</th>
+          <th>وضعیت</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in object_list %}
+        <tr class="{% if item.is_headquarters %}is-starred{% endif %}">
+          <td>
+            <strong>{{ item.name }}</strong>
+            {% if item.is_headquarters %}
+              <span class="badge badge-primary" style="margin-right:6px;">ستاد استان</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if item.is_headquarters %}
+              <span class="badge badge-primary">مدیریت فناوری استان</span>
+            {% else %}
+              <span class="badge badge-neutral">مرکز تابعه</span>
+            {% endif %}
+          </td>
+          <td>{{ item.city|default:item.province }}</td>
+          <td><span class="code-badge">{{ item.code|default:"—" }}</span></td>
+          <td>{{ item.manager_name|default:"—" }}</td>
+          <td>{{ item.it_lead_name|default:"—" }}</td>
+          <td class="ltr">{{ item.phone|default:"—" }}</td>
+          <td><span class="badge badge-info">{{ item.assets_total|fa }}</span></td>
+          <td>
+            {% if item.is_active %}
+              <span class="badge badge-success">فعال</span>
+            {% else %}
+              <span class="badge badge-neutral">غیرفعال</span>
+            {% endif %}
+          </td>
+          <td class="table-actions">
+            {% if user.is_admin_province or user.is_superuser %}
+              <a class="btn btn-ghost btn-sm" href="{% url 'org:center_update' item.pk %}">ویرایش</a>
+            {% endif %}
+            <a class="btn btn-ghost btn-sm" href="{% url 'assets:list' %}?center={{ item.pk }}">دارایی‌ها</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'tickets:list' %}?center={{ item.pk }}">تیکت‌ها</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="10">{% include "partials/empty.html" %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+</div>
+{% endblock %}

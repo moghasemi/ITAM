@@ -5,7 +5,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, UserCreationForm
 
 from apps.core.forms import StyledModelForm, apply_widget_classes
-from apps.org.models import Contractor, Department
+from apps.org.models import Center, Contractor, Department
 
 from .models import User
 
@@ -53,13 +53,14 @@ class UserForm(StyledModelForm):
     class Meta:
         model = User
         fields = [
-            "username", "first_name", "last_name", "email", "role",
+            "username", "first_name", "last_name", "email", "role", "center",
             "personnel_code", "national_code", "phone", "job_title",
             "department", "contractor", "signature", "is_active",
         ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["center"].queryset = Center.objects.filter(is_active=True)
         self.fields["department"].queryset = Department.objects.filter(is_active=True)
         self.fields["contractor"].queryset = Contractor.objects.filter(is_active=True)
         if not self.instance.pk:
@@ -117,6 +118,9 @@ class UserFilterForm(forms.Form):
     q = forms.CharField(label="جستجو", required=False)
     role = forms.ChoiceField(
         label="نقش", required=False, choices=[("", "همه")] + list(User.ROLE_CHOICES)
+    )
+    center = forms.ModelChoiceField(
+        label="مرکز", required=False, queryset=Center.objects.all()
     )
     department = forms.ModelChoiceField(
         label="واحد سازمانی", required=False, queryset=Department.objects.all()

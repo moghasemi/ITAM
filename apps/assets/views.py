@@ -4,7 +4,9 @@ from __future__ import annotations
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count, Q
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+import json
+from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DetailView, UpdateView
@@ -42,6 +44,7 @@ from .models import (
     HardwareSnapshot,
 )
 from .qrgen import svg as qr_svg
+from .hwagent_service import apply_hwagent_snapshot, process_batch_hwagent_files, match_asset_for_hwagent
 from .services import (
     asset_spec_rows,
     can_record_snapshot,
@@ -78,6 +81,8 @@ class AssetListView(AnyRoleRequiredMixin, BaseListView):
                 data.get("q"),
                 ["asset_tag", "title", "serial_number", "brand", "model_name", "hostname", "ip_address"],
             )
+            if data.get("center"):
+                queryset = queryset.filter(center=data["center"])
             if data.get("category"):
                 queryset = queryset.filter(category=data["category"])
             if data.get("department"):
@@ -530,3 +535,163 @@ def hardware_change_report(request):
             "active_menu": "hardware",
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# ادغام ایجنت سخت‌افزاری HWAgent
+# ---------------------------------------------------------------------------
+def asset_hwagent_upload(request, asset_pk: int):
+    """بارگذاری مستقیم فایل JSON خروجی HWAgent برای یک دارایی مشخص."""
+    asset = get_object_or_404(visible_assets(request.user), pk=asset_pk)
+    if not can_record_snapshot(request.user, asset):
+        messages.error(request, "اجازه ثبت اسنپ‌شات برای این تجهیز را ندارید.")
+        return redirect("assets:detail", pk=asset.pk)
+
+    if request.method != "POST":
+        return render(
+            request,
+            "assets/hwagent_upload.html",
+            {
+                "asset": asset,
+                "page_title": f"بارگذاری اسنپ‌شات HWAgent برای {asset.asset_tag}",
+                "active_menu": "assets",
+            },
+        )
+
+    json_file = request.FILES.get("json_file")
+    raw_content = request.POST.get("json_content", "").strip()
+
+    if not json_file and not raw_content:
+        messages.error(request, "لطفاً یک فایل JSON انتخاب کنید یا محتوای آن را الصاق نمایید.")
+        return redirect("assets:hwagent_upload", asset_pk=asset.pk)
+
+    try:
+        content = json_file.read().decode("utf-8", errors="replace") if json_file else raw_content
+        note = request.POST.get("note", "").strip() or f"بارگذاری فایل {getattr(json_file, 'name', 'دستی')}"
+        seal = request.POST.get("seal_number", "").strip()
+
+        snapshot, diff = apply_hwagent_snapshot(
+            asset=asset,
+            raw_data=content,
+            user=request.user,
+            note=note,
+            seal_number=seal,
+        )
+
+        if diff.get("has_alarm"):
+            messages.warning(
+                request,
+                f"⚠️ اسنپ‌شات با {snapshot.diff_count} تغییر ثبت شد. قطعات مفقود یا تعویض‌شده شناسایی شدند!",
+            )
+        else:
+            messages.success(
+                request,
+                f"✅ اسنپ‌شات نسخه {snapshot.version} با موفقیت از داده‌های HWAgent ثبت شد.",
+            )
+        return redirect("assets:snapshot_detail", pk=snapshot.pk)
+
+    except Exception as exc:
+        messages.error(request, f"خطا در پردازش اطلاعات HWAgent: {exc}")
+        return redirect("assets:hwagent_upload", asset_pk=asset.pk)
+
+
+def hwagent_batch_import(request):
+    """بارگذاری دسته‌ای فایل‌های JSON تولید شده توسط HWAgent."""
+    if not (request.user.is_superuser or request.user.has_role("admin_it", "admin_province")):
+        raise PermissionDenied("فقط کارشناسان فناوری اطلاعات به بارگذاری دسته‌ای دسترسی دارند.")
+
+    from apps.org.models import Center
+    centers = Center.objects.filter(is_active=True)
+
+    if request.method == "POST":
+        files = request.FILES.getlist("files")
+        if not files:
+            messages.error(request, "هیچ فایلی برای بارگذاری انتخاب نشده است.")
+            return redirect("assets:hwagent_batch_import")
+
+        center_id = request.POST.get("center")
+        center = Center.objects.filter(pk=center_id).first() if center_id else getattr(request.user, "center", None)
+        auto_create = request.POST.get("auto_create") == "on"
+
+        results = process_batch_hwagent_files(
+            files=files,
+            user=request.user,
+            center=center,
+            auto_create_asset=auto_create,
+        )
+
+        messages.info(
+            request,
+            f"عملیات پردازش پایان یافت: {results['success']} موفق، {results['failed']} ناموفق، {results['alarms']} هشدار سرقت/مغایرت.",
+        )
+        return render(
+            request,
+            "assets/hwagent_batch_import.html",
+            {
+                "results": results,
+                "centers": centers,
+                "selected_center": center,
+                "page_title": "نتایج بارگذاری دسته‌ای HWAgent",
+                "active_menu": "assets",
+            },
+        )
+
+    return render(
+        request,
+        "assets/hwagent_batch_import.html",
+        {
+            "centers": centers,
+            "user_center": getattr(request.user, "center", None),
+            "page_title": "بارگذاری دسته‌ای فایل‌های JSON ایجنت سخت‌افزاری",
+            "active_menu": "assets",
+        },
+    )
+
+
+@csrf_exempt
+def api_hwagent_sync(request):
+    """اندپوینت دریافت مستقیم و برخط اسنپ‌شات از کلاینت‌های HWAgent."""
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "error": "فقط متد POST مجاز است."}, status=405)
+
+    try:
+        if request.content_type == "application/json" or request.body:
+            body = json.loads(request.body.decode("utf-8"))
+        else:
+            body = request.POST.dict()
+    except Exception as exc:
+        return JsonResponse({"status": "error", "error": f"قالب ارسالی نامعتبر است: {exc}"}, status=400)
+
+    asset_tag = body.get("asset_tag") or request.GET.get("asset_tag")
+    asset = match_asset_for_hwagent(body, asset_tag=asset_tag)
+
+    if not asset:
+        comp = body.get("computerName", "نامشخص")
+        return JsonResponse(
+            {
+                "status": "error",
+                "error": f"دارایی متناظری برای سیستم «{comp}» در سامانه ITAM یافت نشد. لطفاً ابتدا رایانه را ثبت کرده یا شماره اموال آن را ارسال کنید.",
+            },
+            status=404,
+        )
+
+    try:
+        snapshot, diff = apply_hwagent_snapshot(
+            asset=asset,
+            raw_data=body,
+            user=None,
+            note="همگام‌سازی خودکار و مستقیم از HWAgent شبکه محلی",
+        )
+        return JsonResponse({
+            "status": "ok",
+            "asset_tag": asset.asset_tag,
+            "asset_title": str(asset),
+            "hostname": asset.hostname,
+            "version": snapshot.version,
+            "is_baseline": snapshot.is_baseline,
+            "diff_count": snapshot.diff_count,
+            "has_alarm": diff.get("has_alarm", False),
+            "message": f"اسنپ‌شات سخت‌افزاری نسخه {snapshot.version} با موفقیت در سامانه ITAM ثبت شد.",
+        })
+    except Exception as exc:
+        return JsonResponse({"status": "error", "error": str(exc)}, status=500)

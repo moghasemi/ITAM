@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-ghost" href="{% url 'assets:list' %}">بازگشت به فهرست دارایی‌ها</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid-2" style="display:grid; grid-template-columns: 1fr; gap: 24px;">
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">📂 بارگذاری گروهی فایل‌های JSON ایجنت سخت‌افزاری (HWAgent)</h2>
+      <p class="muted">
+        این بخش برای مواردی است که کارشناس فناوری اطلاعات با فلش‌مموری فایل‌های JSON استخراج‌شده از چندین کلاینت را جمع‌آوری کرده و می‌خواهد همه را یکجا وارد سامانه کند.
+      </p>
+    </div>
+
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data" class="form">
+        {% csrf_token %}
+
+        {% if user.is_admin_province or user.is_superuser %}
+          <div class="form-group">
+            <label class="form-label">مرکز مقصد (اختیاری جهت تطبیق و ثبت سیستم‌های جدید)</label>
+            <select name="center" class="input">
+              <option value="">— همه مراکز / بر مبنای دارایی موجود —</option>
+              {% for c in centers %}
+                <option value="{{ c.pk }}" {% if selected_center.pk == c.pk or user_center.pk == c.pk %}selected{% endif %}>{{ c.name }} ({{ c.city|default:c.province }})</option>
+              {% endfor %}
+            </select>
+          </div>
+        {% endif %}
+
+        <div class="form-group">
+          <label class="form-label required">انتخاب یک یا چند فایل JSON</label>
+          <input type="file" name="files" multiple accept=".json,application/json" class="input" required>
+          <small class="form-help">می‌توانید همزمان چند فایل را با نگه‌داشتن کلید Ctrl یا انتخاب گروهی انتخاب فرمایید.</small>
+        </div>
+
+        <div class="form-group" style="margin-top:14px;">
+          <label class="checkbox-label" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" name="auto_create" checked>
+            <span>در صورت عدم یافتن شماره اموال یا رایانه، دارایی جدید به‌صورت خودکار ایجاد شود</span>
+          </label>
+        </div>
+
+        <div class="form-actions" style="margin-top:20px;">
+          <button type="submit" class="btn btn-primary">🚀 شروع پردازش گروهی فایل‌ها</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if results %}
+    <div class="card">
+      <div class="card-head">
+        <h3 class="card-title">📊 گزارش نتایج بارگذاری دسته‌ای</h3>
+        <div style="display:flex; gap:12px; margin-top:8px;">
+          <span class="badge badge-primary">کل فایل‌ها: {{ results.total_files|fa }}</span>
+          <span class="badge badge-success">موفق: {{ results.success|fa }}</span>
+          {% if results.failed %}<span class="badge badge-danger">ناموفق: {{ results.failed|fa }}</span>{% endif %}
+          {% if results.alarms %}<span class="badge badge-danger">⚠️ هشدار مغایرت/سرقت: {{ results.alarms|fa }}</span>{% endif %}
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>نام فایل</th>
+              <th>وضعیت</th>
+              <th>شماره اموال</th>
+              <th>نام رایانه</th>
+              <th>نسخه اسنپ‌شات</th>
+              <th>تغییرات قطعات</th>
+              <th>پیام و نتیجه</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in results.items %}
+            <tr class="{% if row.has_alarm %}is-warning{% elif row.status == 'error' %}is-danger{% endif %}">
+              <td class="mono">{{ row.filename }}</td>
+              <td>
+                {% if row.status == 'success' %}
+                  <span class="badge badge-success">موفق</span>
+                {% elif row.status == 'warning' %}
+                  <span class="badge badge-warning">هشدار سرقت/تغییر</span>
+                {% else %}
+                  <span class="badge badge-danger">خطا</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if row.asset_tag %}
+                  <strong>{{ row.asset_tag }}</strong>
+                  {% if row.is_new_asset %}<span class="badge badge-primary" style="margin-right:4px;">جدید</span>{% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="ltr">{{ row.computer_name|default:"—" }}</td>
+              <td>{{ row.version|default:"—"|fa }}</td>
+              <td>
+                {% if row.diff_count is not None %}
+                  {% if row.diff_count > 0 %}
+                    <span class="badge badge-danger">{{ row.diff_count|fa }} تغییر</span>
+                  {% else %}
+                    <span class="badge badge-success">بدون تغییر</span>
+                  {% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>{{ row.message }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

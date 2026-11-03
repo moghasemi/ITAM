@@ -4,6 +4,7 @@
 {% block page_actions %}
   {% if can_create %}
     <a class="btn btn-primary" href="{% url 'assets:create' %}">➕ ثبت دارایی</a>
+    <a class="btn btn-secondary" href="{% url 'assets:hwagent_batch_import' %}">📥 بارگذاری گروهی HWAgent</a>
     <a class="btn btn-ghost" href="{% url 'assets:label_print' %}{{ request.GET.urlencode }}" target="_blank">🖨 چاپ برچسب QR</a>
   {% endif %}
   <a class="btn btn-ghost" href="{% url 'assets:hardware_report' %}">🔒 گزارش تغییر اقلام</a>
@@ -18,6 +19,7 @@
       <thead>
         <tr>
           <th>شماره اموال</th><th>گونه</th><th>عنوان تجهیز</th><th>برند / مدل</th><th>سریال</th>
+          <th>مرکز</th>
           <th>واحد / محل</th><th>امانت‌دار</th><th>اقلام سخت‌افزاری</th><th>خرابی‌ها</th><th>وضعیت</th><th></th>
         </tr>
       </thead>

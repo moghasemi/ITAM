@@ -33,37 +33,68 @@ from .models import Asset, HardwareSnapshot, SnapshotItem
 # ---------------------------------------------------------------------------
 # کنترل دسترسی
 # ---------------------------------------------------------------------------
-def visible_assets(user):
-    """دارایی‌های قابل مشاهده برای هر نقش."""
+def visible_assets(user, center=None):
+    """دارایی‌های قابل مشاهده برای هر نقش و مرکز."""
     queryset = Asset.objects.select_related(
-        "category", "contract", "contract__contractor", "department", "location", "custodian"
+        "category", "contract", "contract__contractor", "department", "location", "custodian", "center"
     )
     if not getattr(user, "is_authenticated", False):
         return queryset.none()
-    if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
+
+    if getattr(user, "is_admin_province", False) or user.is_superuser:
+        if center:
+            queryset = queryset.filter(center=center)
         return queryset
+
+    if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
+        if user.center_id:
+            queryset = queryset.filter(center_id=user.center_id)
+        elif center:
+            queryset = queryset.filter(center=center)
+        return queryset
+
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id:
             return queryset.none()
-        return queryset.filter(contract__contractor_id=user.contractor_id)
-    # کاربر / امانت‌دار
+        qs = queryset.filter(
+            Q(contract__contractor_id=user.contractor_id) |
+            Q(contract__is_provincial=True, contract__contractor_id=user.contractor_id)
+        )
+        if center:
+            qs = qs.filter(center=center)
+        return qs
+
     condition = Q(custodian=user)
     if user.department_id:
         condition |= Q(department_id=user.department_id)
+    if user.center_id:
+        condition &= (Q(center_id=user.center_id) | Q(center__isnull=True))
     return queryset.filter(condition).distinct()
 
 
 def can_edit_asset(user, asset: Asset) -> bool:
-    return user.has_role(User.ROLE_ADMIN_IT)
+    if getattr(user, "is_admin_province", False) or user.is_superuser:
+        return True
+    if user.has_role(User.ROLE_ADMIN_IT):
+        if not user.center_id or not asset.center_id:
+            return True
+        return user.center_id == asset.center_id
+    return False
 
 
 def can_record_snapshot(user, asset: Asset) -> bool:
     """ثبت اسنپ‌شات سخت‌افزاری: کارشناس IT یا کارشناس پیمانکار مرتبط."""
-    if user.has_role(User.ROLE_ADMIN_IT):
+    if getattr(user, "is_admin_province", False) or user.is_superuser:
         return True
+    if user.has_role(User.ROLE_ADMIN_IT):
+        if not user.center_id or not asset.center_id:
+            return True
+        return user.center_id == asset.center_id
     if user.has_role(User.ROLE_TECHNICIAN):
-        if not asset.contract_id or not user.contractor_id:
+        if not user.contractor_id:
             return False
+        if not asset.contract_id:
+            return True
         return asset.contract.contractor_id == user.contractor_id
     return False
 
@@ -463,6 +494,7 @@ def asset_spec_rows(asset: Asset) -> list[tuple[str, str]]:
     """مشخصات کامل دارایی برای نمایش در شناسنامه."""
     rows = [
         ("شماره اموال", asset.asset_tag),
+        ("مرکز", asset.center.name if asset.center else "—"),
         ("گونه", asset.category.name),
         ("عنوان", asset.title or "—"),
         ("برند / سازنده", asset.brand or "—"),

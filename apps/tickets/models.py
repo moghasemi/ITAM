@@ -37,6 +37,14 @@ class Ticket(TimeStampedModel):
         on_delete=models.PROTECT,
         related_name="tickets",
     )
+    center = models.ForeignKey(
+        "org.Center",
+        verbose_name="مرکز",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tickets",
+    )
     contract = models.ForeignKey(
         "org.Contract",
         verbose_name="قرارداد",

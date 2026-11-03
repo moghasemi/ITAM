@@ -25,7 +25,7 @@ from apps.assets.services import approve_snapshot, create_snapshot, submit_snaps
 from apps.core.constants import PRIORITY_HIGH, PRIORITY_LOW, PRIORITY_MEDIUM
 from apps.core.models import Holiday, SystemSetting
 from apps.maintenance.services import generate_visits
-from apps.org.models import Contract, Contractor, Department, Location, SlaPolicy
+from apps.org.models import Center, Contract, Contractor, Department, Location, SlaPolicy
 from apps.tickets.models import Ticket, TicketPart
 from apps.tickets.services import (
     acknowledge,
@@ -100,17 +100,59 @@ class Command(BaseCommand):
                 defaults={"title": title, "is_recurring_annual": True},
             )
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۳) واحدها و محل‌ها"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۳) مراکز استان و واحدهای سازمانی"))
+        center_hq, _ = Center.objects.get_or_create(
+            code="HQ-01",
+            defaults={
+                "name": "مرکز ستاد مدیریت فناوری اطلاعات استان",
+                "province": "مرکزی",
+                "city": "اراک",
+                "manager_name": "مهندس صادقی (مدیر فناوری اطلاعات استان)",
+                "it_lead_name": "علی محمدی",
+                "is_headquarters": True,
+                "phone": "086-33445566",
+                "address": "اراک، میدان شهدا، ساختمان ستاد مرکزی",
+            },
+        )
+        center_saveh, _ = Center.objects.get_or_create(
+            code="C-02",
+            defaults={
+                "name": "مرکز فناوری اطلاعات ساوه",
+                "province": "مرکزی",
+                "city": "ساوه",
+                "manager_name": "حسین اکبری",
+                "it_lead_name": "مهرداد کاظمی",
+                "is_headquarters": False,
+                "phone": "086-42223344",
+                "address": "ساوه، بلوار طالقانی، اداره تابعه",
+            },
+        )
+        center_khomein, _ = Center.objects.get_or_create(
+            code="C-03",
+            defaults={
+                "name": "مرکز فناوری اطلاعات خمین",
+                "province": "مرکزی",
+                "city": "خمین",
+                "manager_name": "سعید مرادی",
+                "it_lead_name": "پیمان خسروی",
+                "is_headquarters": False,
+                "phone": "086-46667788",
+                "address": "خمین، خیابان امام، اداره تابعه",
+            },
+        )
+        centers_list = [center_hq, center_saveh, center_khomein]
+        self.stdout.write(f"   مراکز استان: {center_hq.name}، {center_saveh.name}، {center_khomein.name}")
+
         departments = {}
-        for name, code, manager in [
-            ("حوزه ریاست", "100", "محمد رضایی"),
-            ("معاونت اداری و مالی", "200", "زهرا کریمی"),
-            ("واحد فناوری اطلاعات", "210", "علی محمدی"),
-            ("امور کارکنان", "300", "سارا احمدی"),
-            ("دبیرخانه", "400", "حسین نوری"),
+        for name, code, manager, center_ref in [
+            ("حوزه ریاست و مدیریت استان", "100", "محمد رضایی", center_hq),
+            ("معاونت اداری و مالی ستاد", "200", "زهرا کریمی", center_hq),
+            ("واحد فناوری اطلاعات ستاد", "210", "علی محمدی", center_hq),
+            ("امور کارکنان مرکز ساوه", "300", "مهرداد کاظمی", center_saveh),
+            ("فناوری و اداری مرکز خمین", "400", "پیمان خسروی", center_khomein),
         ]:
             department, _ = Department.objects.get_or_create(
-                name=name, defaults={"code": code, "manager_name": manager}
+                name=name, center=center_ref, defaults={"code": code, "manager_name": manager}
             )
             departments[code] = department
 
@@ -151,6 +193,7 @@ class Command(BaseCommand):
                 "visit_interval_days": 90,
                 "visit_scope": "بازدید دوره‌ای فصلی، سرویس و نظافت داخلی تجهیزات، بررسی سلامت قطعات",
                 "repair_scope": "رفع خرابی سخت‌افزاری و نرم‌افزاری کیس‌ها و پرینترها، تامین قطعات",
+                "is_provincial": True,
                 "status": Contract.STATUS_ACTIVE,
             },
         )
@@ -168,19 +211,37 @@ class Command(BaseCommand):
                 defaults={"response_minutes": response, "resolve_minutes": resolve},
             )
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۵) کاربران"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۵) کاربران و سطوح دسترسی استانی"))
+        admin_province, _ = User.objects.get_or_create(
+            username="admin.province",
+            defaults={
+                "first_name": "سهراب",
+                "last_name": "صادقی",
+                "role": User.ROLE_ADMIN_PROVINCE,
+                "center": center_hq,
+                "department": departments["100"],
+                "personnel_code": "10001",
+                "phone": "09120001122",
+                "job_title": "مدیر فناوری اطلاعات استان",
+                "is_staff": True,
+                "is_superuser": True,
+            },
+        )
+        admin_province.set_password(password)
+        admin_province.save()
+
         admin_it, _ = User.objects.get_or_create(
             username="admin.it",
             defaults={
                 "first_name": "علی",
                 "last_name": "محمدی",
                 "role": User.ROLE_ADMIN_IT,
+                "center": center_hq,
                 "department": departments["210"],
                 "personnel_code": "21001",
                 "phone": "09121112233",
-                "job_title": "کارشناس فناوری اطلاعات",
+                "job_title": "کارشناس فناوری اطلاعات ستاد",
                 "is_staff": True,
-                "is_superuser": True,
             },
         )
         admin_it.set_password(password)
@@ -271,6 +332,7 @@ class Command(BaseCommand):
                 defaults={
                     "title": f"{'کیس اداری' if is_case else 'چاپگر لیزری'} شماره {index}",
                     "category": categories[code],
+                    "center": centers_list[(index - 1) % len(centers_list)],
                     "brand": random.choice(brands) if is_case else "HP",
                     "model_name": "OptiPlex 3080" if is_case else "LaserJet P1102",
                     "serial_number": f"SN{random.randint(100000, 999999)}{index}",
@@ -311,6 +373,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("\nراه‌اندازی نمونه با موفقیت انجام شد."))
         self.stdout.write(
             "ورود با یکی از حساب‌های زیر:\n"
+            f"  • مدیر فناوری اطلاعات استان (دسترسی کل مراکز): admin.province / {password}\n"
             f"  • کارشناس فناوری اطلاعات مرکز: admin.it / {password}\n"
             f"   • کارشناس پیمانکار: tech.pars / {password}\n"
             f"   • مدیر و ناظر: manager / {password}\n"

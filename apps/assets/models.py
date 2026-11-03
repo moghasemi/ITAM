@@ -90,6 +90,15 @@ class Asset(TimeStampedModel):
     brand = models.CharField("برند/سازنده", max_length=100, blank=True)
     model_name = models.CharField("مدل", max_length=120, blank=True)
 
+    center = models.ForeignKey(
+        "org.Center",
+        verbose_name="مرکز",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="assets",
+        help_text="مرکز / شعبه مالک تجهیز",
+    )
     contract = models.ForeignKey(
         "org.Contract",
         verbose_name="قرارداد پشتیبانی",
@@ -267,6 +276,8 @@ class HardwareSnapshot(TimeStampedModel):
         related_name="next_snapshots",
     )
     seal_number = models.CharField("شماره پلمب / برچسب امنیتی", max_length=60, blank=True)
+    is_from_hwagent = models.BooleanField("ثبت شده از طریق HWAgent", default=False)
+    agent_hashes = models.JSONField("هش‌های اعتبارسنجی HWAgent", default=dict, blank=True)
 
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

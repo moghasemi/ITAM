@@ -6,6 +6,10 @@ from . import views
 app_name = "org"
 
 urlpatterns = [
+    path("centers/", views.CenterListView.as_view(), name="center_list"),
+    path("centers/add/", views.CenterCreateView.as_view(), name="center_create"),
+    path("centers/<int:pk>/edit/", views.CenterUpdateView.as_view(), name="center_update"),
+
     path("departments/", views.DepartmentListView.as_view(), name="department_list"),
     path("departments/add/", views.DepartmentCreateView.as_view(), name="department_create"),
     path("departments/<int:pk>/edit/", views.DepartmentUpdateView.as_view(), name="department_update"),

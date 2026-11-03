@@ -1,4 +1,4 @@
-"""ساختار سازمانی، پیمانکار، قرارداد و سیاست‌های SLA."""
+"""ساختار سازمانی، مراکز استان، پیمانکار، قرارداد و سیاست‌های SLA."""
 from __future__ import annotations
 
 import datetime as dt
@@ -13,10 +13,53 @@ from apps.core.constants import PRIORITY_CHOICES, PRIORITY_MEDIUM, PRIORITY_ORDE
 from apps.core.models import TimeStampedModel
 
 
+class Center(TimeStampedModel):
+    """مرکز اداری / شهرستانی تحت مدیریت و نظارت مرکز فناوری اطلاعات استان."""
+
+    name = models.CharField("نام مرکز", max_length=150, unique=True)
+    code = models.CharField("کد مرکز", max_length=30, blank=True, unique=True)
+    province = models.CharField("استان", max_length=80, default="مرکزی")
+    city = models.CharField("شهر / شهرستان", max_length=80, blank=True)
+    address = models.TextField("نشانی", blank=True)
+    phone = models.CharField("تلفن", max_length=30, blank=True)
+    manager_name = models.CharField("نام مسئول مرکز", max_length=150, blank=True)
+    it_lead_name = models.CharField("کارشناس ارشد IT مرکز", max_length=150, blank=True)
+    is_headquarters = models.BooleanField(
+        "مرکز ستاد / مدیریت استانی",
+        default=False,
+        help_text="مرکز اصلی فناوری اطلاعات و ستاد مدیریت استان",
+    )
+    is_active = models.BooleanField("فعال", default=True)
+    notes = models.TextField("یادداشت", blank=True)
+
+    class Meta:
+        verbose_name = "مرکز"
+        verbose_name_plural = "مراکز استان"
+        ordering = ("-is_headquarters", "name")
+
+    def __str__(self) -> str:
+        prefix = "★ ستاد استان: " if self.is_headquarters else ""
+        return f"{prefix}{self.name}"
+
+    @property
+    def display_title(self) -> str:
+        if self.city and self.city != self.name:
+            return f"{self.name} ({self.city})"
+        return self.name
+
+
 class Department(TimeStampedModel):
     """واحد سازمانی / اداره کل زیرمجموعه."""
 
-    name = models.CharField("نام واحد", max_length=150, unique=True)
+    center = models.ForeignKey(
+        Center,
+        verbose_name="مرکز",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="departments",
+    )
+    name = models.CharField("نام واحد", max_length=150)
     code = models.CharField("کد واحد", max_length=30, blank=True)
     manager_name = models.CharField("نام مسئول واحد", max_length=150, blank=True)
     phone = models.CharField("تلفن", max_length=30, blank=True)
@@ -27,14 +70,29 @@ class Department(TimeStampedModel):
         verbose_name = "واحد سازمانی"
         verbose_name_plural = "واحدهای سازمانی"
         ordering = ("name",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("center", "name"), name="unique_department_per_center"
+            )
+        ]
 
     def __str__(self) -> str:
+        if self.center:
+            return f"{self.name} ({self.center.name})"
         return self.name
 
 
 class Location(TimeStampedModel):
     """محل استقرار تجهیزات."""
 
+    center = models.ForeignKey(
+        Center,
+        verbose_name="مرکز",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="locations",
+    )
     name = models.CharField("عنوان محل", max_length=150)
     building = models.CharField("ساختمان", max_length=100, blank=True)
     floor = models.CharField("طبقه", max_length=50, blank=True)
@@ -49,22 +107,29 @@ class Location(TimeStampedModel):
         ordering = ("building", "floor", "name")
         constraints = [
             models.UniqueConstraint(
-                fields=("name", "building", "floor", "room"), name="unique_location"
+                fields=("center", "name", "building", "floor", "room"),
+                name="unique_location_per_center",
             )
         ]
 
     def __str__(self) -> str:
         parts = [self.building, self.floor, self.name]
-        return " — ".join(part for part in parts if part)
+        label = " — ".join(part for part in parts if part)
+        if self.center:
+            return f"{label} [{self.center.name}]"
+        return label
 
     @property
     def full_label(self) -> str:
         parts = [self.building, self.floor, self.room or self.name]
-        return " / ".join(part for part in parts if part)
+        label = " / ".join(part for part in parts if part)
+        if self.center:
+            return f"{self.center.name}: {label}"
+        return label
 
 
 class Contractor(TimeStampedModel):
-    """شرکت پیمانکار خدمات فناوری اطلاعات."""
+    """شرکت پیمانکار خدمات فناوری اطلاعات (پشتیبان استانی)."""
 
     name = models.CharField("نام شرکت", max_length=200, unique=True)
     code = models.CharField("کد پیمانکار", max_length=30, blank=True)
@@ -99,13 +164,14 @@ class Contractor(TimeStampedModel):
 
 
 class Contract(TimeStampedModel):
-    """قرارداد نگهداری و تعمیرات."""
+    """قرارداد نگهداری و تعمیرات (با پشتیبانی از قرارداد استانی)."""
 
     STATUS_DRAFT = "draft"
     STATUS_ACTIVE = "active"
     STATUS_SUSPENDED = "suspended"
     STATUS_EXPIRED = "expired"
     STATUS_TERMINATED = "terminated"
+
     STATUS_CHOICES = (
         (STATUS_DRAFT, "پیش‌نویس"),
         (STATUS_ACTIVE, "جاری"),
@@ -113,6 +179,7 @@ class Contract(TimeStampedModel):
         (STATUS_EXPIRED, "منقضی"),
         (STATUS_TERMINATED, "فسخ‌شده"),
     )
+
     STATUS_CSS = {
         STATUS_DRAFT: "neutral",
         STATUS_ACTIVE: "success",
@@ -129,6 +196,18 @@ class Contract(TimeStampedModel):
     )
     number = models.CharField("شماره قرارداد", max_length=60, unique=True)
     title = models.CharField("عنوان قرارداد", max_length=200)
+    is_provincial = models.BooleanField(
+        "قرارداد سراسری استانی",
+        default=True,
+        help_text="شرکت پشتیبان برای تمام مراکز استان در دوره قرارداد ارائه خدمت می‌کند",
+    )
+    centers = models.ManyToManyField(
+        Center,
+        verbose_name="مراکز تحت پوشش",
+        blank=True,
+        related_name="contracts",
+        help_text="در صورت غیرفعال بودن قرارداد سراسری، مراکز تحت پوشش را انتخاب کنید",
+    )
     start_date = models.DateField("تاریخ شروع")
     end_date = models.DateField("تاریخ پایان")
     visit_interval_days = models.PositiveIntegerField(
@@ -145,13 +224,18 @@ class Contract(TimeStampedModel):
         ordering = ("-start_date",)
 
     def __str__(self) -> str:
-        return f"{self.number} — {self.contractor.name}"
+        scope = "[سراسری استان]" if self.is_provincial else "[مراکز منتخب]"
+        return f"{self.number} — {self.contractor.name} {scope}"
 
     def clean(self):
         if self.start_date and self.end_date and self.end_date < self.start_date:
             raise ValidationError({"end_date": "تاریخ پایان نمی‌تواند قبل از تاریخ شروع باشد."})
 
-    # -- ویژگی‌ها -----------------------------------------------------------
+    def covers_center(self, center) -> bool:
+        if self.is_provincial or center is None:
+            return True
+        return self.centers.filter(pk=center.pk if hasattr(center, "pk") else center).exists()
+
     @property
     def duration_days(self) -> int:
         if not (self.start_date and self.end_date):
@@ -195,14 +279,12 @@ class Contract(TimeStampedModel):
         return max(1, math.ceil(self.duration_days / interval))
 
     def sla_for(self, priority: str):
-        """سیاست SLA مربوط به یک اولویت."""
         policy = self.sla_policies.filter(priority=priority).first()
         if policy:
             return policy
         return None
 
     def sla_table(self):
-        """فهرست سیاست‌های SLA به ترتیب اولویت."""
         policies = list(self.sla_policies.all())
         policies.sort(key=lambda item: PRIORITY_ORDER.get(item.priority, 9))
         return policies
@@ -247,17 +329,14 @@ class SlaPolicy(TimeStampedModel):
     @property
     def response_label(self) -> str:
         from apps.core.utils import duration_fa
-
         return duration_fa(self.response_minutes)
 
     @property
     def resolve_label(self) -> str:
         from apps.core.utils import duration_fa
-
         return duration_fa(self.resolve_minutes)
 
 
 def default_contract_window():
-    """بازه پیش‌فرض یک‌ساله برای فرم قرارداد."""
     today = timezone.localdate()
     return today, today.replace(year=today.year + 1) - dt.timedelta(days=1)

@@ -10,8 +10,11 @@ admin.site.site_header = "مدیریت سامانه ITAM"
 admin.site.site_title = "ITAM"
 admin.site.index_title = "پنل مدیریت پایگاه داده"
 
+from apps.assets.views import api_hwagent_sync
+
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/v1/hardware/agent-sync/", api_hwagent_sync, name="api_hwagent_sync_root"),
     path("", include("apps.core.urls")),
     path("accounts/", include("apps.accounts.urls")),
     path("org/", include("apps.org.urls")),

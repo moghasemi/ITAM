@@ -64,6 +64,8 @@
     <button class="btn" id="readBtn" onclick="readSnapshot()">📸 اسکن جدید</button>
     <button class="btn alt" id="cmpBtn" onclick="compareSnapshots()">🔍 مقایسه با قبلی</button>
     <button class="btn dark" onclick="loadLatest()">📂 آخرین اسنپ‌شات</button>
+    <button class="btn" style="background:#10b981; color:#fff;" id="syncBtn" onclick="syncWithItamServer()">🌐 ارسال به سرور ITAM</button>
+    <button class="btn" style="background:#6366f1; color:#fff;" onclick="downloadJson()">💾 دانلود JSON</button>
   </div>
 </div>
 
@@ -71,6 +73,7 @@
   <div class="tab active" onclick="showTab('current',this)">📊 اسنپ‌شات فعلی</div>
   <div class="tab" onclick="showTab('diff',this)">🔍 تغییرات</div>
   <div class="tab" onclick="showTab('history',this)">📁 تاریخچه</div>
+  <div class="tab" onclick="showTab('itamSync',this)">🌐 تنظیمات و اتصال به سامانه ITAM</div>
 </div>
 
 <div id="current" class="pane active">
@@ -85,6 +88,33 @@
 
 <div id="history" class="pane">
   <div id="historyContent" class="status"><p>در حال بارگذاری...</p></div>
+</div>
+
+<div id="itamSync" class="pane">
+  <div class="card" style="max-width:700px; margin:0 auto;">
+    <h2>🌐 تنظیمات ارسال مستقیم به سامانه مدیریت دارایی (ITAM)</h2>
+    <p style="font-size:13px; color:#64748b; line-height:1.7;">
+      این بخش امکان اتصال مستقیم این ایجنت را به سرور مرکزی سامانه ITAM فراهم می‌کند. مشخصات سخت‌افزاری استخراج‌شده مستقیماً در سوابق دارایی، اسنپ‌شات‌های ضدسرقت و شناسنامه سیستم ثبت می‌گردد.
+    </p>
+
+    <div style="margin-top:16px;">
+      <label style="display:block; font-size:13px; font-weight:bold; margin-bottom:6px;">نشانی سرور سامانه ITAM در شبکه محلی</label>
+      <input type="text" id="itamServerUrl" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; direction:ltr; font-family:Consolas,monospace;" value="http://localhost:8000" placeholder="مثال: http://192.168.1.50:8000">
+      <small style="color:#64748b; font-size:11px; display:block; margin-top:4px;">آدرس IP یا دامنه سرور ITAM را به همراه پورت وارد کنید.</small>
+    </div>
+
+    <div style="margin-top:14px;">
+      <label style="display:block; font-size:13px; font-weight:bold; margin-bottom:6px;">شماره اموال این رایانه (اختیاری جهت تطبیق سریع)</label>
+      <input type="text" id="itamAssetTag" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; direction:ltr;" placeholder="مثال: 10200001 (در صورت خالی بودن با Hostname یا MAC تطبیق داده می‌شود)">
+    </div>
+
+    <div style="margin-top:20px; display:flex; gap:10px;">
+      <button class="btn" style="background:#10b981; color:#fff;" onclick="syncWithItamServer()">🚀 ارسال آنی اطلاعات به سرور ITAM</button>
+      <button class="btn dark" onclick="saveItamSettings()">💾 ذخیره تنظیمات</button>
+    </div>
+
+    <div id="syncResult" style="margin-top:18px;"></div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -337,6 +367,112 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 /* ---------- Toast ---------- */
+
+/* ---------- ذخیره و بارگذاری تنظیمات ITAM ---------- */
+function initItamSettings() {
+  const savedUrl = localStorage.getItem("itam_server_url");
+  if (savedUrl) document.getElementById("itamServerUrl").value = savedUrl;
+  const savedTag = localStorage.getItem("itam_asset_tag");
+  if (savedTag) document.getElementById("itamAssetTag").value = savedTag;
+}
+function saveItamSettings() {
+  const url = document.getElementById("itamServerUrl").value.trim();
+  const tag = document.getElementById("itamAssetTag").value.trim();
+  localStorage.setItem("itam_server_url", url);
+  localStorage.setItem("itam_asset_tag", tag);
+  toast("✅ تنظیمات ذخیره شد");
+}
+window.addEventListener("DOMContentLoaded", initItamSettings);
+
+/* ---------- دانلود فایل JSON ---------- */
+async function downloadJson() {
+  try {
+    const r = await fetch(API + "/api/latest");
+    const data = await r.json();
+    if (data.error) {
+      toast("ابتدا یک بار دکمه «اسکن جدید» را بزنید", true);
+      return;
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `snap_${data.computerName || "system"}_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast("💾 فایل JSON با موفقیت ذخیره شد");
+  } catch(e) {
+    toast("خطا در دانلود فایل", true);
+  }
+}
+
+/* ---------- ارسال مستقیم به سرور ITAM ---------- */
+async function syncWithItamServer() {
+  const syncBtn = document.getElementById("syncBtn");
+  if (syncBtn) syncBtn.disabled = true;
+  const resDiv = document.getElementById("syncResult");
+  const itamUrl = (document.getElementById("itamServerUrl").value || "http://localhost:8000").trim().replace(/\/+$/, "");
+  const assetTag = (document.getElementById("itamAssetTag").value || "").trim();
+  saveItamSettings();
+
+  if (resDiv) {
+    resDiv.innerHTML = `<div class="status"><div class="spinner"></div><p>در حال ارسال اسنپ‌شات به سرور ITAM (${escapeHtml(itamUrl)})...</p></div>`;
+  }
+
+  try {
+    // ابتدا از ایجنت پاورشل درخواست ارسال رله می‌کنیم
+    const relayResp = await fetch(API + "/api/sync-to-itam", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itamUrl, assetTag })
+    });
+
+    let result;
+    if (relayResp.ok) {
+      result = await relayResp.json();
+    } else {
+      // در صورت عدم پاسخ رله، مستقیماً از طریق مرورگر به سرور ارسال می‌کنیم
+      const latestResp = await fetch(API + "/api/latest");
+      const snapData = await latestResp.json();
+      if (assetTag) snapData.asset_tag = assetTag;
+
+      const directResp = await fetch(itamUrl + "/api/v1/hardware/agent-sync/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(snapData)
+      });
+      result = await directResp.json();
+    }
+
+    if (result.status === "ok") {
+      toast("✅ اطلاعات با موفقیت در سامانه ITAM ثبت شد");
+      if (resDiv) {
+        resDiv.innerHTML = `
+          <div class="banner ok">
+            <div>
+              <strong>✅ ثبت موفق در سرور ITAM</strong><br>
+              شماره اموال: <b>${result.asset_tag}</b> (${result.asset_title || ""})<br>
+              نسخه اسنپ‌شات: <b>${result.version}</b> ${result.is_baseline ? "(اسنپ‌شات پایه)" : ""}<br>
+              تعداد تغییرات قطعات: <b>${result.diff_count}</b>
+              ${result.has_alarm ? "<br><span style='color:#b91c1c; font-weight:bold;'>⚠️ هشدار مغایرت/سرقت قطعات فعال شد!</span>" : ""}
+            </div>
+          </div>`;
+      }
+    } else {
+      throw new Error(result.error || "خطای ناشناخته از سرور ITAM");
+    }
+  } catch(e) {
+    toast("خطا در ارتباط با سرور ITAM: " + e.message, true);
+    if (resDiv) {
+      resDiv.innerHTML = `<div class="banner crit">❌ خطا در ارسال به سرور ITAM: ${escapeHtml(e.message)}<br><small>مطمئن شوید آدرس سرور در دسترس بوده و دارایی این رایانه در سامانه ثبت شده است.</small></div>`;
+    }
+  } finally {
+    if (syncBtn) syncBtn.disabled = false;
+  }
+}
+
 function toast(msg, isErr=false) {
   const t = document.getElementById("toast");
   t.textContent = msg;

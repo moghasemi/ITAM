@@ -29,6 +29,14 @@ class MaintenanceVisit(TimeStampedModel):
         on_delete=models.CASCADE,
         related_name="visits",
     )
+    center = models.ForeignKey(
+        "org.Center",
+        verbose_name="مرکز",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="visits",
+    )
     contractor = models.ForeignKey(
         "org.Contractor",
         verbose_name="پیمانکار",

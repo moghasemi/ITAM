@@ -1,24 +1,39 @@
-"""فرم‌های ساختار سازمانی، پیمانکار و قرارداد."""
+"""فرم‌های ساختار سازمانی، مراکز استان، پیمانکار و قرارداد."""
 from __future__ import annotations
 
 from django import forms
 from django.forms import inlineformset_factory
 
 from apps.core.forms import JalaliDateField, StyledModelForm
+from .models import Center, Contract, Contractor, Department, Location, SlaPolicy
 
-from .models import Contract, Contractor, Department, Location, SlaPolicy
+
+class CenterForm(StyledModelForm):
+    """فرم ثبت و ویرایش مرکز اداری / شهرستان."""
+    class Meta:
+        model = Center
+        fields = [
+            "name", "code", "province", "city", "manager_name",
+            "it_lead_name", "phone", "is_headquarters", "is_active",
+            "address", "notes",
+        ]
+
+
+
+
+
 
 
 class DepartmentForm(StyledModelForm):
     class Meta:
         model = Department
-        fields = ["name", "code", "manager_name", "phone", "is_active", "description"]
+        fields = ["center", "name", "code", "manager_name", "phone", "is_active", "description"]
 
 
 class LocationForm(StyledModelForm):
     class Meta:
         model = Location
-        fields = ["name", "building", "floor", "room", "code", "is_active", "description"]
+        fields = ["center", "name", "building", "floor", "room", "code", "is_active", "description"]
 
 
 class ContractorForm(StyledModelForm):
@@ -37,7 +52,7 @@ class ContractForm(StyledModelForm):
     class Meta:
         model = Contract
         fields = [
-            "contractor", "number", "title", "start_date", "end_date",
+            "contractor", "number", "title", "is_provincial", "centers", "start_date", "end_date",
             "visit_interval_days", "status", "visit_scope", "repair_scope", "notes",
         ]
 

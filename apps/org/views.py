@@ -19,6 +19,7 @@ from apps.core.mixins import (
 from apps.core.utils import log_action
 
 from .forms import (
+    CenterForm,
     ContractFilterForm,
     ContractForm,
     ContractorForm,
@@ -26,7 +27,44 @@ from .forms import (
     LocationForm,
     SlaPolicyFormSet,
 )
-from .models import Contract, Contractor, Department, Location
+from .models import Center, Contract, Contractor, Department, Location
+
+
+# ---------------------------------------------------------------------------
+# مراکز استان
+# ---------------------------------------------------------------------------
+class CenterListView(BaseListView):
+    model = Center
+    template_name = "org/center_list.html"
+    page_title = "مراکز استان و مدیریت ستادی"
+    active_menu = "org"
+
+    def get_queryset(self):
+        queryset = Center.objects.annotate(
+            assets_total=Count("assets", distinct=True),
+            users_total=Count("users", distinct=True),
+        ).order_by("-is_headquarters", "name")
+        return apply_search(queryset, self.request.GET.get("q"), ["name", "code", "city", "manager_name"])
+
+
+class CenterCreateView(BaseCreateView):
+    model = Center
+    form_class = CenterForm
+    template_name = "org/simple_form.html"
+    page_title = "افزودن مرکز جدید"
+    active_menu = "org"
+    success_url = reverse_lazy("org:center_list")
+    success_message = "مرکز جدید با موفقیت ثبت شد."
+
+
+class CenterUpdateView(BaseUpdateView):
+    model = Center
+    form_class = CenterForm
+    template_name = "org/simple_form.html"
+    page_title = "ویرایش مشخصات مرکز"
+    active_menu = "org"
+    success_url = reverse_lazy("org:center_list")
+    success_message = "تغییرات مرکز ذخیره شد."
 
 
 # ---------------------------------------------------------------------------

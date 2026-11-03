@@ -12,6 +12,7 @@ from django.urls import NoReverseMatch, reverse
 
 from apps.accounts.models import User
 from apps.assets.models import Asset, HardwareSnapshot
+from apps.assets.services import visible_assets
 from apps.maintenance.models import MaintenanceVisit, VisitAssetCheck
 from apps.org.models import Contract, Contractor, Department, Location
 from apps.tickets.models import Ticket
@@ -122,7 +123,7 @@ class Command(BaseCommand):
         if options.get("user"):
             user = User.objects.filter(username=options["user"]).first()
         if user is None:
-            user = User.objects.filter(role=User.ROLE_ADMIN_IT, is_active=True).first()
+            user = User.objects.filter(role=User.ROLE_ADMIN_PROVINCE, is_active=True).first() or User.objects.filter(role=User.ROLE_ADMIN_IT, is_active=True).first()
         if user is None:
             self.stderr.write(self.style.ERROR("کاربری برای آزمایش یافت نشد. ابتدا seed_demo را اجرا کنید."))
             return
@@ -135,7 +136,7 @@ class Command(BaseCommand):
             "contract": Contract.objects.first(),
             "asset": Asset.objects.first(),
             "snapshot": HardwareSnapshot.objects.first(),
-            "ticket": Ticket.objects.first(),
+            "ticket": Ticket.objects.filter(asset__in=visible_assets(user)).first() or Ticket.objects.first(),
             "visit": MaintenanceVisit.objects.first(),
             "check": VisitAssetCheck.objects.first(),
             "outbox": self._first_outbox(),

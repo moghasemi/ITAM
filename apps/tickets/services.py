@@ -43,25 +43,43 @@ from .models import Ticket, TicketEvent, TicketPause
 # ---------------------------------------------------------------------------
 # دسترسی
 # ---------------------------------------------------------------------------
-def visible_tickets(user):
-    """درخواست‌های قابل مشاهده برای هر نقش."""
+def visible_tickets(user, center=None):
+    """درخواست‌های قابل مشاهده برای هر نقش و مرکز."""
     queryset = Ticket.objects.select_related(
         "asset", "asset__category", "asset__location", "contract", "assigned_contractor",
-        "assigned_technician", "reported_by",
+        "assigned_technician", "reported_by", "center", "asset__center",
     )
     if not getattr(user, "is_authenticated", False):
         return queryset.none()
-    if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
+
+    if getattr(user, "is_admin_province", False) or user.is_superuser:
+        if center:
+            queryset = queryset.filter(Q(center=center) | Q(asset__center=center))
         return queryset
+
+    if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
+        if user.center_id:
+            return queryset.filter(Q(center_id=user.center_id) | Q(asset__center_id=user.center_id))
+        elif center:
+            return queryset.filter(Q(center=center) | Q(asset__center=center))
+        return queryset
+
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id:
             return queryset.none()
-        return queryset.filter(
-            Q(assigned_contractor_id=user.contractor_id) | Q(assigned_technician=user)
-        ).distinct()
+        qs = queryset.filter(
+            Q(assigned_contractor_id=user.contractor_id) | Q(assigned_technician=user) |
+            Q(contract__contractor_id=user.contractor_id)
+        )
+        if center:
+            qs = qs.filter(Q(center=center) | Q(asset__center=center))
+        return qs.distinct()
+
     condition = Q(reported_by=user)
     if user.department_id:
         condition |= Q(asset__department_id=user.department_id)
+    if user.center_id:
+        condition &= (Q(center_id=user.center_id) | Q(asset__center_id=user.center_id) | Q(center__isnull=True))
     return queryset.filter(condition).distinct()
 
 

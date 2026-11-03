@@ -282,6 +282,25 @@ try {
                     }
                 }
 
+                "^/api/sync-to-itam$" {
+                    $jsonBody = [System.IO.StreamReader]::new($req.InputStream).ReadToEnd()
+                    $cfg = $jsonBody | ConvertFrom-Json
+                    $files = @(Get-SnapshotFiles)
+                    if ($files.Count -eq 0) {
+                        $snap = Get-HardwareSnapshot
+                        $file = Save-Snapshot $snap
+                    } else {
+                        $snap = Load-Snapshot $files[0].FullName
+                    }
+                    if ($cfg.assetTag) {
+                        $snap | Add-Member -NotePropertyName asset_tag -NotePropertyValue "$($cfg.assetTag)" -Force
+                    }
+                    $baseUrl = if ($cfg.itamUrl) { "$($cfg.itamUrl)".TrimEnd('/') } else { "http://localhost:8000" }
+                    $targetUrl = "$baseUrl/api/v1/hardware/agent-sync/"
+                    $payloadJson = $snap | ConvertTo-Json -Depth 15 -Compress
+                    $resp = Invoke-RestMethod -Uri $targetUrl -Method Post -Body $payloadJson -ContentType "application/json; charset=utf-8"
+                    Write-Json $res $resp
+                }
                 "^/api/compare$" {
                     $files = @(Get-SnapshotFiles)
                     if ($files.Count -lt 2) {

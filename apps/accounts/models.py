@@ -1,4 +1,4 @@
-"""مدل کاربر با نقش‌های سامانه."""
+"""مدل کاربر با نقش‌های سامانه و پشتیبانی از ساختار چند مرکزی."""
 from __future__ import annotations
 
 from django.contrib.auth.models import AbstractUser
@@ -8,27 +8,31 @@ from apps.core.validators import validate_image_file
 
 
 class User(AbstractUser):
-    """کاربر سامانه با نقش مشخص.
-
+    """کاربر سامانه با نقش مشخص در سلسله‌مراتب استانی.
     نقش‌ها:
-      * کارشناس فناوری اطلاعات مرکز — مدیریت کامل، تایید نهایی
-      * کارشناس پیمانکار — ثبت بازدید، تعمیر و اسنپ‌شات سخت‌افزاری
-      * کاربر / امانت‌دار — اعلام خرابی و تایید رفع
-      * مدیر و ناظر — مشاهده و گزارش‌گیری
+      * مدیر فناوری اطلاعات استان — مدیریت کامل، نظارت استانی بر تمام مراکز
+      * کارشناس فناوری اطلاعات مرکز — مدیریت کامل و تایید نهایی در مرکز خود
+      * کارشناس پیمانکار — ثبت بازدید، تعمیر و اسنپ‌شات (پوشش قرارداد استانی)
+      * کاربر / امانت‌دار — اعلام خرابی و تایید رفع در مرکز خود
+      * مدیر و ناظر مرکز — مشاهده و گزارش‌گیری مرکز
     """
 
+    ROLE_ADMIN_PROVINCE = "admin_province"
     ROLE_ADMIN_IT = "admin_it"
     ROLE_TECHNICIAN = "technician"
     ROLE_REQUESTER = "requester"
     ROLE_MANAGER = "manager"
+
     ROLE_CHOICES = (
+        (ROLE_ADMIN_PROVINCE, "مدیر فناوری اطلاعات استان"),
         (ROLE_ADMIN_IT, "کارشناس فناوری اطلاعات مرکز"),
-        (ROLE_TECHNICIAN, "کارشناس پیمانکار"),
+        (ROLE_TECHNICIAN, "کارشناس پیمانکار (پشتیبان استانی)"),
         (ROLE_REQUESTER, "کاربر / امانت‌دار"),
-        (ROLE_MANAGER, "مدیر و ناظر"),
+        (ROLE_MANAGER, "مدیر و ناظر مرکز"),
     )
     ROLE_LABELS = dict(ROLE_CHOICES)
     ROLE_CSS = {
+        ROLE_ADMIN_PROVINCE: "primary",
         ROLE_ADMIN_IT: "success",
         ROLE_TECHNICIAN: "info",
         ROLE_REQUESTER: "neutral",
@@ -36,6 +40,15 @@ class User(AbstractUser):
     }
 
     role = models.CharField("نقش", max_length=20, choices=ROLE_CHOICES, default=ROLE_REQUESTER)
+    center = models.ForeignKey(
+        "org.Center",
+        verbose_name="مرکز خدمت",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="users",
+        help_text="مرکزی که کاربر یا کارشناس در آن مستقر است (برای مدیر استان می‌تواند خالی یا ستاد باشد)",
+    )
     personnel_code = models.CharField("کد پرسنلی", max_length=30, blank=True, db_index=True)
     national_code = models.CharField("کد ملی", max_length=10, blank=True)
     phone = models.CharField("تلفن همراه", max_length=20, blank=True)
@@ -75,6 +88,7 @@ class User(AbstractUser):
         return self.display_name
 
     # -- نام و نقش ---------------------------------------------------------
+
     @property
     def display_name(self) -> str:
         name = f"{self.first_name} {self.last_name}".strip()
@@ -95,17 +109,24 @@ class User(AbstractUser):
         return self.ROLE_CSS.get(self.role, "neutral")
 
     def role_codes(self) -> list[str]:
-        """فهرست نقش‌های کاربر (مدیر ارشد سامانه همه نقش‌ها را دارد)."""
         if self.is_superuser:
             return [code for code, _ in self.ROLE_CHOICES]
-        return [self.role]
+        codes = [self.role]
+        if self.role == self.ROLE_ADMIN_PROVINCE:
+            codes.append(self.ROLE_ADMIN_IT)
+            codes.append(self.ROLE_MANAGER)
+        return codes
 
     def has_role(self, *roles: str) -> bool:
         return bool(set(roles) & set(self.role_codes()))
 
     @property
+    def is_admin_province(self) -> bool:
+        return self.is_superuser or self.role == self.ROLE_ADMIN_PROVINCE
+
+    @property
     def is_admin_it(self) -> bool:
-        return self.has_role(self.ROLE_ADMIN_IT)
+        return self.is_superuser or self.has_role(self.ROLE_ADMIN_PROVINCE, self.ROLE_ADMIN_IT)
 
     @property
     def is_technician(self) -> bool:
@@ -120,17 +141,19 @@ class User(AbstractUser):
         return self.has_role(self.ROLE_MANAGER)
 
     @property
+    def can_manage_all_centers(self) -> bool:
+        return self.is_admin_province
+
+    @property
     def can_manage_org(self) -> bool:
-        """دسترسی به بخش‌های مدیریتی (قرارداد، دارایی، کاربران)."""
-        return self.has_role(self.ROLE_ADMIN_IT)
+        return self.has_role(self.ROLE_ADMIN_PROVINCE, self.ROLE_ADMIN_IT)
 
     @property
     def can_view_reports(self) -> bool:
-        return self.has_role(self.ROLE_ADMIN_IT, self.ROLE_MANAGER)
+        return self.has_role(self.ROLE_ADMIN_PROVINCE, self.ROLE_ADMIN_IT, self.ROLE_MANAGER)
 
     @property
     def visible_contractor(self):
-        """پیمانکار قابل مشاهده برای کارشناس پیمانکار."""
         if self.has_role(self.ROLE_TECHNICIAN):
             return self.contractor
         return None

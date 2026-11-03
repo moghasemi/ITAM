@@ -49,6 +49,9 @@
           <span class="nav-icon">🔒</span> تایید اسنپ‌شات سخت‌افزار
           {% if pending_hardware_confirmations %}<span class="nav-count">{{ pending_hardware_confirmations|fa }}</span>{% endif %}
         </a>
+        <a class="nav-item {% if active_menu == 'hwagent' %}active{% endif %}" href="{% url 'assets:hwagent_batch_import' %}">
+          <span class="nav-icon">📥</span> بارگذاری گروهی HWAgent
+        </a>
         <a class="nav-item {% if active_menu == 'assets_new' %}active{% endif %}" href="{% url 'assets:create' %}">
           <span class="nav-icon">📦</span> ثبت دارایی جدید
         </a>
@@ -58,6 +61,11 @@
       <a class="nav-item {% if active_menu == 'visits' %}active{% endif %}" href="{% url 'maintenance:visit_list' %}">
         <span class="nav-icon">🗓</span> بازدیدهای دوره‌ای
       </a>
+      {% if user.is_admin_province or user.is_superuser %}
+        <a class="nav-item {% if active_menu == 'centers' %}active{% endif %}" href="{% url 'org:center_list' %}">
+          <span class="nav-icon">🏛</span> مراکز استان
+        </a>
+      {% endif %}
       {% if user.is_admin_it or user.is_manager %}
         <a class="nav-item {% if active_menu == 'contracts' %}active{% endif %}" href="{% url 'org:contract_list' %}">
           <span class="nav-icon">📄</span> قراردادها
@@ -113,6 +121,19 @@
       </form>
 
       <div class="topbar-actions">
+        {% if user.is_admin_province and all_centers %}
+          <div class="center-selector-badge" style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #cbd5e1; padding:4px 10px; border-radius:8px;">
+            <span style="font-size:12px; color:#475569; font-weight:bold;">مرکز:</span>
+            <select class="input-sm" style="font-size:12px; border:none; background:transparent; font-family:inherit; cursor:pointer;" onchange="if(this.value){location.href=this.value;}">
+              <option value="{% url 'core:dashboard' %}">★ تمام مراکز استان</option>
+              {% for c in all_centers %}
+                <option value="{% url 'assets:list' %}?center={{ c.pk }}" {% if request.GET.center == c.pk|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        {% elif user.center %}
+          <span class="badge badge-info" style="font-size:11px;">مرکز: {{ user.center.name }}</span>
+        {% endif %}
         <a class="icon-btn" href="{% url 'core:notification_list' %}" title="اعلان‌ها">
           🔔{% if unread_notifications %}<span class="dot">{{ unread_notifications|fa }}</span>{% endif %}
         </a>

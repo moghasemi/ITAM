@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">بازگشت به شناسنامه دارایی</a>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 800px; margin: 0 auto;">
+  <div class="card-head">
+    <h2 class="card-title">📥 بارگذاری فایل JSON خروجی HWAgent</h2>
+    <p class="muted">اطلاعات سخت‌افزاری، قطعات داخل کیس و اثر انگشت دیجیتال سیستم مستقیماً از فایل استخراج و ثبت می‌شود.</p>
+  </div>
+
+  <div class="card-body">
+    <div class="info-banner" style="background:#eef2ff; border:1px solid #c7d2fe; padding:14px; border-radius:8px; margin-bottom:20px;">
+      <strong>تجهیز هدف:</strong> {{ asset.asset_tag }} — {{ asset.title|default:asset.category.name }}
+      {% if asset.center %}<span class="badge badge-info" style="margin-right:8px;">مرکز: {{ asset.center.name }}</span>{% endif %}
+      {% if asset.hostname %}<span class="badge badge-neutral" style="margin-right:8px;">نام رایانه: {{ asset.hostname }}</span>{% endif %}
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="form">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label class="form-label required">انتخاب فایل JSON تولیدشده توسط HWAgent</label>
+        <input type="file" name="json_file" accept=".json,application/json" class="input" required>
+        <small class="form-help">فایل‌های JSON تولید شده توسط دکمه «اسکن جدید» در پوشه snapshots ایجنت ذخیره می‌شوند.</small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">یا الصاق مستقیم متن JSON (اختیاری)</label>
+        <textarea name="json_content" rows="5" class="input ltr" placeholder="{"computerName": ...}"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">شماره پلمب / برچسب امنیتی کیس (در صورت پلمب مجدد)</label>
+        <input type="text" name="seal_number" class="input" placeholder="مثال: SEAL-98432">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">توضیحات و یادداشت</label>
+        <input type="text" name="note" class="input" placeholder="مثال: بازدید دوره‌ای پاییز / اسکن با HWAgent">
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">🚀 پردازش و ثبت اسنپ‌شات سخت‌افزاری</button>
+        <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">انصراف</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

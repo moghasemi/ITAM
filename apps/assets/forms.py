@@ -6,7 +6,7 @@ from django.forms import inlineformset_factory
 
 from apps.core.forms import JalaliDateField, StyledForm, StyledModelForm
 from apps.core.constants import ASSET_STATUS_CHOICES
-from apps.org.models import Contract, Department, Location
+from apps.org.models import Center, Contract, Department, Location
 
 from .models import Asset, AssetAttachment, AssetCategory, ComponentType, HardwareSnapshot, SnapshotItem
 
@@ -21,7 +21,7 @@ class AssetForm(StyledModelForm):
         model = Asset
         fields = [
             "asset_tag", "title", "category", "brand", "model_name", "serial_number",
-            "contract", "department", "location", "custodian", "status",
+            "center", "contract", "department", "location", "custodian", "status",
             "hostname", "ip_address", "mac_address", "os_name", "office_software",
             "spec_summary", "purchase_date", "warranty_until", "price", "supplier", "notes",
         ]
@@ -29,6 +29,10 @@ class AssetForm(StyledModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
+        self.fields["center"].queryset = Center.objects.filter(is_active=True)
+        self.fields["center"].empty_label = "— انتخاب مرکز —"
+        if self.user and getattr(self.user, "center_id", None) and not getattr(self.user, "is_admin_province", False):
+            self.fields["center"].initial = self.user.center
         self.fields["category"].queryset = AssetCategory.objects.filter(is_active=True)
         self.fields["contract"].queryset = Contract.objects.select_related("contractor").order_by("-start_date")
         self.fields["department"].queryset = Department.objects.filter(is_active=True)
@@ -51,6 +55,7 @@ class AssetFilterForm(StyledForm):
     """پالایه فهرست دارایی‌ها."""
 
     q = forms.CharField(label="جستجو", required=False)
+    center = forms.ModelChoiceField(label="مرکز", required=False, queryset=Center.objects.all())
     category = forms.ModelChoiceField(label="گونه", required=False, queryset=AssetCategory.objects.all())
     department = forms.ModelChoiceField(label="واحد", required=False, queryset=Department.objects.all())
     location = forms.ModelChoiceField(label="محل", required=False, queryset=Location.objects.all())

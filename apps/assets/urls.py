@@ -6,6 +6,11 @@ from . import views
 app_name = "assets"
 
 urlpatterns = [
+    # ادغام با HWAgent
+    path("hwagent/batch-import/", views.hwagent_batch_import, name="hwagent_batch_import"),
+    path("<int:asset_pk>/hwagent/upload/", views.asset_hwagent_upload, name="hwagent_upload"),
+    path("api/v1/sync/", views.api_hwagent_sync, name="api_hwagent_sync"),
+
     path("", views.AssetListView.as_view(), name="list"),
     path("add/", views.AssetCreateView.as_view(), name="create"),
     path("labels/print/", views.label_print, name="label_print"),

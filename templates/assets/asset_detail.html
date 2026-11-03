@@ -6,10 +6,11 @@
     <a class="btn btn-primary" href="{% url 'assets:update' object.pk %}">ویرایش مشخصات</a>
   {% endif %}
   {% if can_snapshot %}
+    <a class="btn btn-secondary" href="{% url 'assets:hwagent_upload' object.pk %}">📥 بارگذاری HWAgent (JSON)</a>
     <form method="post" action="{% url 'assets:snapshot_start' object.pk %}" class="inline-form">
       {% csrf_token %}
-      <button class="btn btn-secondary" type="submit">
-        {% if object.has_baseline %}🔍 بازبینی اقلام سخت‌افزاری{% else %}🔒 ثبت اقلام سخت‌افزاری (اسنپ‌شات پایه){% endif %}
+      <button class="btn btn-ghost" type="submit">
+        {% if object.has_baseline %}🔍 ثبت دستی اقلام{% else %}🔒 ثبت دستی (پایه){% endif %}
       </button>
     </form>
   {% endif %}
@@ -26,9 +27,12 @@
       از این پس هر تغییر (برداشت، تعویض یا افزودن قطعه) شناسایی و گزارش می‌شود.
     </span>
     {% if can_snapshot %}
-      <form method="post" action="{% url 'assets:snapshot_start' object.pk %}" class="inline-form">{% csrf_token %}
-        <button class="btn btn-warning btn-sm" type="submit">ثبت اسنپ‌شات پایه</button>
-      </form>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <a class="btn btn-warning btn-sm" href="{% url 'assets:hwagent_upload' object.pk %}">📥 بارگذاری خودکار با HWAgent</a>
+        <form method="post" action="{% url 'assets:snapshot_start' object.pk %}" class="inline-form">{% csrf_token %}
+          <button class="btn btn-ghost btn-sm" type="submit">ثبت دستی</button>
+        </form>
+      </div>
     {% endif %}
   </div>
 {% endif %}

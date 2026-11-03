@@ -356,3 +356,102 @@ class AssetModelTests(TestCase):
         self.assertEqual(HardwareSnapshot.next_version(asset), 1)
         HardwareSnapshot.objects.create(asset=asset, version=1)
         self.assertEqual(HardwareSnapshot.next_version(asset), 2)
+
+
+class MultiCenterAndHWAgentTests(TestCase):
+    def setUp(self):
+        from apps.org.models import Center
+        self.center_hq = Center.objects.create(name="ستاد استان", code="HQ", is_headquarters=True)
+        self.center_sub = Center.objects.create(name="مرکز شهرستان", code="SUB", is_headquarters=False)
+
+        self.admin_prov = User.objects.create_user(
+            username="admin_prov", password="password123", role=User.ROLE_ADMIN_PROVINCE, center=self.center_hq
+        )
+        self.admin_sub = User.objects.create_user(
+            username="admin_sub", password="password123", role=User.ROLE_ADMIN_IT, center=self.center_sub
+        )
+
+        self.cat_pc = AssetCategory.objects.create(name="کیس", code="PC", requires_component_tracking=True)
+        self.asset_hq = Asset.objects.create(asset_tag="TAG-HQ", title="PC HQ", category=self.cat_pc, center=self.center_hq, hostname="PC-HQ-01")
+        self.asset_sub = Asset.objects.create(asset_tag="TAG-SUB", title="PC SUB", category=self.cat_pc, center=self.center_sub, hostname="PC-SUB-01")
+
+    def test_center_isolation(self):
+        from apps.assets.services import visible_assets, can_edit_asset
+
+        # مدیر استان هر دو دارایی را می‌بیند
+        prov_assets = visible_assets(self.admin_prov)
+        self.assertIn(self.asset_hq, prov_assets)
+        self.assertIn(self.asset_sub, prov_assets)
+        self.assertTrue(can_edit_asset(self.admin_prov, self.asset_sub))
+
+        # کارشناس مرکز شهرستان فقط دارایی مرکز خود را می‌بیند
+        sub_assets = visible_assets(self.admin_sub)
+        self.assertNotIn(self.asset_hq, sub_assets)
+        self.assertIn(self.asset_sub, sub_assets)
+        self.assertFalse(can_edit_asset(self.admin_sub, self.asset_hq))
+        self.assertTrue(can_edit_asset(self.admin_sub, self.asset_sub))
+
+    def test_hwagent_service_apply_and_diff(self):
+        from apps.assets.hwagent_service import apply_hwagent_snapshot
+
+        sample_json = {
+            "computerName": "PC-HQ-01",
+            "os": "Windows 11 Pro",
+            "baseboard": {"manufacturer": "ASUSTeK", "product": "PRIME B560M-A", "serial": "MB-998877"},
+            "cpu": {"name": "11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz", "cores": 8, "threads": 16, "speed": 2500},
+            "bios": {"manufacturer": "American Megatrends Inc.", "version": "1402", "serial": "BIOS-123"},
+            "ram": [
+                {"slot": "DIMM_A2", "capacityGB": 16, "speedMHz": 3200, "manufacturer": "Kingston", "partNumber": "KF3200C16D4/16GX", "serial": "RAM-SER-01"},
+                {"slot": "DIMM_B2", "capacityGB": 16, "speedMHz": 3200, "manufacturer": "Kingston", "partNumber": "KF3200C16D4/16GX", "serial": "RAM-SER-02"},
+            ],
+            "disks": [
+                {"name": "Samsung SSD 980 PRO 1TB", "mediaType": "NVMe", "sizeGB": 1000, "serial": "SSD-SER-999"}
+            ],
+            "gpu": [{"name": "NVIDIA GeForce RTX 3060", "driverVersion": "536.23"}],
+            "network": [{"name": "Ethernet", "mac": "00:1B:44:11:3A:B7"}],
+            "hashes": {"master": "hash_master_1", "identity": "hash_ident_1"}
+        }
+
+        # اسنپ‌شات اول (پایه)
+        snap1, diff1 = apply_hwagent_snapshot(self.asset_hq, sample_json, user=self.admin_prov)
+        self.assertTrue(snap1.is_baseline)
+        self.assertTrue(snap1.is_locked)
+        self.assertEqual(snap1.items.count(), 8)
+        self.asset_hq.refresh_from_db()
+        self.assertEqual(self.asset_hq.os_name, "Windows 11 Pro")
+        self.assertEqual(self.asset_hq.mac_address, "00:1B:44:11:3A:B7")
+        self.assertIn("11th Gen Intel", self.asset_hq.spec_summary)
+
+        # اسنپ‌شات دوم با تعویض رم (کشف سرقت / تغییر قطعه)
+        sample_json_altered = dict(sample_json)
+        sample_json_altered["ram"] = [
+            {"slot": "DIMM_A2", "capacityGB": 8, "speedMHz": 2400, "manufacturer": "Unknown", "partNumber": "CHEAP-RAM", "serial": "STOLEN-SWAP-01"},
+            {"slot": "DIMM_B2", "capacityGB": 16, "speedMHz": 3200, "manufacturer": "Kingston", "partNumber": "KF3200C16D4/16GX", "serial": "RAM-SER-02"},
+        ]
+        snap2, diff2 = apply_hwagent_snapshot(self.asset_hq, sample_json_altered, user=self.admin_prov)
+        self.assertFalse(snap2.is_baseline)
+        self.assertTrue(diff2["has_alarm"])
+        self.assertGreater(snap2.diff_count, 0)
+
+    def test_api_hwagent_sync_endpoint(self):
+        from django.test import Client
+        c = Client()
+        payload = {
+            "computerName": "PC-SUB-01",
+            "os": "Windows 10 Pro",
+            "baseboard": {"manufacturer": "Dell Inc.", "product": "0M5C58", "serial": "DELL-MB-1"},
+            "cpu": {"name": "Intel Core i5-10400", "cores": 6, "threads": 12, "speed": 2900},
+            "ram": [{"slot": "DIMM 1", "capacityGB": 8, "speedMHz": 2666, "manufacturer": "Hynix", "partNumber": "HMA81GU6CJR8N", "serial": "HYN-1"}],
+            "disks": [{"name": "KIOXIA 512GB", "mediaType": "SSD", "sizeGB": 512, "serial": "KIOX-99"}],
+            "network": [{"name": "Ethernet", "mac": "12:34:56:78:9A:BC"}]
+        }
+        import json
+        resp = c.post(
+            "/api/v1/hardware/agent-sync/",
+            data=json.dumps(payload),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertEqual(data["asset_tag"], "TAG-SUB")
