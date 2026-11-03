@@ -1,0 +1,311 @@
+# ============================================================
+#  Hardware Snapshot Agent - Local HTTP Server (ASCII-safe)
+# ============================================================
+$Port        = 8765
+$SnapshotDir = "$env:USERPROFILE\HardwareSnapshots"
+$ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+if (-not (Test-Path $SnapshotDir)) {
+    New-Item -ItemType Directory -Path $SnapshotDir -Force | Out-Null
+}
+
+# ---------- Hash helpers ----------
+function Get-Sha256($text) {
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+    $sha   = [System.Security.Cryptography.SHA256]::Create()
+    $hash  = $sha.ComputeHash($bytes)
+    return ($hash | ForEach-Object { $_.ToString("x2") }) -join ""
+}
+
+function Get-MasterHash($snap) {
+    $clone = [ordered]@{
+        system = $snap.system; motherboard = $snap.motherboard
+        cpu = $snap.cpu; bios = $snap.bios; ram = $snap.ram
+        disks = $snap.disks; gpu = $snap.gpu; network = $snap.network
+    }
+    return Get-Sha256 ($clone | ConvertTo-Json -Depth 10 -Compress)
+}
+
+function Get-IdentityHash($snap) {
+    $identity = [ordered]@{
+        systemUUID    = $snap.system.uuid
+        motherboardSN = $snap.motherboard.serial
+        biosSN        = $snap.bios.serial
+    }
+    return Get-Sha256 ($identity | ConvertTo-Json -Compress)
+}
+
+function Get-ComponentHashes($snap) {
+    $parts = [ordered]@{
+        system      = $snap.system
+        motherboard = $snap.motherboard
+        cpu         = $snap.cpu
+        bios        = $snap.bios
+        ram         = $snap.ram
+        disks       = $snap.disks
+        gpu         = $snap.gpu
+        network     = $snap.network
+    }
+    $result = [ordered]@{}
+    foreach ($k in $parts.Keys) {
+        $result[$k] = Get-Sha256 ($parts[$k] | ConvertTo-Json -Depth 10 -Compress)
+    }
+    return $result
+}
+
+# ---------- Collect hardware info ----------
+function Get-HardwareSnapshot {
+    $cs   = Get-CimInstance Win32_ComputerSystem
+    $csp  = Get-CimInstance Win32_ComputerSystemProduct
+    $mb   = Get-CimInstance Win32_BaseBoard
+    $cpu  = Get-CimInstance Win32_Processor
+    $bios = Get-CimInstance Win32_BIOS
+
+    $snap = [ordered]@{
+        computerName = $env:COMPUTERNAME
+        userName     = $env:USERNAME
+        system = [ordered]@{
+            manufacturer = "$($cs.Manufacturer)"
+            model        = "$($cs.Model)"
+            uuid         = "$($csp.UUID)"
+        }
+        motherboard = [ordered]@{
+            manufacturer = "$($mb.Manufacturer)"
+            product      = "$($mb.Product)"
+            serial       = "$($mb.SerialNumber)"
+        }
+        cpu = [ordered]@{
+            name    = "$($cpu.Name)".Trim()
+            cores   = $cpu.NumberOfCores
+            threads = $cpu.NumberOfLogicalProcessors
+            speed   = $cpu.MaxClockSpeed
+        }
+        bios = [ordered]@{
+            manufacturer = "$($bios.Manufacturer)"
+            version      = "$($bios.SMBIOSBIOSVersion)"
+            serial       = "$($bios.SerialNumber)"
+        }
+        ram = @(Get-CimInstance Win32_PhysicalMemory | ForEach-Object {
+            [ordered]@{
+                slot         = "$($_.DeviceLocator)"
+                capacityGB   = [math]::Round($_.Capacity / 1GB, 0)
+                speedMHz     = $_.Speed
+                manufacturer = "$($_.Manufacturer)"
+                partNumber   = "$($_.PartNumber)"
+                serial       = "$($_.SerialNumber)"
+            }
+        })
+        disks = @(Get-PhysicalDisk | ForEach-Object {
+            [ordered]@{
+                name      = "$($_.FriendlyName)"
+                mediaType = "$($_.MediaType)"
+                sizeGB    = [math]::Round($_.Size / 1GB, 0)
+                serial    = "$($_.SerialNumber)"
+            }
+        })
+        gpu = @(Get-CimInstance Win32_VideoController | ForEach-Object {
+            [ordered]@{
+                name          = "$($_.Name)"
+                driverVersion = "$($_.DriverVersion)"
+            }
+        })
+        network = @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue |
+                    Where-Object Status -eq "Up" | ForEach-Object {
+            [ordered]@{
+                name = "$($_.Name)"
+                mac  = "$($_.MacAddress)"
+            }
+        })
+    }
+
+    $snap.hashes = [ordered]@{
+        master     = Get-MasterHash      $snap
+        identity   = Get-IdentityHash    $snap
+        components = Get-ComponentHashes $snap
+    }
+
+    return $snap
+}
+
+# ---------- Save / load ----------
+function Save-Snapshot($snap) {
+    $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $file  = Join-Path $SnapshotDir "snap_$($snap.computerName)_$stamp.json"
+    $snap | Add-Member -NotePropertyName timestamp -NotePropertyValue ((Get-Date -Format "yyyy-MM-dd HH:mm:ss")) -Force
+    $snap | ConvertTo-Json -Depth 15 | Out-File -FilePath $file -Encoding UTF8
+    return $file
+}
+
+function Get-SnapshotFiles {
+    Get-ChildItem $SnapshotDir -Filter "snap_*.json" |
+        Sort-Object LastWriteTime -Descending
+}
+
+function Load-Snapshot($file) {
+    Get-Content $file -Raw -Encoding UTF8 | ConvertFrom-Json
+}
+
+# ---------- Compare ----------
+function Compare-Snapshots($old, $new) {
+    $result = [ordered]@{
+        changed           = $false
+        identityChanged   = ($old.hashes.identity -ne $new.hashes.identity)
+        masterChanged     = ($old.hashes.master   -ne $new.hashes.master)
+        changedComponents = @()
+        details           = @()
+    }
+
+    foreach ($prop in $new.hashes.components.PSObject.Properties) {
+        $name = $prop.Name
+        $oldH = $old.hashes.components.$name
+        $newH = $prop.Value
+        if ($oldH -ne $newH) {
+            $result.changedComponents += $name
+            $result.changed = $true
+        }
+    }
+
+    function Flatten($obj, $prefix) {
+        $out = @{}
+        if ($null -eq $obj) { return $out }
+        if ($obj -is [System.Collections.IEnumerable] -and -not ($obj -is [string])) {
+            $i = 0
+            foreach ($item in $obj) {
+                $sub = Flatten $item "$prefix[$i]"
+                foreach ($k in $sub.Keys) { $out[$k] = $sub[$k] }
+                $i++
+            }
+        } elseif ($obj -is [PSCustomObject]) {
+            foreach ($p in $obj.PSObject.Properties) {
+                $sub = Flatten $p.Value "$prefix.$($p.Name)"
+                foreach ($k in $sub.Keys) { $out[$k] = $sub[$k] }
+            }
+        } else {
+            $out[$prefix] = "$obj"
+        }
+        return $out
+    }
+
+    foreach ($comp in $result.changedComponents) {
+        $oldFlat = Flatten $old.$comp $comp
+        $newFlat = Flatten $new.$comp $comp
+        $keys = ($oldFlat.Keys + $newFlat.Keys) | Sort-Object -Unique
+        foreach ($k in $keys) {
+            $ov = $oldFlat[$k]; $nv = $newFlat[$k]
+            if ($ov -ne $nv) {
+                $ovText = if ($null -eq $ov -or $ov -eq "") { "-" } else { "$ov" }
+                $nvText = if ($null -eq $nv -or $nv -eq "") { "-" } else { "$nv" }
+                $result.details += [ordered]@{
+                    component = $comp
+                    field     = $k
+                    oldValue  = $ovText
+                    newValue  = $nvText
+                }
+            }
+        }
+    }
+    return $result
+}
+
+# ---------- HTTP server ----------
+$listener = New-Object System.Net.HttpListener
+$listener.Prefixes.Add("http://localhost:$Port/")
+$listener.Start()
+Write-Host "Agent running: http://localhost:$Port" -ForegroundColor Green
+Write-Host "Snapshots dir: $SnapshotDir"
+Write-Host "Press Ctrl+C to stop."
+
+function Write-Json($res, $obj) {
+    $json  = $obj | ConvertTo-Json -Depth 15 -Compress
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+    $res.ContentType = "application/json; charset=utf-8"
+    $res.OutputStream.Write($bytes, 0, $bytes.Length)
+}
+
+try {
+    while ($listener.IsListening) {
+        $ctx  = $listener.GetContext()
+        $req  = $ctx.Request
+        $res  = $ctx.Response
+        $path = $req.Url.AbsolutePath
+
+        $res.Headers.Add("Access-Control-Allow-Origin", "*")
+        $res.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        $res.Headers.Add("Access-Control-Allow-Headers", "Content-Type")
+
+        if ($req.HttpMethod -eq "OPTIONS") {
+            $res.StatusCode = 200
+            $res.Close()
+            continue
+        }
+
+        try {
+            switch -Regex ($path) {
+
+                "^/$" {
+                    $htmlPath = Join-Path $ScriptDir "index.html"
+                    if (Test-Path $htmlPath) {
+                        $html  = Get-Content $htmlPath -Raw -Encoding UTF8
+                        $bytes = [System.Text.Encoding]::UTF8.GetBytes($html)
+                        $res.ContentType = "text/html; charset=utf-8"
+                        $res.OutputStream.Write($bytes, 0, $bytes.Length)
+                    } else {
+                        $res.StatusCode = 404
+                    }
+                }
+
+                "^/api/snapshot$" {
+                    $snap = Get-HardwareSnapshot
+                    $file = Save-Snapshot $snap
+                    $snap | Add-Member -NotePropertyName savedTo -NotePropertyValue $file -Force
+                    Write-Json $res $snap
+                }
+
+                "^/api/history$" {
+                    $list = @(Get-SnapshotFiles | Select-Object -First 30 | ForEach-Object {
+                        [ordered]@{
+                            file = $_.Name
+                            time = $_.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
+                            size = $_.Length
+                        }
+                    })
+                    Write-Json $res $list
+                }
+
+                "^/api/latest$" {
+                    $files = @(Get-SnapshotFiles)
+                    if ($files.Count -gt 0) {
+                        $snap = Load-Snapshot $files[0].FullName
+                        Write-Json $res $snap
+                    } else {
+                        Write-Json $res @{ error = "no snapshot found" }
+                    }
+                }
+
+                "^/api/compare$" {
+                    $files = @(Get-SnapshotFiles)
+                    if ($files.Count -lt 2) {
+                        Write-Json $res @{ error = "at least two snapshots are required" }
+                    } else {
+                        $new  = Load-Snapshot $files[0].FullName
+                        $old  = Load-Snapshot $files[1].FullName
+                        $diff = Compare-Snapshots $old $new
+                        Write-Json $res @{
+                            oldTime = $old.timestamp
+                            newTime = $new.timestamp
+                            result  = $diff
+                        }
+                    }
+                }
+
+                default { $res.StatusCode = 404 }
+            }
+        } catch {
+            $res.StatusCode = 500
+            Write-Json $res @{ error = "$($_.Exception.Message)" }
+        }
+        $res.Close()
+    }
+} finally {
+    $listener.Stop()
+}

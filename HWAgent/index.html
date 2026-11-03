@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>اسنپ‌شات سخت‌افزاری</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  *{box-sizing:border-box;font-family:Tahoma,sans-serif}
+  body{background:#f0f2f5;margin:0;padding:20px;color:#333}
+  .header{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:20px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+  .header h1{margin:0;font-size:20px}
+  .header small{opacity:.85;display:block;margin-top:4px;font-size:12px}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{background:#fff;color:#764ba2;border:none;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:13px;transition:.2s}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.15)}
+  .btn:disabled{opacity:.5;cursor:wait}
+  .btn.alt{background:#fbbf24;color:#78350f}
+  .btn.dark{background:#1e293b;color:#fff}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:20px}
+  .card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .card h2{margin:0 0 12px;font-size:15px;border-bottom:2px solid #f0f2f5;padding-bottom:8px;display:flex;align-items:center;gap:8px}
+  .row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px dashed #f0f0f0;gap:10px}
+  .row:last-child{border-bottom:none}
+  .label{color:#666;flex-shrink:0}
+  .value{font-weight:bold;direction:ltr;text-align:left;word-break:break-all;font-size:12px}
+  .mono{font-family:Consolas,monospace;font-size:11px;color:#475569;cursor:help}
+  .chip{background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:6px;font-size:11px;margin-right:4px}
+  .chip.green{background:#dcfce7;color:#166534}
+  .chip.red{background:#fee2e2;color:#991b1b}
+  .chip.amber{background:#fef3c7;color:#92400e}
+  .status{text-align:center;padding:50px;color:#888}
+  .spinner{border:4px solid #eee;border-top:4px solid #764ba2;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto 16px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .error{background:#fee;color:#c00;padding:16px;border-radius:8px;margin-top:16px}
+  .toast{position:fixed;bottom:20px;left:20px;background:#10b981;color:#fff;padding:12px 20px;border-radius:8px;opacity:0;transition:.3s;z-index:99;font-size:13px}
+  .toast.show{opacity:1}
+  .toast.err{background:#ef4444}
+  .chart-container{position:relative;height:180px;margin:10px 0}
+  .banner{padding:14px 18px;border-radius:10px;margin-top:20px;font-weight:bold;display:flex;align-items:center;gap:10px;font-size:14px}
+  .banner.ok{background:#dcfce7;color:#166534;border:1px solid #86efac}
+  .banner.warn{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
+  .banner.crit{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
+  th{background:#f8fafc;padding:8px;text-align:right;color:#475569;font-size:11px;border-bottom:2px solid #e2e8f0}
+  td{padding:8px;border-bottom:1px solid #f1f5f9;direction:ltr;text-align:left}
+  td.fa{direction:rtl;text-align:right}
+  .old-val{color:#991b1b;text-decoration:line-through;opacity:.7}
+  .new-val{color:#166534;font-weight:bold}
+  .tabs{display:flex;gap:6px;margin-top:20px;flex-wrap:wrap}
+  .tab{padding:8px 16px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#64748b;transition:.2s}
+  .tab.active{background:#764ba2;color:#fff;border-color:#764ba2}
+  .pane{display:none}
+  .pane.active{display:block}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🖥️ اسنپ‌شات سخت‌افزاری</h1>
+    <small id="machineInfo">در انتظار اجرای اسکن...</small>
+  </div>
+  <div class="btns">
+    <button class="btn" id="readBtn" onclick="readSnapshot()">📸 اسکن جدید</button>
+    <button class="btn alt" id="cmpBtn" onclick="compareSnapshots()">🔍 مقایسه با قبلی</button>
+    <button class="btn dark" onclick="loadLatest()">📂 آخرین اسنپ‌شات</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('current',this)">📊 اسنپ‌شات فعلی</div>
+  <div class="tab" onclick="showTab('diff',this)">🔍 تغییرات</div>
+  <div class="tab" onclick="showTab('history',this)">📁 تاریخچه</div>
+</div>
+
+<div id="current" class="pane active">
+  <div id="content">
+    <div class="status"><p>برای شروع، دکمه «اسکن جدید» یا «آخرین اسنپ‌شات» را بزنید.</p></div>
+  </div>
+</div>
+
+<div id="diff" class="pane">
+  <div id="diffContent" class="status"><p>برای مشاهده تغییرات، دکمه «مقایسه با قبلی» را بزنید.</p></div>
+</div>
+
+<div id="history" class="pane">
+  <div id="historyContent" class="status"><p>در حال بارگذاری...</p></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "http://localhost:8765";
+
+/* ---------- تب‌ها ---------- */
+function showTab(id, el) {
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+  if (id === 'history') loadHistory();
+}
+
+/* ---------- اسکن جدید ---------- */
+async function readSnapshot() {
+  const btn = document.getElementById("readBtn");
+  btn.disabled = true;
+  document.getElementById("content").innerHTML =
+    `<div class="status"><div class="spinner"></div><p>در حال خواندن اطلاعات سخت‌افزاری و تولید هش...</p></div>`;
+  try {
+    const r = await fetch(API + "/api/snapshot");
+    if (!r.ok) throw new Error("خطا در دریافت اطلاعات");
+    const data = await r.json();
+    render(data);
+    toast("✅ اسنپ‌شات جدید ذخیره شد");
+  } catch(e) {
+    document.getElementById("content").innerHTML =
+      `<div class="error">❌ ${e.message}<br><small>مطمئن شوید agent.ps1 در حال اجراست.</small></div>`;
+    toast("خطا در اسکن", true);
+  } finally { btn.disabled = false; }
+}
+
+/* ---------- آخرین اسنپ‌شات ---------- */
+async function loadLatest() {
+  try {
+    const r = await fetch(API + "/api/latest");
+    const data = await r.json();
+    if (data.error) { toast("اسنپ‌شاتی یافت نشد", true); return; }
+    render(data);
+    toast("📂 آخرین اسنپ‌شات بارگذاری شد");
+  } catch(e) { toast("خطا", true); }
+}
+
+/* ---------- مقایسه ---------- */
+async function compareSnapshots() {
+  const btn = document.getElementById("cmpBtn");
+  btn.disabled = true;
+  showTab('diff', document.querySelectorAll('.tab')[1]);
+  document.getElementById("diffContent").innerHTML =
+    `<div class="status"><div class="spinner"></div><p>در حال مقایسه...</p></div>`;
+  try {
+    const r = await fetch(API + "/api/compare");
+    const data = await r.json();
+    if (data.error) {
+      document.getElementById("diffContent").innerHTML =
+        `<div class="error">${data.error}</div>`;
+    } else {
+      renderDiff(data);
+    }
+  } catch(e) { toast("خطا", true); }
+  finally { btn.disabled = false; }
+}
+
+/* ---------- تاریخچه ---------- */
+async function loadHistory() {
+  try {
+    const r = await fetch(API + "/api/history");
+    const list = await r.json();
+    if (!list.length) {
+      document.getElementById("historyContent").innerHTML =
+        `<div class="status"><p>هیچ اسنپ‌شاتی ثبت نشده.</p></div>`;
+      return;
+    }
+    document.getElementById("historyContent").innerHTML = `
+      <div class="card">
+        <h2>📁 ${list.length} اسنپ‌شات اخیر</h2>
+        <table>
+          <thead><tr><th class="fa">فایل</th><th class="fa">تاریخ</th><th class="fa">حجم</th></tr></thead>
+          <tbody>
+            ${list.map(x => `<tr>
+              <td>${x.file}</td>
+              <td class="fa">${x.time}</td>
+              <td>${(x.size/1024).toFixed(1)} KB</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>`;
+  } catch(e) { toast("خطا", true); }
+}
+
+/* ---------- نمایش اسنپ‌شات ---------- */
+function render(d) {
+  const totalRam  = d.ram.reduce((s,r) => s + r.capacityGB, 0);
+  const totalDisk = d.disks.reduce((s,x) => s + x.sizeGB, 0);
+
+  document.getElementById("machineInfo").textContent =
+    `${d.computerName} | ${d.userName} | ${d.timestamp}`;
+
+  document.getElementById("content").innerHTML = `
+    <div class="grid">
+
+      <div class="card">
+        <h2>⚙️ پردازنده</h2>
+        <div class="row"><span class="label">مدل</span><span class="value">${d.cpu.name}</span></div>
+        <div class="row"><span class="label">هسته / رشته</span><span class="value">${d.cpu.cores} / ${d.cpu.threads}</span></div>
+        <div class="row"><span class="label">فرکانس</span><span class="value">${d.cpu.speed} MHz</span></div>
+      </div>
+
+      <div class="card">
+        <h2>🧠 حافظه (RAM)</h2>
+        <div class="row"><span class="label">حجم کل</span><span class="value">${totalRam} GB</span></div>
+        <div class="chart-container"><canvas id="ramChart"></canvas></div>
+        ${d.ram.map(r => `<div class="row">
+          <span class="label">${r.slot}</span>
+          <span class="value">${r.capacityGB}GB <span class="chip">${r.speedMHz}MHz</span></span>
+        </div>`).join("")}
+      </div>
+
+      <div class="card">
+        <h2>💾 دیسک‌ها</h2>
+        <div class="row"><span class="label">حجم کل</span><span class="value">${totalDisk} GB</span></div>
+        <div class="chart-container"><canvas id="diskChart"></canvas></div>
+        ${d.disks.map(x => `<div class="row">
+          <span class="label">${x.name} <span class="chip">${x.mediaType}</span></span>
+          <span class="value">${x.sizeGB} GB</span>
+        </div>`).join("")}
+      </div>
+
+      <div class="card">
+        <h2>🔧 مادربرد و BIOS</h2>
+        <div class="row"><span class="label">مادربرد</span><span class="value">${d.motherboard.manufacturer} ${d.motherboard.product}</span></div>
+        <div class="row"><span class="label">سریال مادربرد</span><span class="value">${d.motherboard.serial || "—"}</span></div>
+        <div class="row"><span class="label">BIOS</span><span class="value">${d.bios.manufacturer} ${d.bios.version}</span></div>
+        <div class="row"><span class="label">System UUID</span><span class="value">${d.system.uuid}</span></div>
+      </div>
+
+      <div class="card">
+        <h2>🎮 کارت گرافیک</h2>
+        ${d.gpu.map(g => `
+          <div class="row"><span class="label">مدل</span><span class="value">${g.name}</span></div>
+          <div class="row"><span class="label">نسخه درایور</span><span class="value">${g.driverVersion}</span></div>
+        `).join("") || '<div class="row">—</div>'}
+      </div>
+
+      <div class="card">
+        <h2>🌐 کارت شبکه</h2>
+        ${d.network.map(n => `<div class="row">
+          <span class="label">${n.name}</span>
+          <span class="value">${n.mac}</span>
+        </div>`).join("") || '<div class="row">—</div>'}
+      </div>
+
+      <div class="card" style="grid-column:1/-1">
+        <h2>🔐 اثر انگشت سیستم (Hash)</h2>
+        <div class="row">
+          <span class="label">Identity Hash <span class="chip green">هویت پایدار</span></span>
+          <span class="value mono" title="${d.hashes.identity}">${d.hashes.identity}</span>
+        </div>
+        <div class="row">
+          <span class="label">Master Hash <span class="chip amber">کل سیستم</span></span>
+          <span class="value mono" title="${d.hashes.master}">${d.hashes.master}</span>
+        </div>
+        <h3 style="font-size:12px;margin:14px 0 6px;color:#475569">هش هر مؤلفه:</h3>
+        <table>
+          <thead><tr><th class="fa">مؤلفه</th><th class="fa">SHA-256</th></tr></thead>
+          <tbody>
+            ${Object.entries(d.hashes.components).map(([k,v]) => `
+              <tr>
+                <td class="fa"><span class="chip">${k}</span></td>
+                <td class="mono" title="${v}">${v}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+
+    </div>`;
+
+  new Chart(document.getElementById("ramChart"), {
+    type: "doughnut",
+    data: {
+      labels: d.ram.map(r => r.slot),
+      datasets: [{ data: d.ram.map(r => r.capacityGB),
+        backgroundColor: ["#667eea","#764ba2","#f093fb","#4facfe"] }]
+    },
+    options: { plugins:{ legend:{ position:"bottom", labels:{ font:{ size:10 } } } } }
+  });
+
+  new Chart(document.getElementById("diskChart"), {
+    type: "bar",
+    data: {
+      labels: d.disks.map(x => x.name.substring(0,20)),
+      datasets: [{ label:"GB", data:d.disks.map(x => x.sizeGB),
+        backgroundColor:"#667eea", borderRadius:6 }]
+    },
+    options: { plugins:{ legend:{ display:false } },
+      scales:{ y:{ beginAtZero:true } } }
+  });
+}
+
+/* ---------- نمایش دیف ---------- */
+function renderDiff(data) {
+  const r = data.result;
+  let banner = "";
+  if (!r.changed) {
+    banner = `<div class="banner ok">✅ هیچ تغییری نسبت به اسنپ‌شات قبلی وجود ندارد</div>`;
+  } else if (r.identityChanged) {
+    banner = `<div class="banner crit">🚨 هویت سیستم تغییر کرده! (مادربرد / BIOS / UUID) — این یک تغییر مشکوک است.</div>`;
+  } else {
+    banner = `<div class="banner warn">⚠️ ${r.changedComponents.length} مؤلفه تغییر کرده: ${r.changedComponents.join(", ")}</div>`;
+  }
+
+  let tableHtml = "";
+  if (r.details.length) {
+    tableHtml = `
+      <div class="card" style="margin-top:16px">
+        <h2>🔍 جزئیات تغییرات</h2>
+        <table>
+          <thead><tr>
+            <th class="fa">مؤلفه</th>
+            <th class="fa">فیلد</th>
+            <th class="fa">مقدار قبلی</th>
+            <th class="fa">مقدار جدید</th>
+          </tr></thead>
+          <tbody>
+            ${r.details.map(d => `<tr>
+              <td class="fa"><span class="chip">${d.component}</span></td>
+              <td class="fa">${d.field}</td>
+              <td><span class="old-val">${escapeHtml(d.oldValue)}</span></td>
+              <td><span class="new-val">${escapeHtml(d.newValue)}</span></td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  document.getElementById("diffContent").innerHTML = `
+    ${banner}
+    <div class="card" style="margin-top:16px">
+      <h2>📅 بازه مقایسه</h2>
+      <div class="row"><span class="label">اسنپ‌شات قدیمی</span><span class="value">${data.oldTime}</span></div>
+      <div class="row"><span class="label">اسنپ‌شات جدید</span><span class="value">${data.newTime}</span></div>
+    </div>
+    ${tableHtml}`;
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- Toast ---------- */
+function toast(msg, isErr=false) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast show" + (isErr ? " err" : "");
+  setTimeout(() => t.className = "toast", 2800);
+}
+</script>
+</body>
+</html>
