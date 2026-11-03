@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="?{{ request.GET.urlencode }}&export=1&format=xlsx">📊 خروجی Excel</a>
+  <a class="btn btn-ghost" href="{% url 'reports:home' %}">همه گزارش‌ها</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-icon">📋</div><div>
+    <div class="stat-value">{{ summary.total|fa }}</div><div class="stat-label">کل نوبت‌های بازدید</div></div></div>
+  <div class="stat-card is-info"><div class="stat-icon">🗓</div><div>
+    <div class="stat-value">{{ summary.planned|fa }}</div><div class="stat-label">برنامه‌ریزی‌شده</div></div></div>
+  <div class="stat-card is-success"><div class="stat-icon">✅</div><div>
+    <div class="stat-value">{{ summary.done|fa }}</div><div class="stat-label">انجام‌شده</div></div></div>
+  <div class="stat-card is-danger"><div class="stat-icon">⚠️</div><div>
+    <div class="stat-value">{{ summary.missed|fa }}</div><div class="stat-label">انجام‌نشده / خارج از مهلت</div></div></div>
+  <div class="stat-card is-warning"><div class="stat-icon">📈</div><div>
+    <div class="stat-value">
+      {% if summary.compliance is not None %}{{ summary.compliance|floatformat:0|fa }}٪{% else %}—{% endif %}
+    </div>
+    <div class="stat-label">درصد رعایت بازدید</div></div></div>
+</div>
+
+<div class="card mt-2">
+  <div class="card-head"><h2 class="card-title">پالایه گزارش</h2></div>
+  <div class="card-body">
+    <form method="get" class="form-grid">
+      {% include "partials/form_fields.html" with form=filter_form %}
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">اعمال</button>
+        <a class="btn btn-ghost" href="{{ request.path }}">پاک‌کردن</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">جزئیات نوبت‌های بازدید</h2></div>
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead>
+        <tr><th>شماره</th><th>قرارداد</th><th>پیمانکار</th><th>دوره</th><th>تاریخ برنامه</th>
+            <th>آخرین مهلت</th><th>کارشناس</th><th>زمان پایان</th><th>تجهیزات</th>
+            <th>بازدیدشده</th><th>دارای ایراد</th><th>وضعیت</th><th>تایید IT</th></tr>
+      </thead>
+      <tbody>
+      {% for row in rows %}
+        <tr class="{% if row.is_late %}is-danger{% endif %}">
+          <td><a href="{% url 'maintenance:visit_detail' row.visit.pk %}">{{ row.visit.number }}</a></td>
+          <td>{{ row.visit.contract.number }}</td>
+          <td>{{ row.visit.contract.contractor.name }}</td>
+          <td>{{ row.visit.period_label }}</td>
+          <td class="nowrap">{{ row.visit.scheduled_date|jdate }}</td>
+          <td class="nowrap">{{ row.deadline|jdate }}</td>
+          <td>{{ row.visit.technician.display_name|default:"—" }}</td>
+          <td class="nowrap">{{ row.visit.finished_at|jdatetime|default:"—" }}</td>
+          <td>{{ row.visit.checks_total|fa }}</td>
+          <td>{{ row.visit.checks_done|fa }}</td>
+          <td>{% if row.visit.faulty_count %}<span class="badge badge-warning">{{ row.visit.faulty_count|fa }}</span>{% else %}۰{% endif %}</td>
+          <td><span class="badge badge-{{ row.visit.status|visits_status_css }}">{{ row.visit.get_status_display }}</span></td>
+          <td>{% if row.visit.it_confirmed_at %}<span class="badge badge-success">تاییدشده</span>{% else %}—{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="13">{% include "partials/empty.html" %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

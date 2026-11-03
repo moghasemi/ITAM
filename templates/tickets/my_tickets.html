@@ -1,0 +1,14 @@
+{% extends "tickets/ticket_list.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="{% url 'tickets:create' %}">➕ اعلام خرابی جدید</a>
+{% endblock %}
+
+{% block content %}
+<div class="alert alert-info">
+  در این صفحه درخواست‌هایی که خودتان اعلام کرده‌اید و تجهیزاتی که در امانت شما هستند نمایش داده می‌شود.
+  برای تایید رفع خرابی، وارد جزئیات درخواست شوید.
+</div>
+{{ block.super }}
+{% endblock %}

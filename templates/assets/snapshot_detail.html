@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">شناسنامه تجهیز</a>
+  {% if can_edit %}
+    <a class="btn btn-primary" href="{% url 'assets:snapshot_edit' snapshot.pk %}">ویرایش اقلام</a>
+  {% endif %}
+  {% if can_edit %}
+    <form method="post" action="{% url 'assets:snapshot_submit' snapshot.pk %}" class="inline-form">{% csrf_token %}
+      <button class="btn btn-secondary" type="submit">ارسال برای تایید</button>
+    </form>
+  {% endif %}
+  {% if can_approve %}
+    <form method="post" action="{% url 'assets:snapshot_approve' snapshot.pk %}" class="inline-form"
+          data-confirm="این اسنپ‌شات تایید و قفل شود؟ پس از قفل، امکان ویرایش وجود ندارد.">{% csrf_token %}
+      <button class="btn btn-success" type="submit">✅ تایید و قفل سند</button>
+    </form>
+    <form method="post" action="{% url 'assets:snapshot_reject' snapshot.pk %}" class="inline-form">{% csrf_token %}
+      <input type="hidden" name="note" value="نیازمند اصلاح اقلام">
+      <button class="btn btn-danger" type="submit">↩️ برگشت برای اصلاح</button>
+    </form>
+  {% endif %}
+  <a class="btn btn-ghost" href="?print=1" data-print>🖨 چاپ</a>
+{% endblock %}
+
+{% block content %}
+
+{% if snapshot.status == 'pending' %}
+  <div class="alert alert-warning">
+    <span>این اسنپ‌شات در انتظار تایید کارشناس فناوری اطلاعات مرکز است.</span>
+    {% if can_approve %}
+      <form method="post" action="{% url 'assets:snapshot_approve' snapshot.pk %}" class="inline-form"
+            data-confirm="تایید و قفل این اسنپ‌شات؟">{% csrf_token %}
+        <button class="btn btn-success btn-sm" type="submit">تایید فوری</button>
+      </form>
+    {% endif %}
+  </div>
+{% endif %}
+
+{% if snapshot.has_changes %}
+  <div class="alert {% if diff.removed %}alert-danger{% else %}alert-warning{% endif %}">
+    <span>
+      نسبت به وضعیت قبلی {{ snapshot.diff_count|fa }} تغییر ثبت شده است:
+      {% if diff.removed %}‏{{ diff.removed|fa }} قلم مفقود/برداشت‌شده، {% endif %}
+      {% if diff.replaced %}{{ diff.replaced|fa }} قلم تعویض‌شده، {% endif %}
+      {% if diff.added %}{{ diff.added|fa }} قلم اضافه‌شده، {% endif %}
+      {% if diff.changed %}{{ diff.changed|fa }} قلم با مشخصات تغییریافته{% endif %}
+    </span>
+  </div>
+{% endif %}
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">
+        {% if snapshot.is_baseline %}اسنپ‌شات پایه{% else %}اسنپ‌شات نسخه {{ snapshot.version|fa }}{% endif %}
+      </h2>
+      <span class="badge badge-{{ snapshot.status_css }}">{{ snapshot.get_status_display }}</span>
+    </div>
+    <div class="card-body">
+      <div class="kv">
+        <div class="k">تجهیز</div><div><a href="{% url 'assets:detail' asset.pk %}">{{ asset.asset_tag }} — {{ asset.display_name }}</a></div>
+        <div class="k">شماره پلمب</div><div>{{ snapshot.seal_number|default:"—" }}</div>
+        <div class="k">ثبت‌کننده</div><div>{{ snapshot.recorded_by.display_name|default:"—" }}</div>
+        <div class="k">زمان ثبت</div><div>{{ snapshot.recorded_at|jdatetime }}</div>
+        <div class="k">تایید کارشناس پیمانکار</div>
+        <div>{{ snapshot.technician_confirmed_by.display_name|default:"—" }}
+          {% if snapshot.technician_confirmed_at %}({{ snapshot.technician_confirmed_at|jdatetime }}){% endif %}</div>
+        <div class="k">تایید کارشناس IT</div>
+        <div>{{ snapshot.it_confirmed_by.display_name|default:"—" }}
+          {% if snapshot.it_confirmed_at %}({{ snapshot.it_confirmed_at|jdatetime }}){% endif %}</div>
+        <div class="k">زمان قفل سند</div><div>{{ snapshot.locked_at|jdatetime|default:"—" }}</div>
+        <div class="k">مبنای مقایسه</div>
+        <div>
+          {% if reference %}<a href="{% url 'assets:snapshot_detail' reference.pk %}">نسخه {{ reference.version|fa }}</a>
+          {% else %}—{% endif %}
+        </div>
+      </div>
+      {% if snapshot.note %}<p class="mt-2">{{ snapshot.note|linebreaksbr }}</p>{% endif %}
+      {% if snapshot.review_note %}<p class="highlight-danger">یادداشت بررسی: {{ snapshot.review_note }}</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">مستندات تصویری</h2></div>
+    <div class="card-body">
+      <div class="grid grid-2">
+        <div>
+          <h3 class="section-title">کیس باز شده</h3>
+          {% if snapshot.case_photo %}
+            <a href="{{ snapshot.case_photo.url }}" target="_blank">
+              <img src="{{ snapshot.case_photo.url }}" alt="عکس کیس" style="max-width:100%;border-radius:10px;border:1px solid var(--border)">
+            </a>
+          {% else %}<p class="muted small">تصویری ثبت نشده است.</p>{% endif %}
+        </div>
+        <div>
+          <h3 class="section-title">پلمب / برچسب امنیتی</h3>
+          {% if snapshot.seal_photo %}
+            <a href="{{ snapshot.seal_photo.url }}" target="_blank">
+              <img src="{{ snapshot.seal_photo.url }}" alt="عکس پلمب" style="max-width:100%;border-radius:10px;border:1px solid var(--border)">
+            </a>
+          {% else %}<p class="muted small">تصویری ثبت نشده است.</p>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">اقلام ثبت‌شده در این سند</h2>
+    <span class="muted small">مجموع: {{ items|length|fa }} قلم</span>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>قطعه</th><th>برند</th><th>مدل</th><th>سریال</th><th>ظرفیت</th><th>تعداد</th><th>اسلات</th><th>وضعیت</th><th>عکس</th><th>یادداشت</th></tr>
+      </thead>
+      <tbody>
+      {% for item in items %}
+        <tr class="{% if item.component_type.is_key_item %}is-warning{% endif %}">
+          <td>{{ item.component_type.name }}{% if item.component_type.is_key_item %} 🔑{% endif %}</td>
+          <td>{{ item.brand|default:"—" }}</td>
+          <td>{{ item.model_name|default:"—" }}</td>
+          <td class="ltr">{{ item.serial_number|default:"—" }}</td>
+          <td>{{ item.capacity|default:"—" }}</td>
+          <td>{{ item.quantity|fa }}</td>
+          <td>{{ item.slot|default:"—" }}</td>
+          <td><span class="badge badge-{{ item.condition|item_css }}">{{ item.get_condition_display }}</span></td>
+          <td>{% if item.photo %}<a href="{{ item.photo.url }}" target="_blank">مشاهده</a>{% else %}—{% endif %}</td>
+          <td class="small">{{ item.notes|default:"—" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="10">{% include "partials/empty.html" with text="قلمی ثبت نشده است." %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if diff.rows %}
+<div class="card">
+  <div class="card-head"><h2 class="card-title">جدول مقایسه با وضعیت قبلی</h2></div>
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead><tr><th>وضعیت</th><th>قطعه</th><th>قبلی</th><th>فعلی</th><th>تفاوت‌ها</th></tr></thead>
+      <tbody>
+      {% for row in diff.rows %}
+        <tr class="{% if row.state == 'removed' %}is-danger{% elif row.state == 'replaced' %}is-warning{% endif %}">
+          <td><span class="badge badge-{{ row.state|diff_css }}">
+            {% if row.state == 'unchanged' %}بدون تغییر
+            {% elif row.state == 'added' %}اضافه‌شده
+            {% elif row.state == 'removed' %}مفقود/برداشت‌شده
+            {% elif row.state == 'replaced' %}تعویض‌شده
+            {% else %}مشخصات تغییریافته{% endif %}
+          </span></td>
+          <td>{{ row.component_type }}</td>
+          <td class="small">{% if row.previous %}{{ row.previous.label }}<br><span class="ltr">{{ row.previous.serial|default:"—" }}</span>{% else %}—{% endif %}</td>
+          <td class="small">{% if row.current %}{{ row.current.label }}<br><span class="ltr">{{ row.current.serial|default:"—" }}</span>{% else %}—{% endif %}</td>
+          <td class="small">{{ row.changes|join:"؛ "|default:"—" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

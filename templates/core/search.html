@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block content %}
+<div class="card">
+  <div class="card-head">
+    <h2 class="card-title">نتایج جستجو برای «{{ term }}»</h2>
+  </div>
+  <div class="card-body">
+    {% if not term %}
+      <p class="muted">عبارت جستجو را در نوار بالای صفحه وارد کنید. جستجو روی شماره اموال، سریال، عنوان تجهیز و شماره درخواست انجام می‌شود.</p>
+    {% else %}
+      <h3 class="section-title">دارایی‌ها ({{ assets|length|fa }})</h3>
+      <div class="table-wrap">
+        <table class="table compact">
+          <thead><tr><th>شماره اموال</th><th>عنوان</th><th>گونه</th><th>سریال</th><th>محل</th><th></th></tr></thead>
+          <tbody>
+          {% for asset in assets %}
+            <tr>
+              <td>{{ asset.asset_tag }}</td>
+              <td>{{ asset.display_name }}</td>
+              <td>{{ asset.category.name }}</td>
+              <td class="ltr">{{ asset.serial_number|default:"—" }}</td>
+              <td>{{ asset.location.full_label|default:"—" }}</td>
+              <td><a class="btn btn-ghost btn-sm" href="{% url 'assets:detail' asset.pk %}">شناسنامه</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">{% include "partials/empty.html" with text="دارایی یافت نشد." %}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="section-title mt-2">درخواست‌های خرابی ({{ tickets|length|fa }})</h3>
+      <div class="table-wrap">
+        <table class="table compact">
+          <thead><tr><th>شماره</th><th>عنوان</th><th>تجهیز</th><th>وضعیت</th><th>اعلام</th><th></th></tr></thead>
+          <tbody>
+          {% for ticket in tickets %}
+            <tr>
+              <td>{{ ticket.number }}</td>
+              <td>{{ ticket.title }}</td>
+              <td>{{ ticket.asset.asset_tag }}</td>
+              <td><span class="badge badge-{{ ticket.status_css }}">{{ ticket.get_status_display }}</span></td>
+              <td>{{ ticket.reported_at|jdate }}</td>
+              <td><a class="btn btn-ghost btn-sm" href="{% url 'tickets:detail' ticket.pk %}">مشاهده</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">{% include "partials/empty.html" with text="درخواستی یافت نشد." %}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

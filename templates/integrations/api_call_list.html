@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-ghost" href="{% url 'integrations:outbox_list' %}">صف رخدادها</a>
+  <a class="btn btn-ghost" href="{% url 'integrations:endpoint_list' %}">مقصدها</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead>
+        <tr><th>زمان</th><th>مقصد</th><th>رخداد</th><th>روش</th><th>نشانی</th>
+            <th>کد پاسخ</th><th>مدت (ms)</th><th>نتیجه</th></tr>
+      </thead>
+      <tbody>
+      {% for call in object_list %}
+        <tr class="{% if not call.ok %}is-danger{% endif %}">
+          <td class="nowrap">{{ call.created_at|jdatetime }}</td>
+          <td>{{ call.endpoint.name|default:"—" }}</td>
+          <td>{% if call.event %}<a href="{% url 'integrations:outbox_detail' call.event_id %}">{{ call.event.get_event_type_display }}</a>{% else %}—{% endif %}</td>
+          <td class="ltr">{{ call.method }}</td>
+          <td class="ltr small">{{ call.url }}</td>
+          <td>{{ call.response_status|default:"—" }}</td>
+          <td>{{ call.duration_ms|default:"—" }}</td>
+          <td>{% if call.ok %}<span class="badge badge-success">موفق</span>{% else %}<span class="badge badge-danger">ناموفق</span>{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8">{% include "partials/empty.html" with text="فراخوانی‌ای ثبت نشده است." %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+</div>
+{% endblock %}

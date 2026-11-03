@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="{% url 'accounts:user_create' %}">➕ افزودن کاربر</a>
+{% endblock %}
+
+{% block content %}
+{% include "partials/filter_bar.html" %}
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>نام</th><th>نام کاربری</th><th>نقش</th><th>واحد / پیمانکار</th>
+          <th>کد پرسنلی</th><th>تلفن</th><th>وضعیت</th><th>آخرین فعالیت</th><th>اقدام</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in object_list %}
+        <tr>
+          <td><a href="{% url 'accounts:user_detail' item.pk %}">{{ item.display_name }}</a></td>
+          <td class="ltr">{{ item.username }}</td>
+          <td><span class="badge badge-{{ item.role_css }}">{{ item.role_label }}</span></td>
+          <td>
+            {% if item.department %}{{ item.department.name }}
+            {% elif item.contractor %}{{ item.contractor.name }}
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ item.personnel_code|default:"—" }}</td>
+          <td class="ltr">{{ item.phone|default:"—" }}</td>
+          <td>
+            {% if item.is_active %}<span class="badge badge-success">فعال</span>
+            {% else %}<span class="badge badge-neutral">غیرفعال</span>{% endif %}
+          </td>
+          <td class="nowrap">{{ item.last_seen_at|rel|default:"—" }}</td>
+          <td class="table-actions">
+            <a class="btn btn-ghost btn-sm" href="{% url 'accounts:user_update' item.pk %}">ویرایش</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'accounts:user_password' item.pk %}">گذرواژه</a>
+            <form method="post" action="{% url 'accounts:user_toggle' item.pk %}" class="inline-form"
+                  data-confirm="وضعیت فعال بودن این کاربر تغییر کند؟">
+              {% csrf_token %}
+              <button class="btn btn-ghost btn-sm" type="submit">
+                {% if item.is_active %}غیرفعال‌سازی{% else %}فعال‌سازی{% endif %}
+              </button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="9">{% include "partials/empty.html" %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <button class="btn btn-primary no-print" type="button" data-print>🖨 چاپ برچسب‌ها</button>
+{% endblock %}
+
+{% block content %}
+<div class="card no-print">
+  <div class="card-body">
+    <p class="muted">
+      تعداد {{ rows|length|fa }} برچسب آماده چاپ است. برچسب‌ها را روی تجهیز نصب کنید تا کارشناس پیمانکار
+      با اسکن QR مستقیماً وارد صفحه همان تجهیز شود.
+    </p>
+  </div>
+</div>
+
+<div class="label-sheet">
+  {% for row in rows %}
+    <div class="label-card">
+      {{ row.qr|safe }}
+      <div class="label-tag">{{ row.asset.asset_tag }}</div>
+      <div class="label-meta">{{ row.asset.display_name|truncatechars:40 }}</div>
+      <div class="label-meta">{{ row.asset.department.name|default:"" }}</div>
+      <div class="label-meta ltr" style="font-size:.62rem">{{ row.url }}</div>
+    </div>
+  {% empty %}
+    {% include "partials/empty.html" with text="برچسبی برای چاپ وجود ندارد." %}
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "maintenance/visit_list.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-ghost" href="{% url 'maintenance:visit_list' %}">همه بازدیدها</a>
+{% endblock %}
+
+{% block content %}
+<div class="alert alert-info">
+  این کارتابل شامل بازدیدهای دوره‌ای پیمانکار شماست که هنوز پایان نیافته‌اند. بازدیدهای خارج از مهلت
+  با رنگ قرمز مشخص شده‌اند و در ارزیابی عملکرد پیمانکار لحاظ می‌شوند.
+</div>
+{{ block.super }}
+{% endblock %}

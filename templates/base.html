@@ -1,0 +1,176 @@
+{% load static itam_tags %}<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ page_title|default:"داشبورد" }}{% endblock %} — {{ site_title }}</title>
+  <link rel="stylesheet" href="{% static 'css/itam.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="app-body">
+{% if user.is_authenticated %}
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-mark">IT</span>
+      <div class="brand-text">
+        <strong>{{ org_name }}</strong>
+        <small>مدیریت دارایی و نگهداری</small>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="nav-item {% if active_menu == 'dashboard' %}active{% endif %}" href="{% url 'core:dashboard' %}">
+        <span class="nav-icon">📊</span> داشبورد
+      </a>
+      <a class="nav-item {% if active_menu == 'tickets' %}active{% endif %}" href="{% url 'tickets:list' %}">
+        <span class="nav-icon">🛠</span> درخواست‌های خرابی
+      </a>
+      <a class="nav-item {% if active_menu == 'ticket_new' %}active{% endif %}" href="{% url 'tickets:create' %}">
+        <span class="nav-icon">➕</span> اعلام خرابی
+      </a>
+
+      {% if user.is_technician %}
+        <a class="nav-item {% if active_menu == 'my_visits' %}active{% endif %}" href="{% url 'maintenance:my_visits' %}">
+          <span class="nav-icon">📋</span> کارتابل بازدید من
+        </a>
+      {% else %}
+        <a class="nav-item {% if active_menu == 'my_tickets' %}active{% endif %}" href="{% url 'tickets:my_tickets' %}">
+          <span class="nav-icon">📋</span> درخواست‌های من
+        </a>
+      {% endif %}
+
+      <div class="nav-section">دارایی‌ها</div>
+      <a class="nav-item {% if active_menu == 'assets' %}active{% endif %}" href="{% url 'assets:list' %}">
+        <span class="nav-icon">🖥</span> فهرست دارایی‌ها
+      </a>
+      {% if user.is_admin_it %}
+        <a class="nav-item {% if active_menu == 'hardware' %}active{% endif %}" href="{% url 'assets:snapshot_pending' %}">
+          <span class="nav-icon">🔒</span> تایید اسنپ‌شات سخت‌افزار
+          {% if pending_hardware_confirmations %}<span class="nav-count">{{ pending_hardware_confirmations|fa }}</span>{% endif %}
+        </a>
+        <a class="nav-item {% if active_menu == 'assets_new' %}active{% endif %}" href="{% url 'assets:create' %}">
+          <span class="nav-icon">📦</span> ثبت دارایی جدید
+        </a>
+      {% endif %}
+
+      <div class="nav-section">بازدید و قرارداد</div>
+      <a class="nav-item {% if active_menu == 'visits' %}active{% endif %}" href="{% url 'maintenance:visit_list' %}">
+        <span class="nav-icon">🗓</span> بازدیدهای دوره‌ای
+      </a>
+      {% if user.is_admin_it or user.is_manager %}
+        <a class="nav-item {% if active_menu == 'contracts' %}active{% endif %}" href="{% url 'org:contract_list' %}">
+          <span class="nav-icon">📄</span> قراردادها
+        </a>
+        <a class="nav-item {% if active_menu == 'org' %}active{% endif %}" href="{% url 'org:contractor_list' %}">
+          <span class="nav-icon">🏢</span> پیمانکاران
+        </a>
+        <a class="nav-item {% if active_menu == 'org' %}active{% endif %}" href="{% url 'org:department_list' %}">
+          <span class="nav-icon">🏛</span> واحدها و محل‌ها
+        </a>
+      {% endif %}
+
+      {% if user.is_admin_it or user.is_manager %}
+        <div class="nav-section">مدیریت و گزارش</div>
+        <a class="nav-item {% if active_menu == 'reports' %}active{% endif %}" href="{% url 'reports:home' %}">
+          <span class="nav-icon">📈</span> گزارش‌ها
+        </a>
+        <a class="nav-item {% if active_menu == 'integrations' %}active{% endif %}" href="{% url 'integrations:outbox_list' %}">
+          <span class="nav-icon">🔗</span> صف ارسال به مدیریت
+        </a>
+        <a class="nav-item {% if active_menu == 'audit' %}active{% endif %}" href="{% url 'core:audit_list' %}">
+          <span class="nav-icon">🧾</span> لاگ ممیزی
+        </a>
+      {% endif %}
+
+      {% if user.is_admin_it %}
+        <div class="nav-section">تنظیمات</div>
+        <a class="nav-item {% if active_menu == 'users' %}active{% endif %}" href="{% url 'accounts:user_list' %}">
+          <span class="nav-icon">👥</span> کاربران
+        </a>
+        <a class="nav-item {% if active_menu == 'settings' %}active{% endif %}" href="{% url 'core:setting_update' %}">
+          <span class="nav-icon">⚙️</span> تنظیمات سامانه
+        </a>
+        <a class="nav-item" href="{% url 'assets:category_list' %}">
+          <span class="nav-icon">🗂</span> گونه‌های دارایی و قطعه
+        </a>
+      {% endif %}
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="muted">نسخه ۱٫۰ — شبکه محلی</span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-toggle" type="button" data-toggle="sidebar" aria-label="منو">☰</button>
+
+      <form class="topbar-search" method="get" action="{% url 'core:search' %}">
+        <input type="search" name="q" value="{{ request.GET.q|default:'' }}"
+               placeholder="جستجوی شماره اموال، سریال، شماره درخواست…" class="input">
+        <button class="btn btn-ghost" type="submit">جستجو</button>
+      </form>
+
+      <div class="topbar-actions">
+        <a class="icon-btn" href="{% url 'core:notification_list' %}" title="اعلان‌ها">
+          🔔{% if unread_notifications %}<span class="dot">{{ unread_notifications|fa }}</span>{% endif %}
+        </a>
+        <div class="user-chip">
+          <span class="avatar">{{ user.short_name|slice:":1" }}</span>
+          <span class="user-meta">
+            <strong>{{ user.display_name }}</strong>
+            <small>{{ user.role_label }}</small>
+          </span>
+        </div>
+        <div class="user-menu">
+          <a href="{% url 'accounts:profile' %}">نمایه من</a>
+          <a href="{% url 'accounts:password_change' %}">تغییر گذرواژه</a>
+          <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+            <button type="submit" class="link-danger">خروج از سامانه</button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main class="content">
+      {% include "partials/messages.html" %}
+
+      <div class="page-head">
+        <div>
+          {% if breadcrumbs %}
+            <nav class="breadcrumbs">
+              {% for crumb in breadcrumbs %}
+                {% if crumb.url %}<a href="{{ crumb.url }}">{{ crumb.label }}</a>{% else %}<span>{{ crumb.label }}</span>{% endif %}
+                {% if not forloop.last %}<span class="sep">›</span>{% endif %}
+              {% endfor %}
+            </nav>
+          {% endif %}
+          <h1 class="page-title">{{ page_title }}</h1>
+          {% if page_subtitle %}<p class="page-subtitle">{{ page_subtitle }}</p>{% endif %}
+        </div>
+        <div class="page-actions">
+          {% block page_actions %}{% endblock %}
+        </div>
+      </div>
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+      <span>{{ org_name }} — {{ site_title }}</span>
+      {% if system_setting.footer_note %}<span>{{ system_setting.footer_note }}</span>{% endif %}
+    </footer>
+  </div>
+</div>
+{% else %}
+<main class="auth-wrap">
+  {% block auth_content %}{% endblock %}
+</main>
+{% endif %}
+
+{% block modals %}{% endblock %}
+<script src="{% static 'js/itam.js' %}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

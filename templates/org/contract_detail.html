@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  {% if user.is_admin_it %}
+    <a class="btn btn-primary" href="{% url 'org:contract_update' object.pk %}">ویرایش قرارداد</a>
+    <form method="post" action="{% url 'org:contract_generate_visits' object.pk %}" class="inline-form"
+          data-confirm="بازدیدهای دوره‌ای این قرارداد بر اساس دوره {{ object.visit_interval_days }} روز ساخته شود؟">
+      {% csrf_token %}
+      <button class="btn btn-secondary" type="submit">🗓 برنامه‌ریزی بازدیدهای دوره‌ای</button>
+    </form>
+  {% endif %}
+  <a class="btn btn-ghost" href="{% url 'org:contract_list' %}">فهرست قراردادها</a>
+{% endblock %}
+
+{% block content %}
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-icon">📄</div>
+    <div><div class="stat-value">{{ object.visit_interval_days|fa }}</div><div class="stat-label">دوره بازدید (روز)</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">🖥</div>
+    <div><div class="stat-value">{{ assets_total|fa }}</div><div class="stat-label">دارایی زیر پوشش</div></div>
+  </div>
+  <div class="stat-card is-warning">
+    <div class="stat-icon">🛠</div>
+    <div><div class="stat-value">{{ tickets_open|fa }}</div><div class="stat-label">درخواست باز</div></div>
+  </div>
+  <div class="stat-card is-danger">
+    <div class="stat-icon">⚠️</div>
+    <div><div class="stat-value">{{ breached_count|fa }}</div><div class="stat-label">نقض SLA</div></div>
+  </div>
+  <div class="stat-card is-info">
+    <div class="stat-icon">⏳</div>
+    <div><div class="stat-value">{{ object.days_remaining|fa }}</div><div class="stat-label">روز باقی‌مانده قرارداد</div></div>
+  </div>
+</div>
+
+<div class="grid grid-2 mt-2">
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">اطلاعات قرارداد</h2>
+      <span class="badge badge-{{ object.status_css }}">{{ object.get_status_display }}</span>
+    </div>
+    <div class="card-body">
+      <div class="kv">
+        <div class="k">شماره قرارداد</div><div>{{ object.number }}</div>
+        <div class="k">عنوان</div><div>{{ object.title }}</div>
+        <div class="k">پیمانکار</div><div><a href="{% url 'org:contractor_detail' object.contractor.pk %}">{{ object.contractor.name }}</a></div>
+        <div class="k">بازه قرارداد</div><div>{{ object.jalali_range }}</div>
+        <div class="k">مدت قرارداد</div><div>{{ object.duration_days|fa }} روز</div>
+        <div class="k">تعداد بازدید پیش‌بینی‌شده</div><div>{{ planned_visits|fa }} نوبت</div>
+        <div class="k">پیشرفت زمانی</div>
+        <div>{% progress_bar object.progress_percent 100 %}</div>
+        <div class="k">شرح خدمات بازدید</div><div>{{ object.visit_scope|default:"—"|linebreaksbr }}</div>
+        <div class="k">شرح خدمات تعمیراتی</div><div>{{ object.repair_scope|default:"—"|linebreaksbr }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">تعهدات زمانی (SLA)</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>اولویت</th><th>زمان پاسخ</th><th>زمان رفع</th><th>توقف در انتظار قطعه</th><th>توضیح</th></tr></thead>
+        <tbody>
+        {% for policy in sla_policies %}
+          <tr>
+            <td><span class="badge badge-{{ policy.priority|priority_css }}">{{ policy.get_priority_display }}</span></td>
+            <td>{{ policy.response_label }}</td>
+            <td>{{ policy.resolve_label }}</td>
+            <td>{{ policy.pause_on_parts_wait|yesno_fa }}</td>
+            <td>{{ policy.description|default:"—" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5">
+            {% include "partials/empty.html" with text="سیاست SLA ثبت نشده است؛ از مقادیر پیش‌فرض سامانه استفاده می‌شود." %}
+          </td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2 class="card-title">بازدیدهای دوره‌ای قرارداد</h2>
+    <a class="btn btn-ghost btn-sm" href="{% url 'maintenance:visit_list' %}?contract={{ object.pk }}">فهرست کامل</a>
+  </div>
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead>
+        <tr><th>شماره</th><th>دوره</th><th>تاریخ برنامه</th><th>آخرین مهلت</th><th>کارشناس</th>
+            <th>پیشرفت</th><th>وضعیت</th><th>تایید IT</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for visit in visits %}
+        <tr class="{% if visit.is_overdue %}is-danger{% endif %}">
+          <td><a href="{% url 'maintenance:visit_detail' visit.pk %}">{{ visit.number }}</a></td>
+          <td>{{ visit.period_label }}</td>
+          <td>{{ visit.scheduled_date|jdate }}</td>
+          <td>{{ visit.scheduled_end_date|jdate }}</td>
+          <td>{{ visit.technician.display_name|default:"—" }}</td>
+          <td style="min-width:120px">
+            {% progress_bar visit.checks_done visit.checks_total %}
+            <span class="small muted">{{ visit.checks_done|fa }} از {{ visit.checks_total|fa }}</span>
+          </td>
+          <td><span class="badge badge-{{ visit.status|visits_status_css }}">{{ visit.get_status_display }}</span></td>
+          <td>{% if visit.it_confirmed_at %}<span class="badge badge-success">{{ visit.it_confirmed_at|jdate }}</span>{% else %}—{% endif %}</td>
+          <td><a class="btn btn-ghost btn-sm" href="{% url 'maintenance:visit_detail' visit.pk %}">برگه</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="9">
+          {% include "partials/empty.html" with text="بازدیدی برنامه‌ریزی نشده است. از دکمه «برنامه‌ریزی بازدیدهای دوره‌ای» استفاده کنید." %}
+        </td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2 class="card-title">دارایی‌های زیر پوشش قرارداد</h2>
+    <a class="btn btn-ghost btn-sm" href="{% url 'assets:list' %}?contract={{ object.pk }}">فهرست کامل</a>
+  </div>
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead><tr><th>شماره اموال</th><th>گونه</th><th>عنوان</th><th>محل</th><th>وضعیت</th><th>اقلام ثبت‌شده</th></tr></thead>
+      <tbody>
+      {% for asset in assets %}
+        <tr>
+          <td><a href="{% url 'assets:detail' asset.pk %}">{{ asset.asset_tag }}</a></td>
+          <td>{{ asset.category.name }}</td>
+          <td>{{ asset.display_name }}</td>
+          <td>{{ asset.location.full_label|default:"—" }}</td>
+          <td><span class="badge badge-{{ asset.status_css }}">{{ asset.get_status_display }}</span></td>
+          <td>
+            {% if asset.current_snapshot_id %}
+              <span class="badge badge-success">{{ asset.components_count|fa }} قلم</span>
+            {% else %}
+              <span class="badge badge-warning">ثبت نشده</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6">{% include "partials/empty.html" with text="دارایی به این قرارداد متصل نشده است." %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

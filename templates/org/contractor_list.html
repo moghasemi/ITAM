@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="{% url 'org:contractor_create' %}">➕ افزودن پیمانکار</a>
+{% endblock %}
+
+{% block content %}
+{% include "partials/filter_bar.html" %}
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>نام شرکت</th><th>کد</th><th>رابط</th><th>تلفن</th><th>قراردادها</th><th>کارشناسان</th><th>وضعیت</th><th></th></tr></thead>
+      <tbody>
+      {% for item in object_list %}
+        <tr>
+          <td><a href="{% url 'org:contractor_detail' item.pk %}">{{ item.name }}</a></td>
+          <td>{{ item.code|default:"—" }}</td>
+          <td>{{ item.contact_person|default:"—" }}</td>
+          <td class="ltr">
+            {% if item.contact_phone %}{{ item.contact_phone }}
+            {% elif item.phone %}{{ item.phone }}
+            {% else %}—{% endif %}
+          </td>
+          <td><span class="badge badge-primary">{{ item.contracts_total|fa }}</span></td>
+          <td><span class="badge badge-info">{{ item.technicians_total|fa }}</span></td>
+          <td>{% if item.is_active %}<span class="badge badge-success">فعال</span>{% else %}<span class="badge badge-neutral">غیرفعال</span>{% endif %}</td>
+          <td class="table-actions">
+            <a class="btn btn-ghost btn-sm" href="{% url 'org:contractor_detail' item.pk %}">پرونده</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'org:contractor_update' item.pk %}">ویرایش</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8">{% include "partials/empty.html" %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+</div>
+{% endblock %}

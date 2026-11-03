@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="?{{ request.GET.urlencode }}&export=1&format=xlsx">📊 خروجی Excel</a>
+  <a class="btn btn-ghost" href="{% url 'reports:home' %}">همه گزارش‌ها</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-head"><h2 class="card-title">پالایه گزارش</h2></div>
+  <div class="card-body">
+    <form method="get" class="form-grid">
+      {% include "partials/form_fields.html" with form=filter_form %}
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">اعمال</button>
+        <a class="btn btn-ghost" href="{{ request.path }}">پاک‌کردن</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2 class="card-title">کارنامه عملکرد پیمانکاران</h2>
+    <span class="muted small">معیارهای SLA و رعایت بازدیدهای دوره‌ای برای ارزیابی قراردادی</span>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>پیمانکار</th><th>کل درخواست</th><th>باز</th><th>بسته‌شده</th>
+          <th>میانگین پاسخ</th><th>میانگین رفع</th>
+          <th>رعایت پاسخ</th><th>رعایت رفع</th><th>نقض SLA</th>
+          <th>بازدید برنامه‌ریزی‌شده</th><th>انجام‌شده</th><th>انجام‌نشده</th>
+          <th>رعایت بازدید</th><th>هشدار سخت‌افزاری</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td><a href="{% url 'org:contractor_detail' row.contractor.pk %}">{{ row.contractor.name }}</a></td>
+          <td>{{ row.tickets_total|fa }}</td>
+          <td>{% if row.tickets_open %}<span class="badge badge-warning">{{ row.tickets_open|fa }}</span>{% else %}۰{% endif %}</td>
+          <td>{{ row.tickets_closed|fa }}</td>
+          <td class="nowrap">{{ row.avg_response }}</td>
+          <td class="nowrap">{{ row.avg_resolve }}</td>
+          <td>
+            {% if row.response_compliance is not None %}
+              <span class="badge {% if row.response_compliance >= 90 %}badge-success{% elif row.response_compliance >= 70 %}badge-warning{% else %}badge-danger{% endif %}">
+                {{ row.response_compliance|floatformat:0|fa }}٪
+              </span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if row.resolve_compliance is not None %}
+              <span class="badge {% if row.resolve_compliance >= 90 %}badge-success{% elif row.resolve_compliance >= 70 %}badge-warning{% else %}badge-danger{% endif %}">
+                {{ row.resolve_compliance|floatformat:0|fa }}٪
+              </span>
+            {% else %}—{% endif %}
+          </td>
+          <td>{% if row.breached %}<span class="badge badge-danger">{{ row.breached|fa }}</span>{% else %}۰{% endif %}</td>
+          <td>{{ row.visits_planned|fa }}</td>
+          <td>{{ row.visits_done|fa }}</td>
+          <td>{% if row.visits_missed %}<span class="badge badge-danger">{{ row.visits_missed|fa }}</span>{% else %}۰{% endif %}</td>
+          <td>
+            {% if row.visit_compliance is not None %}
+              <span class="badge {% if row.visit_compliance >= 90 %}badge-success{% elif row.visit_compliance >= 70 %}badge-warning{% else %}badge-danger{% endif %}">
+                {{ row.visit_compliance|floatformat:0|fa }}٪
+              </span>
+            {% else %}—{% endif %}
+          </td>
+          <td>{% if row.hardware_diffs %}<span class="badge badge-warning">{{ row.hardware_diffs|fa }}</span>{% else %}۰{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="14">{% include "partials/empty.html" %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

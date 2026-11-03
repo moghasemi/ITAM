@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block content %}
+<div class="card">
+  <div class="card-head">
+    <h2 class="card-title">برگه درخواست خرابی و سابقه SLA</h2>
+    <button class="btn btn-primary no-print" type="button" data-print>🖨 چاپ</button>
+  </div>
+  <div class="card-body">
+    <div class="kv">
+      <div class="k">شماره درخواست</div><div>{{ ticket.number }}</div>
+      <div class="k">تجهیز</div><div>{{ ticket.asset.asset_tag }} — {{ ticket.asset.display_name }}</div>
+      <div class="k">محل / واحد</div><div>{{ ticket.asset.location.full_label|default:"—" }} / {{ ticket.asset.department.name|default:"—" }}</div>
+      <div class="k">عنوان خرابی</div><div>{{ ticket.title }}</div>
+      <div class="k">اولویت / نوع</div><div>{{ ticket.priority_label }} / {{ ticket.get_failure_type_display|default:"—" }}</div>
+      <div class="k">اعلام‌کننده</div><div>{{ ticket.reporter_label }}</div>
+      <div class="k">پیمانکار</div><div>{{ ticket.assigned_contractor.name|default:"—" }}</div>
+      <div class="k">وضعیت</div><div>{{ ticket.get_status_display }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">زمان‌های کلیدی</h2></div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>مرحله</th><th>زمان</th><th>فاصله از مرحله قبل</th></tr></thead>
+      <tbody>
+        <tr><td>اعلام خرابی توسط اداره</td><td>{{ ticket.reported_at|jdatetime }}</td><td>—</td></tr>
+        <tr><td>پذیرش پیمانکار</td><td>{{ ticket.acknowledged_at|jdatetime|default:"—" }}</td><td>{{ ticket.acknowledged_at|rel }}</td></tr>
+        <tr><td>حضور در محل</td><td>{{ ticket.arrived_at|jdatetime|default:"—" }}</td><td>{{ ticket.response_minutes_display }}</td></tr>
+        <tr><td>شروع تعمیر</td><td>{{ ticket.work_started_at|jdatetime|default:"—" }}</td><td>—</td></tr>
+        <tr><td>اعلام رفع خرابی</td><td>{{ ticket.resolved_declared_at|jdatetime|default:"—" }}</td><td>{{ ticket.resolve_minutes_display }}</td></tr>
+        <tr><td>تایید کاربر</td><td>{{ ticket.user_confirmed_at|jdatetime|default:"—" }}</td><td>—</td></tr>
+        <tr><td>تایید کارشناس IT و بستن</td><td>{{ ticket.it_confirmed_at|jdatetime|default:"—" }}</td><td>{{ ticket.total_minutes_display }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">نتیجه رسیدگی</h2></div>
+  <div class="card-body">
+    <div class="kv">
+      <div class="k">علت خرابی</div><div>{{ ticket.root_cause|default:"—"|linebreaksbr }}</div>
+      <div class="k">اقدام انجام‌شده</div><div>{{ ticket.action_taken|default:"—"|linebreaksbr }}</div>
+      <div class="k">قطعات مصرف‌شده</div><div>{{ ticket.parts_text|default:"—" }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">سابقه رخدادها</h2></div>
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead><tr><th>زمان</th><th>رخداد</th><th>اقدام‌کننده</th><th>توضیح</th></tr></thead>
+      <tbody>
+      {% for event in events %}
+        <tr>
+          <td class="nowrap">{{ event.at|jdatetime }}</td>
+          <td>{{ event.get_event_type_display }}</td>
+          <td>{{ event.actor_label|default:"سامانه" }}</td>
+          <td>{{ event.note|default:"—" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">امضاها</h2></div>
+  <div class="card-body">
+    <div class="grid grid-3">
+      <div>کاربر / امانت‌دار: {{ ticket.reporter_label }}<br><span class="muted small">امضا:</span></div>
+      <div>کارشناس پیمانکار: {{ ticket.assigned_technician.display_name|default:"—" }}<br><span class="muted small">امضا:</span></div>
+      <div>کارشناس فناوری اطلاعات مرکز: {{ ticket.it_confirmed_by_display|default:"—" }}<br><span class="muted small">امضا:</span></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

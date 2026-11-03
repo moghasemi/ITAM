@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="?{{ request.GET.urlencode }}&export=1&format=xlsx">📊 خروجی Excel</a>
+  <a class="btn btn-ghost" href="?{{ request.GET.urlencode }}&export=1&format=csv">خروجی CSV</a>
+  <a class="btn btn-ghost" href="{% url 'reports:home' %}">همه گزارش‌ها</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-icon">📋</div><div>
+    <div class="stat-value">{{ summary.total|fa }}</div><div class="stat-label">کل درخواست‌ها</div></div></div>
+  <div class="stat-card is-danger"><div class="stat-icon">⚠️</div><div>
+    <div class="stat-value">{{ summary.breached|fa }}</div><div class="stat-label">نقض SLA</div></div></div>
+  <div class="stat-card is-info"><div class="stat-icon">⏱</div><div>
+    <div class="stat-value">{{ summary.avg_response }}</div><div class="stat-label">میانگین زمان تا حضور</div></div></div>
+  <div class="stat-card is-info"><div class="stat-icon">🔧</div><div>
+    <div class="stat-value">{{ summary.avg_resolve }}</div><div class="stat-label">میانگین زمان تا رفع</div></div></div>
+  <div class="stat-card"><div class="stat-icon">🔄</div><div>
+    <div class="stat-value">{{ summary.avg_total }}</div><div class="stat-label">میانگین چرخه کامل</div></div></div>
+  <div class="stat-card is-warning"><div class="stat-icon">⏸</div><div>
+    <div class="stat-value">{{ summary.paused_total }}</div><div class="stat-label">مجموع توقف ساعت</div></div></div>
+</div>
+
+<div class="grid grid-2 mt-2">
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">درصد رعایت تعهدات</h2></div>
+    <div class="card-body">
+      <div class="kv">
+        <div class="k">رعایت زمان پاسخ (حضور در محل)</div>
+        <div>
+          {% if summary.response_compliance is not None %}
+            <span class="badge {% if summary.response_compliance >= 90 %}badge-success{% elif summary.response_compliance >= 70 %}badge-warning{% else %}badge-danger{% endif %}">
+              {{ summary.response_compliance|floatformat:1|fa }}٪
+            </span>
+          {% else %}—{% endif %}
+        </div>
+        <div class="k">رعایت زمان رفع خرابی</div>
+        <div>
+          {% if summary.resolve_compliance is not None %}
+            <span class="badge {% if summary.resolve_compliance >= 90 %}badge-success{% elif summary.resolve_compliance >= 70 %}badge-warning{% else %}badge-danger{% endif %}">
+              {{ summary.resolve_compliance|floatformat:1|fa }}٪
+            </span>
+          {% else %}—{% endif %}
+        </div>
+        <div class="k">درخواست‌های بسته‌شده</div><div>{{ summary.closed|fa }}</div>
+        <div class="k">درخواست‌های باز</div><div>{{ summary.open|fa }}</div>
+      </div>
+      <p class="muted small mt-1">
+        محاسبه بر مبنای
+        {% if calendar.is_24_7 %}شبانه‌روزی{% else %}ساعت کاری {{ calendar.work_start|jtime }} تا {{ calendar.work_end|jtime }}{% endif %}
+        و با کسر بازه‌های توقف ساعت انجام می‌شود.
+      </p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">پالایه گزارش</h2></div>
+    <div class="card-body">
+      <form method="get" class="form-grid">
+        {% include "partials/form_fields.html" with form=filter_form %}
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">اعمال</button>
+          <a class="btn btn-ghost" href="{{ request.path }}">پاک‌کردن</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">جزئیات درخواست‌ها و زمان‌های SLA</h2></div>
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead>
+        <tr>
+          <th>شماره</th><th>تجهیز</th><th>اولویت</th><th>اعلام</th><th>حضور</th><th>اعلام رفع</th>
+          <th>زمان پاسخ</th><th>سهمیه پاسخ</th><th>وضعیت</th><th>زمان رفع</th><th>سهمیه رفع</th>
+          <th>وضعیت</th><th>توقف</th><th>چرخه کامل</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in rows %}
+        <tr class="{% if row.ticket.response_met is False or row.ticket.resolve_met is False %}is-danger{% endif %}">
+          <td><a href="{% url 'tickets:detail' row.ticket.pk %}">{{ row.ticket.number }}</a></td>
+          <td>{{ row.ticket.asset.asset_tag }}</td>
+          <td><span class="badge badge-{{ row.ticket.priority_css }}">{{ row.ticket.priority_label }}</span></td>
+          <td class="nowrap">{{ row.ticket.reported_at|jdatetime }}</td>
+          <td class="nowrap">{{ row.ticket.arrived_at|jdatetime|default:"—" }}</td>
+          <td class="nowrap">{{ row.ticket.resolved_declared_at|jdatetime|default:"—" }}</td>
+          <td class="nowrap">{{ row.response_used|dur }}</td>
+          <td class="nowrap">{{ row.ticket.response_minutes_display|default:"—" }}</td>
+          <td>{% if row.ticket.response_met is True %}✓{% elif row.ticket.response_met is False %}✗{% else %}—{% endif %}</td>
+          <td class="nowrap">{{ row.resolve_used|dur }}</td>
+          <td class="nowrap">{{ row.ticket.resolve_minutes_display }}</td>
+          <td>{% if row.ticket.resolve_met is True %}✓{% elif row.ticket.resolve_met is False %}✗{% else %}—{% endif %}</td>
+          <td>{{ row.ticket.paused_minutes|dur }}</td>
+          <td>{{ row.total_used|dur }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="14">{% include "partials/empty.html" with text="داده‌ای برای این بازه وجود ندارد." %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

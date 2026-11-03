@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  {% if can_edit %}
+    <a class="btn btn-primary" href="{% url 'assets:update' object.pk %}">ویرایش مشخصات</a>
+  {% endif %}
+  {% if can_snapshot %}
+    <form method="post" action="{% url 'assets:snapshot_start' object.pk %}" class="inline-form">
+      {% csrf_token %}
+      <button class="btn btn-secondary" type="submit">
+        {% if object.has_baseline %}🔍 بازبینی اقلام سخت‌افزاری{% else %}🔒 ثبت اقلام سخت‌افزاری (اسنپ‌شات پایه){% endif %}
+      </button>
+    </form>
+  {% endif %}
+  <a class="btn btn-ghost" href="{% url 'tickets:create' %}?asset={{ object.pk }}">🛠 اعلام خرابی</a>
+  <a class="btn btn-ghost" href="{% url 'assets:label_print' %}?ids={{ object.pk }}" target="_blank">🖨 برچسب QR</a>
+{% endblock %}
+
+{% block content %}
+
+{% if object.requires_component_tracking and not object.has_baseline %}
+  <div class="alert alert-warning">
+    <span>
+      ⚠️ برای این تجهیز هنوز «اسنپ‌شات پایه سخت‌افزار» ثبت نشده است. با ثبت و تایید اقلام داخل کیس،
+      از این پس هر تغییر (برداشت، تعویض یا افزودن قطعه) شناسایی و گزارش می‌شود.
+    </span>
+    {% if can_snapshot %}
+      <form method="post" action="{% url 'assets:snapshot_start' object.pk %}" class="inline-form">{% csrf_token %}
+        <button class="btn btn-warning btn-sm" type="submit">ثبت اسنپ‌شات پایه</button>
+      </form>
+    {% endif %}
+  </div>
+{% endif %}
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">{{ object.category.icon }} {{ object.display_name }}</h2>
+      <span class="badge badge-{{ object.status_css }}">{{ object.get_status_display }}</span>
+    </div>
+    <div class="card-body">
+      <div class="kv">
+        {% for key, value in spec_rows %}
+          <div class="k">{{ key }}</div><div>{{ value|default:"—" }}</div>
+        {% endfor %}
+        <div class="k">گارانتی</div>
+        <div>{{ object.warranty_state }}{% if object.warranty_until %} (تا {{ object.warranty_until|jdate }}){% endif %}</div>
+        <div class="k">اسنپ‌شات پایه</div>
+        <div>
+          {% if object.baseline_locked_at %}
+            <span class="badge badge-success">قفل‌شده در {{ object.baseline_locked_at|jdatetime }}</span>
+          {% else %}
+            <span class="badge badge-warning">ثبت نشده</span>
+          {% endif %}
+        </div>
+      </div>
+      {% if object.spec_summary %}
+        <h3 class="section-title mt-2">مشخصات کامل ثبت‌شده</h3>
+        <div class="small">{{ object.spec_summary|linebreaksbr }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">برچسب QR تجهیز</h2></div>
+    <div class="card-body qr-box">
+      {% qr_svg object.public_url 5 %}
+      <p class="small muted mt-1">
+        این برچسب را روی کیس نصب کنید؛ کارشناس پیمانکار با اسکن QR مستقیماً وارد صفحه همین تجهیز می‌شود.
+      </p>
+      <p class="ltr small">{{ object.public_url }}</p>
+    </div>
+  </div>
+</div>
+
+<div data-tabs-scope>
+  <div class="tabs" data-tabs>
+    <button class="tab active" type="button" data-tab-target="hardware">🔧 اقلام سخت‌افزاری</button>
+    <button class="tab" type="button" data-tab-target="snapshots">📚 تاریخچه اسنپ‌شات</button>
+    <button class="tab" type="button" data-tab-target="tickets">🛠 درخواست‌های خرابی</button>
+    <button class="tab" type="button" data-tab-target="visits">🗓 بازدیدهای دوره‌ای</button>
+    <button class="tab" type="button" data-tab-target="files">📎 پیوست‌ها</button>
+  </div>
+
+  <div class="tab-panel active" data-tab-panel="hardware">
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title">اقلام داخل کیس (وضعیت جاری)</h2>
+        {% if object.current_snapshot %}
+          <span class="muted small">
+            بر پایه اسنپ‌شات {{ object.current_snapshot.version|fa }}
+            {% if object.current_snapshot.is_baseline %}(پایه){% endif %}
+            — تاییدشده در {{ object.current_snapshot.locked_at|jdatetime }}
+          </span>
+        {% endif %}
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>قطعه</th><th>برند</th><th>مدل</th><th>سریال</th><th>ظرفیت</th><th>تعداد</th><th>اسلات</th><th>وضعیت قلم</th></tr>
+          </thead>
+          <tbody>
+          {% for item in components %}
+            <tr class="{% if item.component_type.is_key_item %}is-warning{% endif %}">
+              <td>{{ item.component_type.name }}{% if item.component_type.is_key_item %} 🔑{% endif %}</td>
+              <td>{{ item.brand|default:"—" }}</td>
+              <td>{{ item.model_name|default:"—" }}</td>
+              <td class="ltr">{{ item.serial_number|default:"—" }}</td>
+              <td>{{ item.capacity|default:"—" }}</td>
+              <td>{{ item.quantity|fa }}</td>
+              <td>{{ item.slot|default:"—" }}</td>
+              <td><span class="badge badge-{{ item.condition|item_css }}">{{ item.get_condition_display }}</span></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="8">
+              {% if object.requires_component_tracking %}
+                {% include "partials/empty.html" with text="اقلام سخت‌افزاری این تجهیز ثبت نشده است." icon="🔒" %}
+              {% else %}
+                {% include "partials/empty.html" with text="برای این گونه دارایی، کنترل اقلام داخلی فعال نیست." %}
+              {% endif %}
+            </td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if object.current_snapshot %}
+        <div class="card-foot">
+          <a class="btn btn-ghost btn-sm" href="{% url 'assets:snapshot_detail' object.current_snapshot.pk %}">مشاهده اسنپ‌شات جاری</a>
+          {% if object.current_snapshot.case_photo %}
+            <a class="btn btn-ghost btn-sm" href="{{ object.current_snapshot.case_photo.url }}" target="_blank">عکس کیس باز شده</a>
+          {% endif %}
+          {% if object.current_snapshot.seal_photo %}
+            <a class="btn btn-ghost btn-sm" href="{{ object.current_snapshot.seal_photo.url }}" target="_blank">عکس پلمب</a>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="snapshots">
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title">تاریخچه اسنپ‌شات‌های سخت‌افزاری</h2>
+        <span class="muted small">هر ردیف نشان‌دهنده یک بازبینی و تغییرات آن نسبت به وضعیت قبلی است.</span>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>نسخه</th><th>نوع</th><th>وضعیت</th><th>ثبت‌کننده</th><th>زمان ثبت</th>
+                <th>تغییرات</th><th>تایید کارشناس IT</th><th>پلمب</th><th></th></tr>
+          </thead>
+          <tbody>
+          {% for snapshot in snapshots %}
+            <tr class="{% if snapshot.has_changes %}is-warning{% endif %}">
+              <td>{{ snapshot.version|fa }}</td>
+              <td>{% if snapshot.is_baseline %}<span class="badge badge-primary">پایه</span>{% else %}دوره‌ای{% endif %}</td>
+              <td><span class="badge badge-{{ snapshot.status_css }}">{{ snapshot.get_status_display }}</span></td>
+              <td>{{ snapshot.recorded_by.display_name|default:"—" }}</td>
+              <td class="nowrap">{{ snapshot.recorded_at|jdatetime }}</td>
+              <td>
+                {% if snapshot.has_changes %}
+                  <span class="badge badge-danger">{{ snapshot.diff_count|fa }} تغییر</span>
+                  {% if snapshot.diff_data.removed %}<span class="badge badge-danger">{{ snapshot.diff_data.removed|fa }} مفقود</span>{% endif %}
+                {% else %}
+                  <span class="badge badge-success">بدون تغییر</span>
+                {% endif %}
+              </td>
+              <td>{{ snapshot.it_confirmed_by.display_name|default:"—" }}</td>
+              <td>{{ snapshot.seal_number|default:"—" }}</td>
+              <td><a class="btn btn-ghost btn-sm" href="{% url 'assets:snapshot_detail' snapshot.pk %}">مشاهده</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="9">{% include "partials/empty.html" %}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="tickets">
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title">درخواست‌های خرابی این تجهیز</h2>
+        <a class="btn btn-primary btn-sm" href="{% url 'tickets:create' %}?asset={{ object.pk }}">اعلام خرابی جدید</a>
+      </div>
+      <div class="table-wrap">
+        <table class="table compact">
+          <thead>
+            <tr><th>شماره</th><th>عنوان</th><th>اولویت</th><th>وضعیت</th><th>اعلام</th><th>حضور</th>
+                <th>اعلام رفع</th><th>رعایت SLA</th><th></th></tr>
+          </thead>
+          <tbody>
+          {% for ticket in tickets %}
+            <tr>
+              <td><a href="{% url 'tickets:detail' ticket.pk %}">{{ ticket.number }}</a></td>
+              <td>{{ ticket.title }}</td>
+              <td><span class="badge badge-{{ ticket.priority_css }}">{{ ticket.priority_label }}</span></td>
+              <td><span class="badge badge-{{ ticket.status_css }}">{{ ticket.get_status_display }}</span></td>
+              <td class="nowrap">{{ ticket.reported_at|jdatetime }}</td>
+              <td class="nowrap">{{ ticket.arrived_at|jdatetime|default:"—" }}</td>
+              <td class="nowrap">{{ ticket.resolved_declared_at|jdatetime|default:"—" }}</td>
+              <td>
+                {% if ticket.response_met is True %}<span class="badge badge-success">رعایت</span>
+                {% elif ticket.response_met is False %}<span class="badge badge-danger">نقض</span>
+                {% else %}<span class="badge badge-neutral">—</span>{% endif %}
+              </td>
+              <td><a class="btn btn-ghost btn-sm" href="{% url 'tickets:detail' ticket.pk %}">مشاهده</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="9">{% include "partials/empty.html" with text="خرابی‌ای برای این تجهیز ثبت نشده است." %}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="visits">
+    <div class="card">
+      <div class="card-head"><h2 class="card-title">سابقه بازدیدهای دوره‌ای</h2></div>
+      <div class="table-wrap">
+        <table class="table compact">
+          <thead><tr><th>بازدید</th><th>قرارداد</th><th>تاریخ بازدید</th><th>بازدیدکننده</th><th>وضعیت تجهیز</th><th>خدمات انجام‌شده</th><th></th></tr></thead>
+          <tbody>
+          {% for check in visits %}
+            <tr>
+              <td><a href="{% url 'maintenance:visit_detail' check.visit_id %}">{{ check.visit.number }}</a></td>
+              <td>{{ check.visit.contract.number }}</td>
+              <td class="nowrap">{{ check.checked_at|jdatetime|default:"—" }}</td>
+              <td>{{ check.checked_by.display_name|default:"—" }}</td>
+              <td><span class="badge badge-{{ check.condition_css }}">{{ check.get_condition_display }}</span></td>
+              <td>{{ check.actions_taken|default:"—"|truncatechars:60 }}</td>
+              <td><a class="btn btn-ghost btn-sm" href="{% url 'maintenance:check_edit' check.pk %}">برگه</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7">{% include "partials/empty.html" with text="بازدیدی برای این تجهیز ثبت نشده است." %}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="files">
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title">پیوست‌های دارایی</h2>
+        {% if can_edit or user.is_technician %}
+          <a class="btn btn-primary btn-sm" href="{% url 'assets:attachment_create' object.pk %}">➕ افزودن پیوست</a>
+        {% endif %}
+      </div>
+      <div class="table-wrap">
+        <table class="table compact">
+          <thead><tr><th>نوع</th><th>عنوان</th><th>فایل</th><th>بارگذارنده</th><th>زمان</th><th></th></tr></thead>
+          <tbody>
+          {% for attachment in attachments %}
+            <tr>
+              <td>{{ attachment.get_kind_display }}</td>
+              <td>{{ attachment.title|default:"—" }}</td>
+              <td><a href="{{ attachment.file.url }}" target="_blank">{{ attachment.file.name|truncatechars:40 }}</a></td>
+              <td>{{ attachment.uploaded_by.display_name|default:"—" }}</td>
+              <td class="nowrap">{{ attachment.created_at|jdatetime }}</td>
+              <td>
+                {% if can_edit %}
+                  <form method="post" action="{% url 'assets:attachment_delete' attachment.pk %}" class="inline-form"
+                        data-confirm="این پیوست حذف شود؟">{% csrf_token %}
+                    <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">{% include "partials/empty.html" %}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if object.notes %}
+<div class="card">
+  <div class="card-head"><h2 class="card-title">یادداشت‌ها</h2></div>
+  <div class="card-body">{{ object.notes|linebreaksbr }}</div>
+</div>
+{% endif %}
+
+{% endblock %}

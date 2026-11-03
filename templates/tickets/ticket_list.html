@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="{% url 'tickets:create' %}">➕ اعلام خرابی</a>
+  <a class="btn btn-ghost" href="{% url 'tickets:list' %}?open_only=on">درخواست‌های باز ({{ open_count|fa }})</a>
+{% endblock %}
+
+{% block content %}
+{% include "partials/filter_bar.html" %}
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>شماره</th><th>تجهیز</th><th>عنوان خرابی</th><th>اولویت</th><th>وضعیت</th>
+          <th>پیمانکار</th><th>اعلام</th><th>حضور</th><th>اعلام رفع</th><th>زمان پاسخ</th>
+          <th>SLA</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for ticket in object_list %}
+        <tr class="{% if ticket.response_met is False or ticket.resolve_met is False %}is-danger{% endif %}">
+          <td><a href="{% url 'tickets:detail' ticket.pk %}">{{ ticket.number }}</a></td>
+          <td>{{ ticket.asset.asset_tag }}<div class="small muted">{{ ticket.asset.display_name|truncatechars:28 }}</div></td>
+          <td>{{ ticket.title|truncatechars:40 }}</td>
+          <td><span class="badge badge-{{ ticket.priority_css }}">{{ ticket.priority_label }}</span></td>
+          <td><span class="badge badge-{{ ticket.status_css }}">{{ ticket.get_status_display }}</span></td>
+          <td>{{ ticket.assigned_contractor.name|default:"—" }}</td>
+          <td class="nowrap">{{ ticket.reported_at|jdatetime }}</td>
+          <td class="nowrap">{{ ticket.arrived_at|jdatetime|default:"—" }}</td>
+          <td class="nowrap">{{ ticket.resolved_declared_at|jdatetime|default:"—" }}</td>
+          <td class="nowrap">{{ ticket.response_minutes_display }}</td>
+          <td>
+            {% if ticket.response_met is True %}<span class="badge badge-success">پاسخ ✓</span>
+            {% elif ticket.response_met is False %}<span class="badge badge-danger">پاسخ ✗</span>
+            {% else %}<span class="badge badge-neutral">پاسخ —</span>{% endif %}
+            {% if ticket.resolve_met is True %}<span class="badge badge-success">رفع ✓</span>
+            {% elif ticket.resolve_met is False %}<span class="badge badge-danger">رفع ✗</span>
+            {% else %}<span class="badge badge-neutral">رفع —</span>{% endif %}
+          </td>
+          <td class="table-actions">
+            <a class="btn btn-ghost btn-sm" href="{% url 'tickets:detail' ticket.pk %}">مشاهده</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="12">{% include "partials/empty.html" with text="درخواستی یافت نشد." %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+</div>
+{% endblock %}

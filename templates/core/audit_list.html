@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block content %}
+<form method="get" class="filter-bar">
+  <div class="filter-field">
+    <label class="filter-label">جستجو</label>
+    <input class="input" type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="عنوان رکورد، کاربر یا توضیح">
+  </div>
+  <div class="filter-field">
+    <label class="filter-label">عملیات</label>
+    <select class="select" name="action">
+      <option value="">همه</option>
+      {% for code, label in action_choices %}
+        <option value="{{ code }}" {% if current_action == code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-field">
+    <label class="filter-label">موجودیت</label>
+    <select class="select" name="model">
+      <option value="">همه</option>
+      {% for name in model_choices %}
+        <option value="{{ name }}" {% if current_model == name %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-actions">
+    <button class="btn btn-primary" type="submit">اعمال</button>
+    <a class="btn btn-ghost" href="{{ request.path }}">پاک‌کردن</a>
+  </div>
+</form>
+
+<div class="card">
+  <div class="card-head">
+    <h2 class="card-title">لاگ ممیزی سامانه</h2>
+    <span class="muted small">این لاگ فقط-افزودنی است و قابل ویرایش یا حذف نیست.</span>
+  </div>
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead>
+        <tr><th>زمان</th><th>کاربر</th><th>عملیات</th><th>موجودیت</th><th>رکورد</th><th>توضیح</th><th>نشانی IP</th></tr>
+      </thead>
+      <tbody>
+      {% for log in object_list %}
+        <tr>
+          <td class="nowrap">{{ log.created_at|jdatetime }}</td>
+          <td>{{ log.user_label|default:"سامانه" }}</td>
+          <td><span class="badge badge-neutral">{{ log.get_action_display }}</span></td>
+          <td>{{ log.model_name }}</td>
+          <td>{{ log.object_label|default:"—" }}</td>
+          <td>{{ log.note|default:"—" }}</td>
+          <td class="ltr">{{ log.ip_address|default:"—" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7">{% include "partials/empty.html" %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+</div>
+{% endblock %}

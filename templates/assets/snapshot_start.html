@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block content %}
+<div class="card" style="max-width:820px">
+  <div class="card-head"><h2 class="card-title">شروع ثبت اقلام سخت‌افزاری</h2></div>
+  <div class="card-body">
+    <div class="kv">
+      <div class="k">تجهیز</div><div>{{ asset.asset_tag }} — {{ asset.display_name }}</div>
+      <div class="k">نوع ثبت</div>
+      <div>
+        {% if reference %}
+          <span class="badge badge-info">بازبینی دوره‌ای (مقایسه با نسخه {{ reference.version|fa }})</span>
+        {% else %}
+          <span class="badge badge-warning">اسنپ‌شات پایه (نخستین ثبت)</span>
+        {% endif %}
+      </div>
+      <div class="k">آخرین وضعیت ثبت‌شده</div>
+      <div>
+        {% if reference %}
+          {{ reference.locked_at|jdatetime }} — {{ reference.items.count|fa }} قلم
+        {% else %}
+          سابقه‌ای ثبت نشده است.
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="alert alert-info mt-2">
+      <span>
+        برای کنترل سرقت، تمام اقلام داخل کیس به‌همراه شماره سریال ثبت می‌شود. در ثبت‌های بعدی،
+        سامانه به‌صورت خودکار اقلام اضافه‌شده، مفقودشده و تعویض‌شده را گزارش می‌کند و پس از
+        تایید کارشناس فناوری اطلاعات مرکز، سند قفل می‌شود.
+      </span>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-lg">شروع ثبت</button>
+        <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">بازگشت به شناسنامه</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

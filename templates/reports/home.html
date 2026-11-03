@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block content %}
+<div class="card">
+  <div class="card-head"><h2 class="card-title">گزارش‌های قابل استخراج</h2></div>
+  <div class="card-body">
+    <div class="grid grid-3">
+      {% for report in reports %}
+        <a class="stat-card" href="{{ report.url }}" style="text-decoration:none;color:inherit">
+          <div class="stat-icon">{{ report.icon }}</div>
+          <div>
+            <div class="stat-value" style="font-size:1rem">{{ report.title }}</div>
+            <div class="stat-label">مشاهده و خروجی Excel</div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-icon">🛠</div><div>
+    <div class="stat-value">{{ tickets_total|fa }}</div><div class="stat-label">کل درخواست‌های خرابی</div></div></div>
+  <div class="stat-card is-danger"><div class="stat-icon">⚠️</div><div>
+    <div class="stat-value">{{ breached_total|fa }}</div><div class="stat-label">نقض SLA</div></div></div>
+  <div class="stat-card"><div class="stat-icon">🖥</div><div>
+    <div class="stat-value">{{ assets_total|fa }}</div><div class="stat-label">دارایی ثبت‌شده</div></div></div>
+  <div class="stat-card"><div class="stat-icon">📄</div><div>
+    <div class="stat-value">{{ contracts_active|fa }}</div><div class="stat-label">قرارداد جاری</div></div></div>
+  <div class="stat-card is-info"><div class="stat-icon">🔒</div><div>
+    <div class="stat-value">{{ snapshots_total|fa }}</div><div class="stat-label">اسنپ‌شات سخت‌افزاری</div></div></div>
+  <div class="stat-card is-warning"><div class="stat-icon">🚨</div><div>
+    <div class="stat-value">{{ diff_alarms|fa }}</div><div class="stat-label">هشدار تغییر اقلام</div></div></div>
+</div>
+{% endblock %}

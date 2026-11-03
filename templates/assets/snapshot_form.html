@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">شناسنامه تجهیز</a>
+  {% if not snapshot.is_baseline %}
+    <a class="btn btn-ghost" href="{% url 'assets:snapshot_detail' snapshot.pk %}">مشاهده بدون ویرایش</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-icon">🖥</div>
+    <div><div class="stat-value">{{ asset.asset_tag }}</div><div class="stat-label">{{ asset.display_name }}</div></div>
+  </div>
+  <div class="stat-card {% if is_baseline %}is-warning{% else %}is-info{% endif %}">
+    <div class="stat-icon">{% if is_baseline %}🔒{% else %}🔍{% endif %}</div>
+    <div>
+      <div class="stat-value">{% if is_baseline %}پایه{% else %}نسخه {{ snapshot.version|fa }}{% endif %}</div>
+      <div class="stat-label">{% if is_baseline %}نخستین ثبت{% else %}بازبینی دوره‌ای{% endif %}</div>
+    </div>
+  </div>
+  <div class="stat-card {% if preview.has_alarm %}is-danger{% elif preview.total_changes %}is-warning{% else %}is-success{% endif %}">
+    <div class="stat-icon">📊</div>
+    <div>
+      <div class="stat-value">{{ preview.total_changes|fa }}</div>
+      <div class="stat-label">تغییر نسبت به وضعیت قبلی</div>
+    </div>
+  </div>
+</div>
+
+{% if reference %}
+  <div class="alert alert-info">
+    <span>
+      مبنای مقایسه: نسخه {{ reference.version|fa }} ({{ reference.locked_at|jdatetime }}).
+      اقلام زیر به‌صورت خودکار از همان سند بارگذاری شده‌اند؛ در صورت تغییر، مقادیر را اصلاح کنید.
+    </span>
+  </div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">اطلاعات کلی بازبینی</h2></div>
+    <div class="card-body">
+      <div class="form-grid">
+        {% include "partials/form_fields.html" with form=form %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">اقلام داخل کیس</h2>
+      <span class="muted small">اقلام کلیدی (پردازنده، حافظه، هارد، گرافیک، پاور) را دقیق ثبت کنید.</span>
+    </div>
+    <div class="card-body">
+      {% include "partials/formset.html" with formset=formset title="" add_label="افزودن قلم سخت‌افزاری" %}
+    </div>
+  </div>
+
+  {% if preview.total_changes %}
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title">پیش‌نمایش تغییرات نسبت به وضعیت قبلی</h2>
+        {% if preview.removed %}<span class="badge badge-danger">{{ preview.removed|fa }} قلم مفقود</span>{% endif %}
+        {% if preview.replaced %}<span class="badge badge-warning">{{ preview.replaced|fa }} قلم تعویض‌شده</span>{% endif %}
+        {% if preview.added %}<span class="badge badge-info">{{ preview.added|fa }} قلم اضافه‌شده</span>{% endif %}
+      </div>
+      <div class="table-wrap">
+        <table class="table compact">
+          <thead><tr><th>وضعیت</th><th>قطعه</th><th>مقدار قبلی</th><th>مقدار فعلی</th><th>توضیح تفاوت</th></tr></thead>
+          <tbody>
+          {% for row in preview.rows %}
+            {% if row.state != 'unchanged' %}
+              <tr class="{% if row.state == 'removed' %}is-danger{% elif row.state == 'replaced' %}is-warning{% endif %}">
+                <td><span class="badge badge-{{ row.state|diff_css }}">
+                  {% if row.state == 'added' %}اضافه‌شده
+                  {% elif row.state == 'removed' %}مفقود/برداشت‌شده
+                  {% elif row.state == 'replaced' %}تعویض‌شده
+                  {% else %}مشخصات تغییریافته{% endif %}
+                </span></td>
+                <td>{{ row.component_type }}</td>
+                <td class="small">
+                  {% if row.previous %}{{ row.previous.label }}<br><span class="ltr">{{ row.previous.serial|default:"—" }}</span>{% else %}—{% endif %}
+                </td>
+                <td class="small">
+                  {% if row.current %}{{ row.current.label }}<br><span class="ltr">{{ row.current.serial|default:"—" }}</span>{% else %}—{% endif %}
+                </td>
+                <td class="small">{{ row.changes|join:"؛ " }}</td>
+              </tr>
+            {% endif %}
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary btn-lg">💾 ذخیره پیش‌نویس</button>
+    <button type="submit" name="submit_for_review" value="1" class="btn btn-success btn-lg"
+            data-confirm="اقلام ثبت‌شده برای تایید کارشناس فناوری اطلاعات ارسال شود؟ پس از تایید، سند قفل می‌شود.">
+      ✅ ذخیره و ارسال برای تایید
+    </button>
+    <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">انصراف</a>
+  </div>
+</form>
+{% endblock %}

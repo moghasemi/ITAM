@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-ghost" href="{% url 'assets:snapshot_pending' %}">کارتابل تایید اسنپ‌شات</a>
+  <button class="btn btn-primary" type="button" data-print>🖨 چاپ</button>
+{% endblock %}
+
+{% block content %}
+<div class="alert alert-warning no-print">
+  <span>
+    این گزارش برای کنترل سرقت اقلام داخل کیس تهیه شده است؛ هر ردیف نشان‌دهنده اختلاف بین اسنپ‌شات‌های
+    یک تجهیز است. موارد «مفقود» و «تعویض‌شده» نیازمند بررسی و توضیح کارشناس پیمانکار است.
+  </span>
+</div>
+
+{% for row in rows %}
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">
+        <a href="{% url 'assets:detail' row.snapshot.asset_id %}">{{ row.snapshot.asset.asset_tag }}</a>
+        — نسخه {{ row.snapshot.version|fa }}
+      </h2>
+      <div>
+        {% if row.snapshot.diff_data.removed %}
+          <span class="badge badge-danger">{{ row.snapshot.diff_data.removed|fa }} قلم مفقود</span>
+        {% endif %}
+        {% if row.snapshot.diff_data.replaced %}
+          <span class="badge badge-warning">{{ row.snapshot.diff_data.replaced|fa }} تعویض</span>
+        {% endif %}
+        {% if row.snapshot.diff_data.added %}
+          <span class="badge badge-info">{{ row.snapshot.diff_data.added|fa }} اضافه‌شده</span>
+        {% endif %}
+        <span class="badge badge-neutral">{{ row.snapshot.get_status_display }}</span>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>وضعیت</th><th>قطعه</th><th>قبلی</th><th>فعلی</th><th>تفاوت</th></tr></thead>
+        <tbody>
+        {% for change in row.changes %}
+          <tr class="{% if change.state == 'removed' %}is-danger{% elif change.state == 'replaced' %}is-warning{% endif %}">
+            <td><span class="badge badge-{{ change.state|diff_css }}">
+              {% if change.state == 'added' %}اضافه‌شده
+              {% elif change.state == 'removed' %}مفقود/برداشت‌شده
+              {% elif change.state == 'replaced' %}تعویض‌شده
+              {% else %}تغییر مشخصات{% endif %}
+            </span></td>
+            <td>{{ change.component_type }}</td>
+            <td class="small">{% if change.previous %}{{ change.previous.label }}<br><span class="ltr">{{ change.previous.serial|default:"—" }}</span>{% else %}—{% endif %}</td>
+            <td class="small">{% if change.current %}{{ change.current.label }}<br><span class="ltr">{{ change.current.serial|default:"—" }}</span>{% else %}—{% endif %}</td>
+            <td class="small">{{ change.changes|join:"؛ "|default:"—" }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-foot">
+      <span class="muted small">
+        ثبت‌کننده: {{ row.snapshot.recorded_by.display_name|default:"—" }}
+        — زمان ثبت: {{ row.snapshot.recorded_at|jdatetime }}
+        {% if row.snapshot.it_confirmed_by %} — تاییدکننده: {{ row.snapshot.it_confirmed_by.display_name }}{% endif %}
+      </span>
+      <a class="btn btn-ghost btn-sm" href="{% url 'assets:snapshot_detail' row.snapshot.pk %}">مشاهده سند</a>
+    </div>
+  </div>
+{% empty %}
+  <div class="card"><div class="card-body">{% include "partials/empty.html" with text="تغییری در اقلام سخت‌افزاری ثبت نشده است." icon="✅" %}</div></div>
+{% endfor %}
+{% endblock %}

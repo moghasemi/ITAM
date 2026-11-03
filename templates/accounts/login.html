@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block title %}ورود به سامانه{% endblock %}
+
+{% block auth_content %}
+<div class="auth-card">
+  <div class="auth-logo">IT</div>
+  <h1>{{ org_name }}</h1>
+  <p class="muted small center">{{ site_title }}</p>
+
+  {% if form.errors %}
+    <div class="alert alert-danger">
+      <span>نام کاربری یا گذرواژه نادرست است.</span>
+    </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'accounts:login' %}">
+    {% csrf_token %}
+    {% include "partials/form_fields.html" with form=form %}
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <button type="submit" class="btn btn-primary btn-lg" style="width:100%">ورود به سامانه</button>
+  </form>
+
+  <p class="muted small center mt-2">
+    در صورت فراموشی گذرواژه با کارشناس فناوری اطلاعات مرکز تماس بگیرید.
+  </p>
+</div>
+{% endblock %}

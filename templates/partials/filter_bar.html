@@ -1,0 +1,14 @@
+{% if filter_form %}
+<form method="get" class="filter-bar">
+  {% for field in filter_form %}
+    <div class="filter-field">
+      <label class="filter-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+    </div>
+  {% endfor %}
+  <div class="filter-actions">
+    <button class="btn btn-primary" type="submit">اعمال پالایه</button>
+    <a class="btn btn-ghost" href="{{ request.path }}">پاک‌کردن</a>
+  </div>
+</form>
+{% endif %}

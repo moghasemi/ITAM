@@ -1,0 +1,61 @@
+{% comment %}
+نمایش مجموعه فرم‌های وابسته (Formset) با امکان افزودن/حذف ردیف.
+پارامترها: formset، title، add_label
+{% endcomment %}
+<div class="formset" data-formset data-prefix="{{ formset.prefix }}">
+  {% if title %}<h3 class="section-title">{{ title }}</h3>{% endif %}
+  {{ formset.management_form }}
+  {% if formset.non_form_errors %}
+    <div class="alert alert-danger">
+      {% for error in formset.non_form_errors %}<div>{{ error }}</div>{% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="formset-rows">
+    {% for form in formset %}
+      <div class="formset-row" data-formset-row>
+        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+        <div class="formset-fields">
+          {% for field in form.visible_fields %}
+            <div class="form-row">
+              <label class="form-label" for="{{ field.id_for_label }}">
+                {{ field.label }}{% if field.field.required %}<span class="req">*</span>{% endif %}
+              </label>
+              <div class="form-control-wrap">
+                {{ field }}
+                {% for error in field.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+        {% if formset.can_delete %}
+          <div class="formset-delete">
+            <label class="checkbox-label">{{ form.DELETE }} حذف این ردیف</label>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <template data-formset-empty>
+    <div class="formset-row" data-formset-row>
+      <div class="formset-fields">
+        {% for field in formset.empty_form.visible_fields %}
+          <div class="form-row">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            <div class="form-control-wrap">{{ field }}</div>
+          </div>
+        {% endfor %}
+      </div>
+      {% if formset.can_delete %}
+        <div class="formset-delete">
+          <label class="checkbox-label">{{ formset.empty_form.DELETE }} حذف این ردیف</label>
+        </div>
+      {% endif %}
+    </div>
+  </template>
+
+  <button type="button" class="btn btn-ghost btn-sm" data-formset-add>
+    ➕ {{ add_label|default:"افزودن ردیف جدید" }}
+  </button>
+</div>

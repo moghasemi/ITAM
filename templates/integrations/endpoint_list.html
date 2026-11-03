@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="{% url 'integrations:endpoint_create' %}">➕ افزودن مقصد</a>
+  <a class="btn btn-ghost" href="{% url 'integrations:outbox_list' %}">صف رخدادها</a>
+{% endblock %}
+
+{% block content %}
+<div class="alert alert-info">
+  <span>
+    رخدادها با قالب استاندارد JSON و سرآیندهای <code class="ltr">X-ITAM-Event</code>،
+    <code class="ltr">X-ITAM-Idempotency-Key</code> و در صورت انتخاب، امضای
+    <code class="ltr">X-ITAM-Signature</code> (HMAC-SHA256) ارسال می‌شوند.
+  </span>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>عنوان</th><th>نشانی</th><th>احراز هویت</th><th>پالایه رخداد</th>
+            <th>آخرین ارسال موفق</th><th>خطاهای پی‌درپی</th><th>وضعیت</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for item in object_list %}
+        <tr>
+          <td>{{ item.name }}</td>
+          <td class="ltr small">{{ item.url }}</td>
+          <td>{{ item.get_auth_type_display }}</td>
+          <td class="small">{{ item.event_filter|default:"همه رخدادها" }}</td>
+          <td class="nowrap">{{ item.last_success_at|jdatetime|default:"—" }}</td>
+          <td>
+            {% if item.failure_count %}<span class="badge badge-danger">{{ item.failure_count|fa }}</span>
+            {% else %}<span class="badge badge-success">۰</span>{% endif %}
+          </td>
+          <td>{% if item.is_active %}<span class="badge badge-success">فعال</span>{% else %}<span class="badge badge-neutral">غیرفعال</span>{% endif %}</td>
+          <td><a class="btn btn-ghost btn-sm" href="{% url 'integrations:endpoint_update' item.pk %}">ویرایش</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8">
+          {% include "partials/empty.html" with text="مقصدی تعریف نشده است. رخدادها در صف داخلی باقی می‌مانند." icon="🔗" %}
+        </td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  {% if can_manage and object.status != 'sent' %}
+    <form method="post" action="{% url 'integrations:requeue_event' object.pk %}" class="inline-form">{% csrf_token %}
+      <button class="btn btn-secondary" type="submit">♻️ بازگردانی به صف</button>
+    </form>
+  {% endif %}
+  <a class="btn btn-ghost" href="{% url 'integrations:outbox_list' %}">بازگشت به صف</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">{{ object.get_event_type_display }}</h2>
+      <span class="badge badge-{{ object.status_css }}">{{ object.get_status_display }}</span>
+    </div>
+    <div class="card-body">
+      <div class="kv">
+        <div class="k">شناسه یکتایی</div><div class="ltr small">{{ object.idempotency_key }}</div>
+        <div class="k">موجودیت</div><div>{{ object.aggregate_type }} #{{ object.aggregate_id }}</div>
+        <div class="k">کاربر عامل</div><div>{{ object.actor_label|default:"سامانه" }}</div>
+        <div class="k">زمان رخداد</div><div>{{ object.created_at|jdatetime }}</div>
+        <div class="k">تعداد تلاش</div><div>{{ object.attempts|fa }}</div>
+        <div class="k">آخرین تلاش</div><div>{{ object.last_attempt_at|jdatetime|default:"—" }}</div>
+        <div class="k">زمان ارسال موفق</div><div>{{ object.dispatched_at|jdatetime|default:"—" }}</div>
+        <div class="k">مقصد</div><div>{{ object.endpoint.name|default:"—" }}</div>
+      </div>
+      {% if object.last_error %}
+        <div class="alert alert-danger mt-2"><span>{{ object.last_error }}</span></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">داده رخداد (JSON)</h2></div>
+    <div class="card-body">
+      <pre class="ltr small" style="white-space:pre-wrap;word-break:break-all">{{ envelope_json }}</pre>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">سابقه فراخوانی درگاه</h2></div>
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead><tr><th>زمان</th><th>مقصد</th><th>کد پاسخ</th><th>مدت (ms)</th><th>نتیجه</th><th>پاسخ</th></tr></thead>
+      <tbody>
+      {% for call in calls %}
+        <tr>
+          <td class="nowrap">{{ call.created_at|jdatetime }}</td>
+          <td>{{ call.endpoint.name|default:"—" }}</td>
+          <td>{{ call.response_status|default:"—" }}</td>
+          <td>{{ call.duration_ms|default:"—" }}</td>
+          <td>{% if call.ok %}<span class="badge badge-success">موفق</span>{% else %}<span class="badge badge-danger">ناموفق</span>{% endif %}</td>
+          <td class="small">{{ call.response_body|default:"—"|truncatechars:80 }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6">{% include "partials/empty.html" with text="فراخوانی‌ای ثبت نشده است." %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="card-body center">
+    <div class="empty-icon">⛔</div>
+    <h1>دسترسی غیرمجاز</h1>
+    <p class="muted">{{ exception|default:"شما به این بخش دسترسی ندارید." }}</p>
+    <a class="btn btn-primary" href="{% url 'core:dashboard' %}">بازگشت به داشبورد</a>
+  </div>
+</div>
+{% endblock %}

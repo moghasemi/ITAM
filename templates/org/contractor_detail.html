@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="{% url 'org:contractor_update' object.pk %}">ویرایش</a>
+  <a class="btn btn-ghost" href="{% url 'org:contract_list' %}?contractor={{ object.pk }}">قراردادها</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">اطلاعات پیمانکار</h2></div>
+    <div class="card-body">
+      <div class="kv">
+        <div class="k">نام شرکت</div><div>{{ object.name }}</div>
+        <div class="k">کد پیمانکار</div><div>{{ object.code|default:"—" }}</div>
+        <div class="k">شناسه ملی</div><div class="ltr">{{ object.national_id|default:"—" }}</div>
+        <div class="k">کد اقتصادی</div><div class="ltr">{{ object.economic_code|default:"—" }}</div>
+        <div class="k">رابط</div><div>{{ object.contact_person|default:"—" }}</div>
+        <div class="k">تلفن رابط</div><div class="ltr">{{ object.contact_phone|default:"—" }}</div>
+        <div class="k">رایانامه</div><div class="ltr">{{ object.email|default:"—" }}</div>
+        <div class="k">نشانی</div><div>{{ object.address|default:"—" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">شاخص‌های عملکرد</h2></div>
+    <div class="card-body">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-icon">🛠</div><div>
+          <div class="stat-value">{{ tickets_total|fa }}</div><div class="stat-label">کل درخواست‌ها</div></div></div>
+        <div class="stat-card is-warning"><div class="stat-icon">⏳</div><div>
+          <div class="stat-value">{{ tickets_open|fa }}</div><div class="stat-label">درخواست باز</div></div></div>
+        <div class="stat-card is-info"><div class="stat-icon">🗓</div><div>
+          <div class="stat-value">{{ visits|length|fa }}</div><div class="stat-label">بازدیدهای اخیر</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">قراردادها</h2></div>
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead><tr><th>شماره</th><th>عنوان</th><th>بازه</th><th>دوره بازدید</th><th>وضعیت</th><th></th></tr></thead>
+      <tbody>
+      {% for contract in contracts %}
+        <tr>
+          <td><a href="{% url 'org:contract_detail' contract.pk %}">{{ contract.number }}</a></td>
+          <td>{{ contract.title }}</td>
+          <td class="nowrap">{{ contract.jalali_range }}</td>
+          <td>{{ contract.visit_interval_days|fa }} روز</td>
+          <td><span class="badge badge-{{ contract.status_css }}">{{ contract.get_status_display }}</span></td>
+          <td><a class="btn btn-ghost btn-sm" href="{% url 'org:contract_detail' contract.pk %}">مشاهده</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6">{% include "partials/empty.html" with text="قراردادی ثبت نشده است." %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">کارشناسان پیمانکار</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>نام</th><th>نام کاربری</th><th>تلفن</th><th>وضعیت</th></tr></thead>
+        <tbody>
+        {% for tech in technicians %}
+          <tr>
+            <td>{{ tech.display_name }}</td>
+            <td class="ltr">{{ tech.username }}</td>
+            <td class="ltr">{{ tech.phone|default:"—" }}</td>
+            <td>{% if tech.is_active %}<span class="badge badge-success">فعال</span>{% else %}<span class="badge badge-neutral">غیرفعال</span>{% endif %}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4">{% include "partials/empty.html" with text="کارشناسی ثبت نشده است." %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">آخرین بازدیدهای دوره‌ای</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>شماره</th><th>قرارداد</th><th>تاریخ</th><th>وضعیت</th></tr></thead>
+        <tbody>
+        {% for visit in visits %}
+          <tr>
+            <td><a href="{% url 'maintenance:visit_detail' visit.pk %}">{{ visit.number }}</a></td>
+            <td>{{ visit.contract.number }}</td>
+            <td>{{ visit.scheduled_date|jdate }}</td>
+            <td><span class="badge badge-{{ visit.status|visits_status_css }}">{{ visit.get_status_display }}</span></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4">{% include "partials/empty.html" %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

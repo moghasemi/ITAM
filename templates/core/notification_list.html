@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-ghost {% if unread_only %}active{% endif %}" href="?unread=1">فقط خوانده‌نشده‌ها</a>
+  <a class="btn btn-ghost" href="{% url 'core:notification_list' %}">همه اعلان‌ها</a>
+  <form method="post" action="{% url 'core:notifications_read_all' %}" class="inline-form">{% csrf_token %}
+    <button class="btn btn-primary" type="submit">علامت‌گذاری همه به‌عنوان خوانده‌شده</button>
+  </form>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-head"><h2 class="card-title">کارتابل اعلان‌ها</h2></div>
+  <div class="card-body">
+    <ul class="timeline">
+      {% for note in notifications %}
+        <li class="{% if note.is_read %}is-done{% else %}is-current{% endif %}">
+          <div class="time-label">
+            <a href="{% url 'core:notification_read' note.pk %}">{{ note.title }}</a>
+            <span class="badge badge-{{ note.level }}">{{ note.get_level_display }}</span>
+          </div>
+          <div class="time-value">{{ note.created_at|jdatetime }} — {{ note.created_at|rel }}</div>
+          {% if note.message %}<div>{{ note.message }}</div>{% endif %}
+        </li>
+      {% empty %}
+        <li>{% include "partials/empty.html" with text="اعلانی وجود ندارد." icon="🔔" %}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

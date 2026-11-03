@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<form method="post">
+  {% csrf_token %}
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">مشخصات قرارداد</h2></div>
+    <div class="card-body">
+      <div class="form-grid">
+        {% include "partials/form_fields.html" with form=form %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">تعهدات زمانی پیمانکار (SLA)</h2>
+      <span class="muted small">زمان‌ها بر مبنای دقیقه کاری محاسبه می‌شوند.</span>
+    </div>
+    <div class="card-body">
+      {% include "partials/formset.html" with formset=sla_formset title="سیاست‌های SLA به تفکیک اولویت" add_label="افزودن اولویت" %}
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary btn-lg">ذخیره قرارداد</button>
+    <a class="btn btn-ghost" href="{% url 'org:contract_list' %}">بازگشت</a>
+  </div>
+</form>
+{% endblock %}

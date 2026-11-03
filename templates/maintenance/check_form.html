@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-ghost" href="{% url 'maintenance:visit_detail' visit.pk %}">بازگشت به برگه بازدید</a>
+  <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">شناسنامه تجهیز</a>
+  {% if asset.requires_component_tracking %}
+    <a class="btn btn-secondary" href="{% url 'assets:detail' asset.pk %}?focus=hardware">🔧 بازبینی اقلام سخت‌افزاری</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">مشخصات تجهیز</h2></div>
+    <div class="card-body">
+      <div class="kv">
+        <div class="k">شماره اموال</div><div>{{ asset.asset_tag }}</div>
+        <div class="k">عنوان</div><div>{{ asset.display_name }}</div>
+        <div class="k">گونه</div><div>{{ asset.category.name }}</div>
+        <div class="k">برند / مدل</div><div>{{ asset.brand }} {{ asset.model_name }}</div>
+        <div class="k">سریال</div><div class="ltr">{{ asset.serial_number|default:"—" }}</div>
+        <div class="k">محل استقرار</div><div>{{ asset.location.full_label|default:"—" }}</div>
+        <div class="k">امانت‌دار</div><div>{{ asset.custodian.display_name|default:"—" }}</div>
+        <div class="k">وضعیت فعلی</div><div><span class="badge badge-{{ asset.status_css }}">{{ asset.get_status_display }}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">ثبت نتیجه بازدید</h2>
+      <span class="muted small">بازدید {{ visit.number }}</span>
+    </div>
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% include "partials/form_fields.html" with form=form %}
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-lg">ذخیره برگه بازدید</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="{% url 'accounts:user_update' object.pk %}">ویرایش</a>
+  <a class="btn btn-ghost" href="{% url 'accounts:user_password' object.pk %}">تعیین گذرواژه</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">اطلاعات کاربر</h2></div>
+    <div class="card-body">
+      <div class="kv">
+        <div class="k">نام</div><div>{{ object.display_name }}</div>
+        <div class="k">نام کاربری</div><div class="ltr">{{ object.username }}</div>
+        <div class="k">نقش</div><div><span class="badge badge-{{ object.role_css }}">{{ object.role_label }}</span></div>
+        <div class="k">وضعیت</div><div>{{ object.is_active|yesno_fa }}</div>
+        <div class="k">واحد سازمانی</div><div>{{ object.department.name|default:"—" }}</div>
+        <div class="k">پیمانکار</div><div>{{ object.contractor.name|default:"—" }}</div>
+        <div class="k">تلفن</div><div class="ltr">{{ object.phone|default:"—" }}</div>
+        <div class="k">رایانامه</div><div class="ltr">{{ object.email|default:"—" }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">فعالیت‌های اخیر این کاربر</h2></div>
+    <div class="card-body">
+      <ul class="timeline">
+        {% for log in object.audit_logs.all|slice:":15" %}
+          <li class="is-done">
+            <div class="time-label">{{ log.get_action_display }} — {{ log.model_name }}</div>
+            <div class="time-value">{{ log.created_at|jdatetime }} — {{ log.object_label|default:"" }}</div>
+          </li>
+        {% empty %}
+          <li>فعالیتی ثبت نشده است.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">درخواست‌های اعلام‌شده</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>شماره</th><th>عنوان</th><th>وضعیت</th><th>اعلام</th></tr></thead>
+        <tbody>
+        {% for ticket in object.reported_tickets.all|slice:":10" %}
+          <tr>
+            <td><a href="{% url 'tickets:detail' ticket.pk %}">{{ ticket.number }}</a></td>
+            <td>{{ ticket.title }}</td>
+            <td><span class="badge badge-{{ ticket.status_css }}">{{ ticket.get_status_display }}</span></td>
+            <td>{{ ticket.reported_at|jdate }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4">{% include "partials/empty.html" %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">دارایی‌های تحت امانت</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>شماره اموال</th><th>عنوان</th><th>وضعیت</th></tr></thead>
+        <tbody>
+        {% for asset in object.custodied_assets.all|slice:":10" %}
+          <tr>
+            <td><a href="{% url 'assets:detail' asset.pk %}">{{ asset.asset_tag }}</a></td>
+            <td>{{ asset.display_name }}</td>
+            <td><span class="badge badge-{{ asset.status_css }}">{{ asset.get_status_display }}</span></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3">{% include "partials/empty.html" %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% load itam_tags %}
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="pagination">
+  <div class="pagination-info">
+    صفحه {{ page_obj.number|fa }} از {{ page_obj.paginator.num_pages|fa }}
+    — مجموع {{ page_obj.paginator.count|fa }} رکورد
+  </div>
+  <div class="pagination-links">
+    {% if page_obj.has_previous %}
+      <a class="btn btn-ghost btn-sm" href="{% query_replace page=1 %}">اول</a>
+      <a class="btn btn-ghost btn-sm" href="{% query_replace page=page_obj.previous_page_number %}">قبلی</a>
+    {% endif %}
+    {% if page_obj.has_next %}
+      <a class="btn btn-ghost btn-sm" href="{% query_replace page=page_obj.next_page_number %}">بعدی</a>
+      <a class="btn btn-ghost btn-sm" href="{% query_replace page=page_obj.paginator.num_pages %}">آخر</a>
+    {% endif %}
+  </div>
+</nav>
+{% elif page_obj %}
+  <div class="pagination-info">مجموع {{ page_obj.paginator.count|fa }} رکورد</div>
+{% endif %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  {% if can_manage %}
+    <form method="post" action="{% url 'integrations:dispatch_now' %}" class="inline-form">{% csrf_token %}
+      <button class="btn btn-primary" type="submit">🚀 ارسال رخدادهای در انتظار</button>
+    </form>
+    <form method="post" action="{% url 'integrations:requeue_all' %}" class="inline-form"
+          data-confirm="همه رخدادهای متوقف‌شده به صف بازگردند؟">{% csrf_token %}
+      <button class="btn btn-ghost" type="submit">♻️ بازگردانی رخدادهای متوقف</button>
+    </form>
+    <a class="btn btn-ghost" href="{% url 'integrations:endpoint_list' %}">مقصدهای ارسال</a>
+    <a class="btn btn-ghost" href="{% url 'integrations:api_call_list' %}">لاگ ارسال</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="alert alert-info">
+  <span>
+    تمام رخدادهای سامانه (اعلام خرابی، حضور، اعلام رفع، تاییدها، تغییر اقلام سخت‌افزاری و بازدیدها) ابتدا در
+    صف داخلی ثبت می‌شوند و سپس به سامانه مدیریت ارسال می‌گردند. قطعی شبکه باعث گم‌شدن اطلاعات نمی‌شود.
+  </span>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card is-warning"><div class="stat-icon">⏳</div><div>
+    <div class="stat-value">{{ stats.pending|fa }}</div><div class="stat-label">در انتظار ارسال</div></div></div>
+  <div class="stat-card is-success"><div class="stat-icon">✅</div><div>
+    <div class="stat-value">{{ stats.sent|fa }}</div><div class="stat-label">ارسال‌شده</div></div></div>
+  <div class="stat-card is-danger"><div class="stat-icon">⚠️</div><div>
+    <div class="stat-value">{{ stats.failed|add:stats.dead|fa }}</div><div class="stat-label">خطا / متوقف</div></div></div>
+  <div class="stat-card"><div class="stat-icon">🔗</div><div>
+    <div class="stat-value">{{ endpoints|length|fa }}</div><div class="stat-label">مقصد تعریف‌شده</div></div></div>
+  <div class="stat-card"><div class="stat-icon">📦</div><div>
+    <div class="stat-value">{{ stats.total|fa }}</div><div class="stat-label">کل رخدادها</div></div></div>
+</div>
+
+<div class="mt-2">{% include "partials/filter_bar.html" %}</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead>
+        <tr><th>زمان</th><th>نوع رخداد</th><th>موجودیت</th><th>کاربر عامل</th><th>وضعیت</th>
+            <th>تلاش</th><th>آخرین خطا</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for event in object_list %}
+        <tr>
+          <td class="nowrap">{{ event.created_at|jdatetime }}</td>
+          <td>{{ event.get_event_type_display }}</td>
+          <td>
+            {% if event.aggregate_type == 'Ticket' %}
+              <a href="{% url 'tickets:detail' event.aggregate_id %}">{{ event.aggregate_type }} #{{ event.aggregate_id|fa }}</a>
+            {% elif event.aggregate_type == 'Asset' %}
+              <a href="{% url 'assets:detail' event.aggregate_id %}">{{ event.aggregate_type }} #{{ event.aggregate_id|fa }}</a>
+            {% elif event.aggregate_type == 'HardwareSnapshot' %}
+              <a href="{% url 'assets:snapshot_detail' event.aggregate_id %}">اسنپ‌شات #{{ event.aggregate_id|fa }}</a>
+            {% elif event.aggregate_type == 'MaintenanceVisit' %}
+              <a href="{% url 'maintenance:visit_detail' event.aggregate_id %}">بازدید #{{ event.aggregate_id|fa }}</a>
+            {% else %}{{ event.aggregate_type|default:"—" }}{% endif %}
+          </td>
+          <td>{{ event.actor_label|default:"سامانه" }}</td>
+          <td><span class="badge badge-{{ event.status_css }}">{{ event.get_status_display }}</span></td>
+          <td>{{ event.attempts|fa }}</td>
+          <td class="small">{{ event.last_error|default:"—"|truncatechars:60 }}</td>
+          <td class="table-actions">
+            <a class="btn btn-ghost btn-sm" href="{% url 'integrations:outbox_detail' event.pk %}">جزئیات</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8">{% include "partials/empty.html" with text="رخدادی ثبت نشده است." %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+</div>
+{% endblock %}

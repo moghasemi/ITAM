@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="{% url 'org:location_create' %}">➕ افزودن محل</a>
+  <a class="btn btn-ghost" href="{% url 'org:department_list' %}">واحدهای سازمانی</a>
+{% endblock %}
+
+{% block content %}
+<form method="get" class="filter-bar">
+  <div class="filter-field">
+    <label class="filter-label">جستجو</label>
+    <input class="input" type="search" name="q" value="{{ request.GET.q|default:'' }}">
+  </div>
+  <div class="filter-actions"><button class="btn btn-primary" type="submit">جستجو</button></div>
+</form>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>عنوان محل</th><th>ساختمان</th><th>طبقه</th><th>اتاق</th><th>کد</th><th>تعداد دارایی</th><th></th></tr></thead>
+      <tbody>
+      {% for item in object_list %}
+        <tr>
+          <td>{{ item.name }}</td>
+          <td>{{ item.building|default:"—" }}</td>
+          <td>{{ item.floor|default:"—" }}</td>
+          <td>{{ item.room|default:"—" }}</td>
+          <td>{{ item.code|default:"—" }}</td>
+          <td><span class="badge badge-primary">{{ item.assets_total|fa }}</span></td>
+          <td class="table-actions">
+            <a class="btn btn-ghost btn-sm" href="{% url 'org:location_update' item.pk %}">ویرایش</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'assets:list' %}?location={{ item.pk }}">دارایی‌ها</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7">{% include "partials/empty.html" %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+</div>
+{% endblock %}

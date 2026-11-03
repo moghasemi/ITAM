@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-ghost" href="{% url 'maintenance:visit_print' object.pk %}" target="_blank">🖨 برگه چاپی</a>
+  <a class="btn btn-ghost" href="{% url 'org:contract_detail' object.contract_id %}">پرونده قرارداد</a>
+  {% if can_manage and object.status == 'planned' %}
+    <form method="post" action="{% url 'maintenance:visit_start' object.pk %}" class="inline-form">{% csrf_token %}
+      <button class="btn btn-primary" type="submit">▶️ شروع بازدید</button>
+    </form>
+  {% endif %}
+  {% if can_manage and object.status != 'done' %}
+    <form method="post" action="{% url 'maintenance:visit_bulk_healthy' object.pk %}" class="inline-form"
+          data-confirm="برگه‌های بازدیدشده‌نشده با وضعیت «سالم» ثبت شوند؟">{% csrf_token %}
+      <button class="btn btn-secondary" type="submit">⚡ ثبت گروهی وضعیت سالم</button>
+    </form>
+  {% endif %}
+  {% if user.is_admin_it and object.status == 'done' and not object.it_confirmed_at %}
+    <form method="post" action="{% url 'maintenance:visit_confirm' object.pk %}" class="inline-form"
+          data-confirm="این بازدید تایید شود؟">{% csrf_token %}
+      <button class="btn btn-success" type="submit">✅ تایید بازدید</button>
+    </form>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+{% if object.is_overdue %}
+  <div class="alert alert-danger">
+    <span>⏰ این بازدید {{ object.days_late|fa }} روز از مهلت خود گذشته و انجام نشده است.</span>
+  </div>
+{% endif %}
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-icon">🗓</div>
+    <div><div class="stat-value">{{ object.number }}</div><div class="stat-label">{{ object.period_label }}</div></div>
+  </div>
+  <div class="stat-card is-info">
+    <div class="stat-icon">📋</div>
+    <div><div class="stat-value">{{ stats.done|fa }} / {{ stats.total|fa }}</div><div class="stat-label">تجهیز بازدیدشده</div></div>
+  </div>
+  <div class="stat-card {% if stats.faulty %}is-warning{% else %}is-success{% endif %}">
+    <div class="stat-icon">🔧</div>
+    <div><div class="stat-value">{{ stats.faulty|fa }}</div><div class="stat-label">تجهیز دارای ایراد</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">⏱</div>
+    <div><div class="stat-value">{{ object.duration_minutes|dur }}</div><div class="stat-label">مدت بازدید</div></div>
+  </div>
+  <div class="stat-card {% if object.it_confirmed_at %}is-success{% else %}is-warning{% endif %}">
+    <div class="stat-icon">✍️</div>
+    <div>
+      <div class="stat-value">{% if object.it_confirmed_at %}تاییدشده{% else %}در انتظار{% endif %}</div>
+      <div class="stat-label">تایید کارشناس IT</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-2 mt-2">
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">اطلاعات بازدید</h2>
+      <span class="badge badge-{{ object.status|visits_status_css }}">{{ object.get_status_display }}</span>
+    </div>
+    <div class="card-body">
+      <div class="kv">
+        <div class="k">قرارداد</div><div><a href="{% url 'org:contract_detail' object.contract_id %}">{{ object.contract.number }}</a></div>
+        <div class="k">پیمانکار</div><div>{{ object.contract.contractor.name }}</div>
+        <div class="k">تاریخ برنامه‌ریزی‌شده</div><div>{{ object.scheduled_date|jdate_full }}</div>
+        <div class="k">آخرین مهلت انجام</div><div>{{ object.scheduled_end_date|jdate_full }}</div>
+        <div class="k">شماره نوبت در قرارداد</div><div>{{ object.sequence_number|fa }} از {{ object.contract.planned_visit_count|fa }}</div>
+        <div class="k">کارشناس بازدیدکننده</div><div>{{ object.technician.display_name|default:"—" }}</div>
+        <div class="k">زمان شروع</div><div>{{ object.started_at|jdatetime|default:"—" }}</div>
+        <div class="k">زمان پایان</div><div>{{ object.finished_at|jdatetime|default:"—" }}</div>
+        <div class="k">امضاکننده پیمانکار</div><div>{{ object.technician_signature_name|default:"—" }}</div>
+        <div class="k">تایید کارشناس IT</div>
+        <div>{{ object.it_confirmed_by.display_name|default:"—" }}{% if object.it_confirmed_at %} — {{ object.it_confirmed_at|jdatetime }}{% endif %}</div>
+      </div>
+      {% if object.report_text %}
+        <h3 class="section-title mt-2">گزارش بازدید</h3>
+        <div class="small">{{ object.report_text|linebreaksbr }}</div>
+      {% endif %}
+      {% if object.recommendation %}
+        <h3 class="section-title mt-2">پیشنهادها و موارد نیازمند اقدام</h3>
+        <div class="small">{{ object.recommendation|linebreaksbr }}</div>
+      {% endif %}
+      {% if object.it_note %}<p class="highlight-warning mt-1">یادداشت کارشناس IT: {{ object.it_note }}</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">خلاصه وضعیت تجهیزات</h2></div>
+    <div class="card-body">
+      <div class="kv">
+        {% for label, count in stats.conditions.items %}
+          <div class="k">{{ label }}</div><div>{{ count|fa }} تجهیز</div>
+        {% endfor %}
+        <div class="k">پیشرفت بازدید</div>
+        <div>{% progress_bar stats.done stats.total %}<span class="small muted">{{ stats.percent|fa }}٪</span></div>
+      </div>
+
+      {% if can_manage and object.status != 'done' %}
+        <h3 class="section-title mt-2">پایان بازدید</h3>
+        <form method="post" action="{% url 'maintenance:visit_complete' object.pk %}">
+          {% csrf_token %}
+          {% include "partials/form_fields.html" with form=complete_form %}
+          <button class="btn btn-success" type="submit"
+                  data-confirm="بازدید پایان یابد و برای تایید ارسال شود؟">پایان بازدید</button>
+        </form>
+      {% endif %}
+
+      {% if user.is_admin_it and object.status == 'done' and not object.it_confirmed_at %}
+        <h3 class="section-title mt-2">تایید کارشناس IT</h3>
+        <form method="post" action="{% url 'maintenance:visit_confirm' object.pk %}">
+          {% csrf_token %}
+          {% include "partials/form_fields.html" with form=confirm_form %}
+          <button class="btn btn-success" type="submit">تایید بازدید</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2 class="card-title">برگه‌های بازدید تجهیزات</h2>
+    <span class="muted small">برای ثبت نتیجه هر تجهیز روی «ثبت برگه» بزنید.</span>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>شماره اموال</th><th>تجهیز</th><th>محل</th><th>بازدید</th><th>وضعیت تجهیز</th>
+          <th>خدمات انجام‌شده</th><th>قطعات تعویضی</th><th>اسنپ‌شات</th><th>زمان ثبت</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for check in checks %}
+        <tr class="{% if check.checked and check.condition != 'healthy' %}is-warning{% endif %}">
+          <td><a href="{% url 'assets:detail' check.asset_id %}">{{ check.asset.asset_tag }}</a></td>
+          <td>{{ check.asset.display_name|truncatechars:30 }}</td>
+          <td>{{ check.asset.location.full_label|default:"—" }}</td>
+          <td>
+            {% if check.checked %}<span class="badge badge-success">انجام شد</span>
+            {% else %}<span class="badge badge-warning">در انتظار</span>{% endif %}
+          </td>
+          <td><span class="badge badge-{{ check.condition_css }}">{{ check.get_condition_display }}</span></td>
+          <td class="small">{{ check.actions_taken|default:"—"|truncatechars:50 }}</td>
+          <td class="small">{{ check.parts_replaced|default:"—"|truncatechars:30 }}</td>
+          <td>
+            {% if check.hardware_snapshot %}
+              <a href="{% url 'assets:snapshot_detail' check.hardware_snapshot_id %}">نسخه {{ check.hardware_snapshot.version|fa }}</a>
+            {% else %}—{% endif %}
+          </td>
+          <td class="nowrap">{{ check.checked_at|jdatetime|default:"—" }}</td>
+          <td class="table-actions">
+            {% if can_manage %}
+              <a class="btn btn-ghost btn-sm" href="{% url 'maintenance:check_edit' check.pk %}">ثبت برگه</a>
+            {% endif %}
+            {% if check.asset.requires_component_tracking %}
+              <a class="btn btn-ghost btn-sm" href="{% url 'assets:detail' check.asset_id %}?focus=hardware">اقلام</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="10">{% include "partials/empty.html" with text="تجهیزی به این قرارداد متصل نیست." %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

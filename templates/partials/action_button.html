@@ -1,0 +1,6 @@
+{% comment %}دکمه اقدام POST با تاییدیه. پارامترها: action، label، css، confirm{% endcomment %}
+<form method="post" action="{{ action }}" class="inline-form"
+      {% if confirm %}data-confirm="{{ confirm }}"{% endif %}>
+  {% csrf_token %}
+  <button type="submit" class="btn btn-{{ css|default:'primary' }}">{{ label }}</button>
+</form>

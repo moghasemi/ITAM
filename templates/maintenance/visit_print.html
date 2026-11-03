@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block content %}
+<div class="card">
+  <div class="card-head">
+    <h2 class="card-title">برگه بازدید دوره‌ای {{ visit.number }}</h2>
+    <button class="btn btn-primary no-print" type="button" data-print>🖨 چاپ</button>
+  </div>
+  <div class="card-body">
+    <div class="kv">
+      <div class="k">قرارداد</div><div>{{ visit.contract.number }} — {{ visit.contract.title }}</div>
+      <div class="k">پیمانکار</div><div>{{ visit.contract.contractor.name }}</div>
+      <div class="k">دوره</div><div>{{ visit.period_label }} (نوبت {{ visit.sequence_number|fa }})</div>
+      <div class="k">تاریخ برنامه‌ریزی‌شده</div><div>{{ visit.scheduled_date|jdate_full }}</div>
+      <div class="k">آخرین مهلت</div><div>{{ visit.scheduled_end_date|jdate_full }}</div>
+      <div class="k">کارشناس بازدیدکننده</div><div>{{ visit.technician.display_name|default:"—" }}</div>
+      <div class="k">زمان شروع / پایان</div>
+      <div>{{ visit.started_at|jdatetime|default:"—" }} — {{ visit.finished_at|jdatetime|default:"—" }}</div>
+      <div class="k">وضعیت</div><div>{{ visit.get_status_display }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">فهرست تجهیزات بررسی‌شده</h2></div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>#</th><th>شماره اموال</th><th>تجهیز</th><th>محل</th><th>وضعیت</th>
+            <th>خدمات انجام‌شده</th><th>قطعات تعویضی</th><th>بازدید بعدی</th></tr>
+      </thead>
+      <tbody>
+      {% for check in checks %}
+        <tr>
+          <td>{{ forloop.counter|fa }}</td>
+          <td>{{ check.asset.asset_tag }}</td>
+          <td>{{ check.asset.display_name }}</td>
+          <td>{{ check.asset.location.full_label|default:"—" }}</td>
+          <td>{{ check.get_condition_display }}</td>
+          <td>{{ check.actions_taken|default:"—" }}</td>
+          <td>{{ check.parts_replaced|default:"—" }}</td>
+          <td>{{ check.next_due_date|jdate|default:"—" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">گزارش و امضاها</h2></div>
+  <div class="card-body">
+    <p><strong>گزارش بازدید:</strong> {{ visit.report_text|default:"—"|linebreaksbr }}</p>
+    <p><strong>پیشنهادها:</strong> {{ visit.recommendation|default:"—"|linebreaksbr }}</p>
+    <div class="grid grid-3 mt-2">
+      <div>کارشناس پیمانکار:
+        {% if visit.technician_signature_name %}{{ visit.technician_signature_name }}
+        {% elif visit.technician %}{{ visit.technician.display_name }}
+        {% else %}—{% endif %}
+        <br><span class="muted small">امضا:</span></div>
+      <div>کارشناس فناوری اطلاعات مرکز: {{ visit.it_confirmed_by.display_name|default:"—" }}<br><span class="muted small">امضا:</span></div>
+      <div>مدیر واحد: ....................<br><span class="muted small">امضا:</span></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

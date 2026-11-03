@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-ghost" href="{% url 'tickets:print' ticket.pk %}" target="_blank">🖨 نسخه چاپی</a>
+  <a class="btn btn-ghost" href="{% url 'assets:detail' ticket.asset_id %}">شناسنامه تجهیز</a>
+  {% if is_it or is_manager_side %}
+    <a class="btn btn-ghost" href="{% url 'assets:hardware_report' %}">گزارش تغییر اقلام</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-icon">🛠</div>
+    <div><div class="stat-value">{{ ticket.number }}</div><div class="stat-label">شماره درخواست</div></div>
+  </div>
+  <div class="stat-card is-{{ ticket.priority_css }}">
+    <div class="stat-icon">⚡</div>
+    <div><div class="stat-value">{{ ticket.priority_label }}</div><div class="stat-label">اولویت</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">📌</div>
+    <div><div class="stat-value">{{ ticket.get_status_display }}</div><div class="stat-label">وضعیت جاری</div></div>
+  </div>
+  <div class="stat-card {% if sla.response_state == 'breached' or sla.resolve_state == 'breached' %}is-danger{% else %}is-success{% endif %}">
+    <div class="stat-icon">⏱</div>
+    <div>
+      <div class="stat-value">{{ ticket.response_minutes_used|dur }}</div>
+      <div class="stat-label">زمان تا حضور در محل</div>
+    </div>
+  </div>
+  <div class="stat-card is-info">
+    <div class="stat-icon">🔧</div>
+    <div>
+      <div class="stat-value">{{ ticket.resolve_minutes_used|dur }}</div>
+      <div class="stat-label">زمان تا اعلام رفع</div>
+    </div>
+  </div>
+  {% if ticket.paused_minutes %}
+    <div class="stat-card is-warning">
+      <div class="stat-icon">⏸</div>
+      <div><div class="stat-value">{{ ticket.paused_minutes|dur }}</div><div class="stat-label">توقف ساعت SLA</div></div>
+    </div>
+  {% endif %}
+</div>
+
+<div class="steps mt-2">
+  {% for step in steps %}
+    <div class="step {% if step.done %}is-done{% elif step.active %}is-active{% endif %}">
+      {% if step.done %}✓ {% endif %}{{ step.label }}
+    </div>
+  {% endfor %}
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">اطلاعات درخواست</h2>
+      <span class="badge badge-{{ ticket.status_css }}">{{ ticket.get_status_display }}</span>
+    </div>
+    <div class="card-body">
+      <div class="kv">
+        <div class="k">تجهیز</div>
+        <div><a href="{% url 'assets:detail' ticket.asset_id %}">{{ ticket.asset.asset_tag }}</a> — {{ ticket.asset.display_name }}</div>
+        <div class="k">محل استقرار</div><div>{{ ticket.asset.location.full_label|default:"—" }}</div>
+        <div class="k">واحد سازمانی</div><div>{{ ticket.asset.department.name|default:"—" }}</div>
+        <div class="k">عنوان خرابی</div><div>{{ ticket.title }}</div>
+        <div class="k">نوع خرابی</div><div>{{ ticket.get_failure_type_display|default:"—" }}</div>
+        <div class="k">شرح خرابی</div><div>{{ ticket.description|linebreaksbr }}</div>
+        <div class="k">اعلام‌کننده</div><div>{{ ticket.reporter_label }}{% if ticket.reporter_phone %} — <span class="ltr">{{ ticket.reporter_phone }}</span>{% endif %}</div>
+        <div class="k">قرارداد</div><div>{{ ticket.contract|default:"—" }}</div>
+        <div class="k">پیمانکار</div><div>{{ ticket.assigned_contractor.name|default:"—" }}</div>
+        <div class="k">کارشناس مسئول</div><div>{{ ticket.assigned_technician.display_name|default:"—" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">خط زمان SLA</h2>
+      {% if sla.is_paused %}<span class="badge badge-warning">ساعت متوقف است</span>{% endif %}
+    </div>
+    <div class="card-body">
+      <ul class="timeline">
+        {% for point in timeline %}
+          <li class="{% if point.done %}is-done{% endif %}">
+            <div class="time-label">{{ point.label }}</div>
+            <div class="time-value">
+              {% if point.at %}{{ point.at|jdatetime }} — {{ point.at|rel }}{% else %}در انتظار ثبت{% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+      <div class="kv mt-2">
+        <div class="k">مهلت حضور</div>
+        <div>{{ sla.response_due_at|jdatetime|default:"—" }}</div>
+        <div class="k">مهلت رفع</div>
+        <div>{{ sla.resolve_due_at|jdatetime|default:"—" }}</div>
+        <div class="k">وضعیت SLA پاسخ</div>
+        <div>{% sla_badge sla.response_state %}</div>
+        <div class="k">وضعیت SLA رفع</div>
+        <div>{% sla_badge sla.resolve_state %}</div>
+        <div class="k">مدت کل چرخه</div>
+        <div>{{ ticket.total_minutes_display }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if is_manager_side or can_user_confirm or is_it %}
+<div class="card">
+  <div class="card-head"><h2 class="card-title">اقدام‌های گردش کار</h2></div>
+  <div class="card-body">
+    <div class="grid grid-2">
+
+      {% if is_manager_side and ticket.status == 'reported' %}
+        <form method="post" action="{% url 'tickets:acknowledge' ticket.pk %}" class="card">
+          {% csrf_token %}
+          <div class="card-body">
+            <h3 class="section-title">پذیرش درخواست (پیمانکار)</h3>
+            <textarea class="textarea" name="note" rows="2" placeholder="یادداشت پذیرش (اختیاری)"></textarea>
+            <div class="form-actions"><button class="btn btn-primary" type="submit">پذیرش درخواست</button></div>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if is_manager_side and not ticket.arrived_at and ticket.status != 'resolved' %}
+        <form method="post" action="{% url 'tickets:arrive' ticket.pk %}" class="card">
+          {% csrf_token %}
+          <div class="card-body">
+            <h3 class="section-title">ثبت حضور در محل</h3>
+            <p class="small muted">با ثبت این مورد، «زمان پاسخ» پیمانکار محاسبه و با تعهد SLA مقایسه می‌شود.</p>
+            <textarea class="textarea" name="note" rows="2" placeholder="توضیح حضور"></textarea>
+            <label class="checkbox-label mt-1">
+              <input type="checkbox" name="parts_wait" value="1"> پس از حضور، ساعت SLA به دلیل انتظار قطعه متوقف شود
+            </label>
+            <div class="form-actions"><button class="btn btn-primary" type="submit">ثبت حضور</button></div>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if is_manager_side and ticket.status == 'acknowledged' or is_manager_side and ticket.status == 'waiting_parts' %}
+        <form method="post" action="{% url 'tickets:start' ticket.pk %}" class="card">
+          {% csrf_token %}
+          <div class="card-body">
+            <h3 class="section-title">شروع تعمیر</h3>
+            <textarea class="textarea" name="note" rows="2" placeholder="توضیح شروع کار"></textarea>
+            <div class="form-actions"><button class="btn btn-secondary" type="submit">شروع تعمیر</button></div>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if is_manager_side and not sla.is_paused and ticket.is_open %}
+        <form method="post" action="{% url 'tickets:pause' ticket.pk %}" class="card">
+          {% csrf_token %}
+          <div class="card-body">
+            <h3 class="section-title">توقف ساعت SLA</h3>
+            <select class="select" name="reason">
+              <option value="awaiting_parts">انتظار تامین قطعه</option>
+              <option value="awaiting_approval">انتظار تایید</option>
+              <option value="awaiting_user">انتظار همکاری کاربر</option>
+              <option value="site_not_accessible">عدم دسترسی به محل</option>
+              <option value="other">سایر</option>
+            </select>
+            <textarea class="textarea mt-1" name="note" rows="2" placeholder="توضیح"></textarea>
+            <div class="form-actions"><button class="btn btn-warning" type="submit">توقف ساعت</button></div>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if is_manager_side and sla.is_paused %}
+        <form method="post" action="{% url 'tickets:resume' ticket.pk %}" class="card">
+          {% csrf_token %}
+          <div class="card-body">
+            <h3 class="section-title">ادامه شمارش ساعت SLA</h3>
+            <textarea class="textarea" name="note" rows="2" placeholder="توضیح"></textarea>
+            <div class="form-actions"><button class="btn btn-secondary" type="submit">ادامه شمارش</button></div>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if is_manager_side and ticket.status == 'acknowledged' or is_manager_side and ticket.status == 'in_progress' or is_manager_side and ticket.status == 'waiting_parts' %}
+        <form method="post" action="{% url 'tickets:resolve' ticket.pk %}" class="card">
+          {% csrf_token %}
+          <div class="card-body">
+            <h3 class="section-title">اعلام رفع خرابی (پیمانکار)</h3>
+            <label class="form-label">علت خرابی <span class="req">*</span></label>
+            <textarea class="textarea" name="root_cause" rows="2" required></textarea>
+            <label class="form-label mt-1">اقدام انجام‌شده <span class="req">*</span></label>
+            <textarea class="textarea" name="action_taken" rows="3" required></textarea>
+            <label class="form-label mt-1">قطعات مصرف/تعویض‌شده</label>
+            <input class="input" type="text" name="parts_text" placeholder="مثال: رم ۴ گیگابایت تعویض شد">
+            <label class="form-label mt-1">توضیح تکمیلی</label>
+            <textarea class="textarea" name="note" rows="2"></textarea>
+            <div class="form-actions">
+              <button class="btn btn-success" type="submit"
+                      data-confirm="اعلام رفع خرابی ثبت شود؟ پس از این، تایید کاربر و کارشناس IT لازم است.">
+                اعلام رفع خرابی
+              </button>
+            </div>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if ticket.status == 'resolved' and can_user_confirm %}
+        <form method="post" action="{% url 'tickets:user_confirm' ticket.pk %}" class="card">
+          {% csrf_token %}
+          <div class="card-body">
+            <h3 class="section-title">تایید رفع خرابی توسط کاربر</h3>
+            <p class="small muted">اگر مشکل برطرف شده است، تایید کنید؛ در غیر این صورت «مشکل برطرف نشده» را ثبت کنید.</p>
+            <textarea class="textarea" name="note" rows="2" placeholder="یادداشت (اختیاری)"></textarea>
+            <label class="form-label mt-1">میزان رضایت</label>
+            <select class="select" name="satisfaction">
+              <option value="">— انتخاب کنید —</option>
+              <option value="5">بسیار خوب</option>
+              <option value="4">خوب</option>
+              <option value="3">متوسط</option>
+              <option value="2">ضعیف</option>
+              <option value="1">بسیار ضعیف</option>
+            </select>
+            <div class="form-actions"><button class="btn btn-success" type="submit">تایید رفع خرابی</button></div>
+          </div>
+        </form>
+
+        <form method="post" action="{% url 'tickets:user_reject' ticket.pk %}" class="card">
+          {% csrf_token %}
+          <div class="card-body">
+            <h3 class="section-title">مشکل برطرف نشده است</h3>
+            <textarea class="textarea" name="reason" rows="3" placeholder="توضیح دهید کدام مشکل باقی است" required></textarea>
+            <div class="form-actions">
+              <button class="btn btn-danger" type="submit" data-confirm="درخواست به جریان رسیدگی بازگردد؟">ثبت عدم تایید</button>
+            </div>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if is_it and ticket.status == 'resolved' or is_it and ticket.status == 'user_confirmed' %}
+        <form method="post" action="{% url 'tickets:it_confirm' ticket.pk %}" class="card">
+          {% csrf_token %}
+          <div class="card-body">
+            <h3 class="section-title">تایید نهایی کارشناس فناوری اطلاعات</h3>
+            <textarea class="textarea" name="note" rows="2" placeholder="یادداشت کارشناس"></textarea>
+            <div class="form-actions">
+              <button class="btn btn-success" type="submit" data-confirm="تایید نهایی و بستن درخواست؟">تایید نهایی و بستن</button>
+            </div>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if ticket.is_open and is_it or ticket.is_open and is_manager_side %}
+        <form method="post" action="{% url 'tickets:cancel' ticket.pk %}" class="card">
+          {% csrf_token %}
+          <div class="card-body">
+            <h3 class="section-title">لغو / رد درخواست</h3>
+            <textarea class="textarea" name="reason" rows="2" placeholder="دلیل لغو" required></textarea>
+            <div class="form-actions">
+              <button class="btn btn-danger" type="submit" data-confirm="این درخواست لغو شود؟">لغو درخواست</button>
+            </div>
+          </div>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">رخدادهای درخواست (منبع محاسبه SLA)</h2></div>
+    <div class="card-body">
+      <ul class="timeline">
+        {% for event in events %}
+          <li class="{% if forloop.last %}is-current{% else %}is-done{% endif %}">
+            <div class="time-label">{{ event.get_event_type_display }}</div>
+            <div class="time-value">{{ event.at|jdatetime }} — {{ event.actor_label|default:"سامانه" }}</div>
+            {% if event.note %}<div class="small">{{ event.note|linebreaksbr }}</div>{% endif %}
+            {% if event.from_status or event.to_status %}
+              <div class="small muted">
+                {{ event.from_status|default:"—" }} ← {{ event.to_status|default:"—" }}
+              </div>
+            {% endif %}
+          </li>
+        {% empty %}
+          <li>رخدادی ثبت نشده است.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><h2 class="card-title">توقف‌های ساعت SLA</h2></div>
+      <div class="table-wrap">
+        <table class="table compact">
+          <thead><tr><th>دلیل</th><th>شروع</th><th>پایان</th><th>مدت</th><th>ثبت‌کننده</th></tr></thead>
+          <tbody>
+          {% for pause in pauses %}
+            <tr>
+              <td>{{ pause.get_reason_display }}</td>
+              <td class="nowrap">{{ pause.started_at|jdatetime }}</td>
+              <td class="nowrap">{{ pause.ended_at|jdatetime|default:"در جریان" }}</td>
+              <td>{{ pause.minutes|dur }}</td>
+              <td>{{ pause.created_by.display_name|default:"—" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5">{% include "partials/empty.html" with text="ساعت SLA متوقف نشده است." %}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2 class="card-title">قطعات مصرف/تعویض‌شده</h2></div>
+      <div class="table-wrap">
+        <table class="table compact">
+          <thead><tr><th>قطعه</th><th>اقدام</th><th>سریال قبلی</th><th>سریال جدید</th><th>تعداد</th></tr></thead>
+          <tbody>
+          {% for part in parts %}
+            <tr>
+              <td>{{ part.name }}</td>
+              <td>{{ part.get_action_display }}</td>
+              <td class="ltr">{{ part.old_serial|default:"—" }}</td>
+              <td class="ltr">{{ part.new_serial|default:"—" }}</td>
+              <td>{{ part.quantity|fa }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5">{% include "partials/empty.html" %}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if is_manager_side %}
+        <div class="card-foot">
+          <form method="post" action="{% url 'tickets:add_part' ticket.pk %}" class="form-grid">
+            {% csrf_token %}
+            {% for field in part_form %}<div class="form-row">{{ field.label_tag }}{{ field }}</div>{% endfor %}
+            <div class="form-actions"><button class="btn btn-ghost btn-sm" type="submit">افزودن قطعه</button></div>
+          </form>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2 class="card-title">پیوست‌ها</h2></div>
+      <div class="table-wrap">
+        <table class="table compact">
+          <thead><tr><th>نوع</th><th>عنوان</th><th>فایل</th><th>زمان</th></tr></thead>
+          <tbody>
+          {% for attachment in attachments %}
+            <tr>
+              <td>{{ attachment.get_kind_display }}</td>
+              <td>{{ attachment.title|default:"—" }}</td>
+              <td><a href="{{ attachment.file.url }}" target="_blank">مشاهده</a></td>
+              <td class="nowrap">{{ attachment.created_at|jdatetime }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4">{% include "partials/empty.html" %}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if is_manager_side %}
+        <div class="card-foot">
+          <form method="post" action="{% url 'tickets:add_attachment' ticket.pk %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            {% include "partials/form_fields.html" with form=attachment_form %}
+            <button class="btn btn-ghost btn-sm" type="submit">بارگذاری پیوست</button>
+          </form>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2 class="card-title">ثبت یادداشت در گردش کار</h2></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'tickets:add_note' ticket.pk %}">
+          {% csrf_token %}
+          {% include "partials/form_fields.html" with form=note_form %}
+          <button class="btn btn-primary btn-sm" type="submit">ثبت یادداشت</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if ticket.root_cause or ticket.action_taken %}
+<div class="card">
+  <div class="card-head"><h2 class="card-title">نتیجه رسیدگی</h2></div>
+  <div class="card-body">
+    <div class="kv">
+      <div class="k">علت خرابی</div><div>{{ ticket.root_cause|linebreaksbr|default:"—" }}</div>
+      <div class="k">اقدام انجام‌شده</div><div>{{ ticket.action_taken|linebreaksbr|default:"—" }}</div>
+      <div class="k">قطعات مصرف‌شده</div><div>{{ ticket.parts_text|default:"—" }}</div>
+      <div class="k">یادداشت تایید کاربر</div><div>{{ ticket.user_confirm_note|default:"—" }}</div>
+      <div class="k">یادداشت کارشناس IT</div><div>{{ ticket.it_confirm_note|default:"—" }}</div>
+      <div class="k">رضایت کاربر</div><div>{% if ticket.satisfaction %}{{ ticket.satisfaction|fa }} از ۵{% else %}—{% endif %}</div>
+      {% if ticket.rejection_reason %}<div class="k">دلیل لغو/رد</div><div>{{ ticket.rejection_reason }}</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

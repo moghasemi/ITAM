@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="?{{ request.GET.urlencode }}&export=1&format=xlsx">📊 خروجی Excel</a>
+  <a class="btn btn-ghost" href="{% url 'reports:home' %}">همه گزارش‌ها</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-icon">🛠</div><div>
+    <div class="stat-value">{{ summary.total|fa }}</div><div class="stat-label">کل خرابی‌های ثبت‌شده</div></div></div>
+  <div class="stat-card is-success"><div class="stat-icon">✅</div><div>
+    <div class="stat-value">{{ summary.closed|fa }}</div><div class="stat-label">رسیدگی‌شده</div></div></div>
+  <div class="stat-card is-info"><div class="stat-icon">⏱</div><div>
+    <div class="stat-value">{{ summary.mttr }}</div><div class="stat-label">میانگین زمان رفع (MTTR)</div></div></div>
+  <div class="stat-card is-warning"><div class="stat-icon">⏸</div><div>
+    <div class="stat-value">{{ summary.avg_paused }}</div><div class="stat-label">میانگین توقف ساعت</div></div></div>
+</div>
+
+<div class="card mt-2">
+  <div class="card-head"><h2 class="card-title">پالایه گزارش</h2></div>
+  <div class="card-body">
+    <form method="get" class="form-grid">
+      {% include "partials/form_fields.html" with form=filter_form %}
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">اعمال</button>
+        <a class="btn btn-ghost" href="{{ request.path }}">پاک‌کردن</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">تجهیزات با بیشترین خرابی</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>شماره اموال</th><th>عنوان</th><th>تعداد خرابی</th><th>میانگین زمان رفع</th><th></th></tr></thead>
+        <tbody>
+        {% for row in top_assets %}
+          <tr>
+            <td>{{ row.asset__asset_tag }}</td>
+            <td>{{ row.asset__title|default:"—" }}</td>
+            <td><span class="badge badge-warning">{{ row.total|fa }}</span></td>
+            <td>{{ row.mttr|dur }}</td>
+            <td><a class="btn btn-ghost btn-sm" href="{% url 'assets:detail' row.asset_id %}">شناسنامه</a></td>
+          </tr>
+        {% empty %}<tr><td colspan="5">{% include "partials/empty.html" %}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">تحلیل بر اساس اولویت</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>اولویت</th><th>کل</th><th>باز</th><th>نقض SLA</th><th>میانگین زمان رفع</th></tr></thead>
+        <tbody>
+        {% for row in by_priority %}
+          <tr>
+            <td><span class="badge badge-{{ row.priority|priority_css }}">{{ row.label }}</span></td>
+            <td>{{ row.total|fa }}</td>
+            <td>{{ row.open|fa }}</td>
+            <td>{% if row.breached %}<span class="badge badge-danger">{{ row.breached|fa }}</span>{% else %}۰{% endif %}</td>
+            <td>{{ row.mttr|dur }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">تحلیل بر اساس نوع خرابی</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>نوع خرابی</th><th>تعداد</th></tr></thead>
+        <tbody>
+        {% for row in by_type %}
+          <tr><td>{{ row.failure_type|default:"ثبت‌نشده" }}</td><td>{{ row.total|fa }}</td></tr>
+        {% empty %}<tr><td colspan="2">{% include "partials/empty.html" %}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">تحلیل بر اساس گونه دارایی</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>گونه</th><th>تعداد خرابی</th></tr></thead>
+        <tbody>
+        {% for row in by_category %}
+          <tr><td>{{ row.asset__category__name|default:"نامشخص" }}</td><td>{{ row.total|fa }}</td></tr>
+        {% empty %}<tr><td colspan="2">{% include "partials/empty.html" %}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">پرخسارت‌ترین واحدهای سازمانی</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>واحد سازمانی</th><th>تعداد خرابی</th></tr></thead>
+        <tbody>
+        {% for row in by_department %}
+          <tr><td>{{ row.asset__department__name|default:"نامشخص" }}</td><td>{{ row.total|fa }}</td></tr>
+        {% empty %}<tr><td colspan="2">{% include "partials/empty.html" %}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

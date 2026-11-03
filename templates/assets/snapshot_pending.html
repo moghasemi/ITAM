@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block content %}
+<div class="alert alert-warning">
+  <span>
+    اسنپ‌شات‌های زیر توسط کارشناس پیمانکار ثبت شده و در انتظار تایید شما هستند. با تایید، سند قفل می‌شود و
+    مبنای مقایسه بازبینی‌های بعدی قرار می‌گیرد.
+  </span>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">کارتابل تایید اسنپ‌شات سخت‌افزاری</h2></div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>تجهیز</th><th>نسخه</th><th>نوع</th><th>ثبت‌کننده</th><th>زمان ثبت</th>
+            <th>تغییرات</th><th>هشدار</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for snapshot in snapshots %}
+        <tr class="{% if snapshot.diff_data.removed %}is-danger{% elif snapshot.has_changes %}is-warning{% endif %}">
+          <td><a href="{% url 'assets:detail' snapshot.asset_id %}">{{ snapshot.asset.asset_tag }}</a>
+              <div class="small muted">{{ snapshot.asset.display_name }}</div></td>
+          <td>{{ snapshot.version|fa }}</td>
+          <td>{% if snapshot.is_baseline %}<span class="badge badge-primary">پایه</span>{% else %}دوره‌ای{% endif %}</td>
+          <td>{{ snapshot.recorded_by.display_name|default:"—" }}</td>
+          <td class="nowrap">{{ snapshot.recorded_at|jdatetime }}</td>
+          <td>
+            {% if snapshot.has_changes %}
+              <span class="badge badge-warning">{{ snapshot.diff_count|fa }} تغییر</span>
+            {% else %}
+              <span class="badge badge-success">بدون تغییر</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if snapshot.diff_data.removed %}
+              <span class="badge badge-danger">{{ snapshot.diff_data.removed|fa }} قلم مفقود</span>
+            {% elif snapshot.diff_data.replaced %}
+              <span class="badge badge-warning">{{ snapshot.diff_data.replaced|fa }} تعویض</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="table-actions">
+            <a class="btn btn-ghost btn-sm" href="{% url 'assets:snapshot_detail' snapshot.pk %}">بررسی</a>
+            <form method="post" action="{% url 'assets:snapshot_approve' snapshot.pk %}" class="inline-form"
+                  data-confirm="تایید و قفل این اسنپ‌شات؟">{% csrf_token %}
+              <button class="btn btn-success btn-sm" type="submit">تایید</button>
+            </form>
+            <form method="post" action="{% url 'assets:snapshot_reject' snapshot.pk %}" class="inline-form">{% csrf_token %}
+              <input type="hidden" name="note" value="نیازمند اصلاح اقلام">
+              <button class="btn btn-danger btn-sm" type="submit">برگشت</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8">{% include "partials/empty.html" with text="موردی در انتظار تایید نیست." icon="✅" %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

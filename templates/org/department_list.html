@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="{% url 'org:department_create' %}">➕ افزودن واحد</a>
+  <a class="btn btn-ghost" href="{% url 'org:location_list' %}">محل‌های استقرار</a>
+{% endblock %}
+
+{% block content %}
+<form method="get" class="filter-bar">
+  <div class="filter-field">
+    <label class="filter-label">جستجو</label>
+    <input class="input" type="search" name="q" value="{{ request.GET.q|default:'' }}">
+  </div>
+  <div class="filter-actions"><button class="btn btn-primary" type="submit">جستجو</button></div>
+</form>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>نام واحد</th><th>کد</th><th>مسئول واحد</th><th>تلفن</th><th>تعداد دارایی</th><th>وضعیت</th><th></th></tr></thead>
+      <tbody>
+      {% for item in object_list %}
+        <tr>
+          <td>{{ item.name }}</td>
+          <td>{{ item.code|default:"—" }}</td>
+          <td>{{ item.manager_name|default:"—" }}</td>
+          <td class="ltr">{{ item.phone|default:"—" }}</td>
+          <td><span class="badge badge-primary">{{ item.assets_total|fa }}</span></td>
+          <td>{% if item.is_active %}<span class="badge badge-success">فعال</span>{% else %}<span class="badge badge-neutral">غیرفعال</span>{% endif %}</td>
+          <td class="table-actions">
+            <a class="btn btn-ghost btn-sm" href="{% url 'org:department_update' item.pk %}">ویرایش</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'assets:list' %}?department={{ item.pk }}">دارایی‌ها</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7">{% include "partials/empty.html" %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+</div>
+{% endblock %}

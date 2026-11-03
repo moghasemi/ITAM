@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  {% if user.is_admin_it %}
+    <a class="btn btn-primary" href="{% url 'org:contract_create' %}">➕ ثبت قرارداد</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+{% include "partials/filter_bar.html" %}
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>شماره قرارداد</th><th>پیمانکار</th><th>عنوان</th><th>بازه قرارداد</th>
+          <th>دوره بازدید</th><th>دارایی‌ها</th><th>درخواست‌ها</th><th>روز باقی‌مانده</th><th>وضعیت</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for contract in object_list %}
+        <tr class="{% if contract.status == 'active' and contract.days_remaining < 0 %}is-danger{% endif %}">
+          <td><a href="{% url 'org:contract_detail' contract.pk %}">{{ contract.number }}</a></td>
+          <td>{{ contract.contractor.name }}</td>
+          <td>{{ contract.title }}</td>
+          <td class="nowrap">{{ contract.jalali_range }}</td>
+          <td>{{ contract.visit_interval_days|fa }} روز</td>
+          <td><span class="badge badge-primary">{{ contract.assets_total|fa }}</span></td>
+          <td><span class="badge badge-info">{{ contract.tickets_total|fa }}</span></td>
+          <td>
+            {% if contract.days_remaining >= 0 %}
+              {{ contract.days_remaining|fa }} روز
+            {% else %}
+              <span class="highlight-danger">{{ contract.days_remaining|fa }} روز (منقضی)</span>
+            {% endif %}
+          </td>
+          <td><span class="badge badge-{{ contract.status_css }}">{{ contract.get_status_display }}</span></td>
+          <td class="table-actions">
+            <a class="btn btn-ghost btn-sm" href="{% url 'org:contract_detail' contract.pk %}">پرونده</a>
+            {% if user.is_admin_it %}
+              <a class="btn btn-ghost btn-sm" href="{% url 'org:contract_update' contract.pk %}">ویرایش</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="10">{% include "partials/empty.html" with text="قراردادی ثبت نشده است." %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+</div>
+{% endblock %}

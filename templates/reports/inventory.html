@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="?{{ request.GET.urlencode }}&export=1&format=xlsx">📊 خروجی Excel</a>
+  <a class="btn btn-ghost" href="{% url 'reports:home' %}">همه گزارش‌ها</a>
+{% endblock %}
+
+{% block content %}
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-icon">🖥</div><div>
+    <div class="stat-value">{{ totals.total|fa }}</div><div class="stat-label">کل دارایی‌ها</div></div></div>
+  <div class="stat-card is-info"><div class="stat-icon">🔒</div><div>
+    <div class="stat-value">{{ totals.tracked|fa }}</div><div class="stat-label">دارای اقلام ثبت‌شده</div></div></div>
+  <div class="stat-card is-success"><div class="stat-icon">💰</div><div>
+    <div class="stat-value">{{ totals.value|fa_num }}</div><div class="stat-label">ارزش کل (ریال)</div></div></div>
+</div>
+
+<form method="get" class="filter-bar mt-2">
+  <div class="filter-field">
+    <label class="filter-label">گونه دارایی</label>
+    <select class="select" name="category">
+      <option value="">همه</option>
+      {% for item in categories %}
+        <option value="{{ item.pk }}" {% if request.GET.category == item.pk|stringformat:"s" %}selected{% endif %}>{{ item.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-field">
+    <label class="filter-label">وضعیت</label>
+    <select class="select" name="status">
+      <option value="">همه</option>
+      {% for code, label in status_choices %}
+        <option value="{{ code }}" {% if request.GET.status == code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-actions">
+    <button class="btn btn-primary" type="submit">اعمال</button>
+    <a class="btn btn-ghost" href="{{ request.path }}">پاک‌کردن</a>
+  </div>
+</form>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">توزیع بر اساس گونه</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>گونه</th><th>تعداد</th><th>ارزش (ریال)</th></tr></thead>
+        <tbody>
+        {% for row in by_category %}
+          <tr><td>{{ row.category__name|default:"نامشخص" }}</td><td>{{ row.total|fa }}</td><td>{{ row.value|fa_num }}</td></tr>
+        {% empty %}<tr><td colspan="3">{% include "partials/empty.html" %}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">توزیع بر اساس واحد سازمانی</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>واحد</th><th>تعداد</th><th>ارزش (ریال)</th></tr></thead>
+        <tbody>
+        {% for row in by_department %}
+          <tr><td>{{ row.department__name|default:"نامشخص" }}</td><td>{{ row.total|fa }}</td><td>{{ row.value|fa_num }}</td></tr>
+        {% empty %}<tr><td colspan="3">{% include "partials/empty.html" %}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">توزیع بر اساس وضعیت</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>وضعیت</th><th>تعداد</th></tr></thead>
+        <tbody>
+        {% for row in by_status %}
+          <tr>
+            <td><span class="badge badge-{{ row.status|asset_status_css }}">{{ row.status }}</span></td>
+            <td>{{ row.total|fa }}</td>
+          </tr>
+        {% empty %}<tr><td colspan="2">{% include "partials/empty.html" %}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">پرتراکم‌ترین محل‌ها</h2></div>
+    <div class="table-wrap">
+      <table class="table compact">
+        <thead><tr><th>محل</th><th>ساختمان</th><th>تعداد</th></tr></thead>
+        <tbody>
+        {% for row in by_location %}
+          <tr><td>{{ row.location__name|default:"نامشخص" }}</td><td>{{ row.location__building|default:"—" }}</td><td>{{ row.total|fa }}</td></tr>
+        {% empty %}<tr><td colspan="3">{% include "partials/empty.html" %}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">فهرست دارایی‌ها (۲۰۰ رکورد نخست)</h2></div>
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead>
+        <tr><th>شماره اموال</th><th>گونه</th><th>عنوان</th><th>برند / مدل</th><th>سریال</th>
+            <th>واحد</th><th>محل</th><th>امانت‌دار</th><th>وضعیت</th><th>اقلام</th></tr>
+      </thead>
+      <tbody>
+      {% for asset in assets %}
+        <tr>
+          <td><a href="{% url 'assets:detail' asset.pk %}">{{ asset.asset_tag }}</a></td>
+          <td>{{ asset.category.name }}</td>
+          <td>{{ asset.display_name }}</td>
+          <td>{{ asset.brand }} {{ asset.model_name }}</td>
+          <td class="ltr">{{ asset.serial_number|default:"—" }}</td>
+          <td>{{ asset.department.name|default:"—" }}</td>
+          <td>{{ asset.location.full_label|default:"—" }}</td>
+          <td>{{ asset.custodian.display_name|default:"—" }}</td>
+          <td><span class="badge badge-{{ asset.status_css }}">{{ asset.get_status_display }}</span></td>
+          <td>{{ asset.components_count|fa }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="10">{% include "partials/empty.html" %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  {% if can_create %}
+    <a class="btn btn-primary" href="{% url 'assets:create' %}">➕ ثبت دارایی</a>
+    <a class="btn btn-ghost" href="{% url 'assets:label_print' %}{{ request.GET.urlencode }}" target="_blank">🖨 چاپ برچسب QR</a>
+  {% endif %}
+  <a class="btn btn-ghost" href="{% url 'assets:hardware_report' %}">🔒 گزارش تغییر اقلام</a>
+{% endblock %}
+
+{% block content %}
+{% include "partials/filter_bar.html" %}
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>شماره اموال</th><th>گونه</th><th>عنوان تجهیز</th><th>برند / مدل</th><th>سریال</th>
+          <th>واحد / محل</th><th>امانت‌دار</th><th>اقلام سخت‌افزاری</th><th>خرابی‌ها</th><th>وضعیت</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for asset in object_list %}
+        <tr>
+          <td><a href="{% url 'assets:detail' asset.pk %}">{{ asset.asset_tag }}</a></td>
+          <td>{{ asset.category.icon }} {{ asset.category.name }}</td>
+          <td>{{ asset.display_name }}</td>
+          <td>{{ asset.brand|default:"—" }}{% if asset.model_name %} / {{ asset.model_name }}{% endif %}</td>
+          <td class="ltr">{{ asset.serial_number|default:"—" }}</td>
+          <td>{{ asset.department.name|default:"—" }}{% if asset.location %} / {{ asset.location.full_label }}{% endif %}</td>
+          <td>{{ asset.custodian.display_name|default:"—" }}</td>
+          <td>
+            {% if asset.requires_component_tracking %}
+              {% if asset.current_snapshot_id %}
+                <span class="badge badge-success">{{ asset.components_count|fa }} قلم</span>
+              {% else %}
+                <span class="badge badge-danger">ثبت نشده</span>
+              {% endif %}
+            {% else %}
+              <span class="badge badge-neutral">—</span>
+            {% endif %}
+          </td>
+          <td><span class="badge badge-{{ asset.tickets_total|yesno:'warning,neutral' }}">{{ asset.tickets_total|fa }}</span></td>
+          <td><span class="badge badge-{{ asset.status_css }}">{{ asset.get_status_display }}</span></td>
+          <td class="table-actions">
+            <a class="btn btn-ghost btn-sm" href="{% url 'assets:detail' asset.pk %}">شناسنامه</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'tickets:create' %}?asset={{ asset.pk }}">اعلام خرابی</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="11">{% include "partials/empty.html" with text="دارایی‌ای ثبت نشده است." %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+</div>
+{% endblock %}

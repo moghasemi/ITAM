@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="{% url 'assets:category_create' %}">➕ افزودن گونه</a>
+  <a class="btn btn-ghost" href="{% url 'assets:component_type_list' %}">گونه‌های قطعه</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>نماد</th><th>نام گونه</th><th>کد</th><th>کنترل اقلام داخلی</th><th>قابل حمل</th>
+            <th>تعداد دارایی</th><th>وضعیت</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for item in object_list %}
+        <tr>
+          <td>{{ item.icon }}</td>
+          <td>{{ item.name }}</td>
+          <td>{{ item.code|default:"—" }}</td>
+          <td>
+            {% if item.requires_component_tracking %}
+              <span class="badge badge-success">فعال (اسنپ‌شات الزامی)</span>
+            {% else %}<span class="badge badge-neutral">غیرفعال</span>{% endif %}
+          </td>
+          <td>{{ item.is_portable|yesno_fa }}</td>
+          <td><span class="badge badge-primary">{{ item.assets_total|fa }}</span></td>
+          <td>{% if item.is_active %}<span class="badge badge-success">فعال</span>{% else %}<span class="badge badge-neutral">غیرفعال</span>{% endif %}</td>
+          <td><a class="btn btn-ghost btn-sm" href="{% url 'assets:category_update' item.pk %}">ویرایش</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8">{% include "partials/empty.html" %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card" style="max-width:620px">
+  <div class="card-head"><h2 class="card-title">افزودن پیوست به {{ asset.asset_tag }}</h2></div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% include "partials/form_fields.html" with form=form %}
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">بارگذاری</button>
+        <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">بازگشت</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="{% url 'assets:component_type_create' %}">➕ افزودن گونه قطعه</a>
+  <a class="btn btn-ghost" href="{% url 'assets:category_list' %}">گونه‌های دارایی</a>
+{% endblock %}
+
+{% block content %}
+<div class="alert alert-info">
+  اقلامی که «قلم کلیدی» علامت خورده‌اند، در گزارش‌های کنترل سرقت با حساسیت بیشتری پایش می‌شوند
+  (پردازنده، حافظه، هارد، کارت گرافیک و پاور).
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>ترتیب</th><th>نام قطعه</th><th>کد</th><th>سریال‌دار</th><th>واحد</th>
+            <th>قلم کلیدی</th><th>تعداد ثبت‌شده</th><th>وضعیت</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for item in object_list %}
+        <tr>
+          <td>{{ item.sort_order|fa }}</td>
+          <td>{{ item.name }}</td>
+          <td>{{ item.code|default:"—" }}</td>
+          <td>{{ item.is_serialized|yesno_fa }}</td>
+          <td>{{ item.unit }}</td>
+          <td>{% if item.is_key_item %}<span class="badge badge-warning">🔑 کلیدی</span>{% else %}—{% endif %}</td>
+          <td><span class="badge badge-primary">{{ item.items_total|fa }}</span></td>
+          <td>{% if item.is_active %}<span class="badge badge-success">فعال</span>{% else %}<span class="badge badge-neutral">غیرفعال</span>{% endif %}</td>
+          <td><a class="btn btn-ghost btn-sm" href="{% url 'assets:component_type_update' item.pk %}">ویرایش</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="9">{% include "partials/empty.html" %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+</div>
+{% endblock %}

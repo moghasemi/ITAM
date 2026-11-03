@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-primary" href="{% url 'accounts:profile_edit' %}">ویرایش نمایه</a>
+  <a class="btn btn-ghost" href="{% url 'accounts:password_change' %}">تغییر گذرواژه</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">اطلاعات کاربری</h2></div>
+    <div class="card-body">
+      <div class="kv">
+        <div class="k">نام و نام خانوادگی</div><div>{{ user.display_name }}</div>
+        <div class="k">نام کاربری</div><div class="ltr">{{ user.username }}</div>
+        <div class="k">نقش</div><div><span class="badge badge-{{ user.role_css }}">{{ user.role_label }}</span></div>
+        <div class="k">کد پرسنلی</div><div>{{ user.personnel_code|default:"—" }}</div>
+        <div class="k">واحد سازمانی</div><div>{{ user.department.name|default:"—" }}</div>
+        <div class="k">پیمانکار</div><div>{{ user.contractor.name|default:"—" }}</div>
+        <div class="k">تلفن همراه</div><div class="ltr">{{ user.phone|default:"—" }}</div>
+        <div class="k">رایانامه</div><div class="ltr">{{ user.email|default:"—" }}</div>
+        <div class="k">سمت</div><div>{{ user.job_title|default:"—" }}</div>
+        <div class="k">آخرین فعالیت</div><div>{{ user.last_seen_at|jdatetime|default:"—" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2 class="card-title">امضا و دسترسی</h2></div>
+    <div class="card-body">
+      {% if user.signature %}
+        <p><img src="{{ user.signature.url }}" alt="امضا" style="max-width:220px;border:1px solid var(--border);border-radius:8px"></p>
+      {% else %}
+        <p class="muted">نمونه امضا ثبت نشده است. برای تاییدهای رسمی می‌توانید تصویر امضای خود را در بخش ویرایش نمایه بارگذاری کنید.</p>
+      {% endif %}
+      <ul class="small muted">
+        <li>تایید کاربر برای درخواست‌های خرابی: {% if user.is_requester or user.is_admin_it %}مجاز{% else %}—{% endif %}</li>
+        <li>ثبت اسنپ‌شات سخت‌افزاری: {% if user.is_admin_it or user.is_technician %}مجاز{% else %}—{% endif %}</li>
+        <li>تایید نهایی کارشناس IT: {% if user.is_admin_it %}مجاز{% else %}—{% endif %}</li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
