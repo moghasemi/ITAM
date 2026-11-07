@@ -553,13 +553,12 @@ class AssetScopeAndRelationshipTests(TestCase):
         printer = Asset.objects.create(
             asset_tag="SCOPE-PRN-CROSS", category=self.printer_category, center=self.center_a
         )
-        relation = AssetRelationship(
-            asset=printer,
-            related_asset=self.pc_b,
-            relationship_type=AssetRelationship.RELATION_CONNECTED_TO,
-        )
         with self.assertRaises(ValidationError):
-            relation.full_clean()
+            AssetRelationship.objects.create(
+                asset=printer,
+                related_asset=self.pc_b,
+                relationship_type=AssetRelationship.RELATION_CONNECTED_TO,
+            )
 
     def test_asset_relationship_rejects_self_reference(self):
         from django.core.exceptions import ValidationError
