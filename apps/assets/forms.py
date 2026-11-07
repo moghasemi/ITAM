@@ -92,11 +92,10 @@ class AssetForm(StyledModelForm):
             computer_assets = Asset.objects.none()
         self.fields["connected_computers"].queryset = computer_assets.order_by("asset_tag")
         if self.instance.pk:
-            self.fields["connected_computers"].initial = Asset.objects.filter(
-                outgoing_relationships__asset=self.instance,
-                outgoing_relationships__relationship_type=AssetRelationship.RELATION_CONNECTED_TO,
-                outgoing_relationships__is_active=True,
-            )
+            self.fields["connected_computers"].initial = self.instance.outgoing_relationships.filter(
+                relationship_type=AssetRelationship.RELATION_CONNECTED_TO,
+                is_active=True,
+            ).values_list("related_asset_id", flat=True)
 
         computing_ids = list(AssetCategory.objects.filter(
             is_active=True, is_computing_device=True
