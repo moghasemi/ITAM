@@ -1,7 +1,7 @@
 """ثبت مدل‌های دارایی در پنل مدیریت جنگو."""
 from django.contrib import admin
 
-from .models import Asset, AssetAttachment, AssetCategory, ComponentType, HardwareSnapshot, SnapshotItem, AgentCredential, AgentNonce, AgentSyncAuditLog
+from .models import Asset, AssetAttachment, AssetCategory, AssetRelationship, ComponentType, HardwareSnapshot, SnapshotItem, AgentCredential, AgentNonce, AgentSyncAuditLog
 
 
 class SnapshotItemInline(admin.TabularInline):
@@ -12,8 +12,8 @@ class SnapshotItemInline(admin.TabularInline):
 
 @admin.register(AssetCategory)
 class AssetCategoryAdmin(admin.ModelAdmin):
-    list_display = ("name", "code", "requires_component_tracking", "is_active")
-    list_filter = ("requires_component_tracking", "is_active")
+    list_display = ("name", "code", "requires_component_tracking", "is_computing_device", "is_active")
+    list_filter = ("requires_component_tracking", "is_computing_device", "is_active")
 
 
 @admin.register(ComponentType)
@@ -65,3 +65,10 @@ class AgentSyncAuditLogAdmin(admin.ModelAdmin):
     list_filter = ("success", "http_status", "center")
     search_fields = ("agent__name", "remote_ip", "rejection_reason")
     readonly_fields = ("created_at",)
+
+
+@admin.register(AssetRelationship)
+class AssetRelationshipAdmin(admin.ModelAdmin):
+    list_display = ("asset", "relationship_type", "related_asset", "connection_type", "is_active")
+    list_filter = ("relationship_type", "connection_type", "is_active")
+    search_fields = ("asset__asset_tag", "related_asset__asset_tag")
