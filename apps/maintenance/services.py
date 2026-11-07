@@ -99,6 +99,16 @@ def generate_visits(contract, *, user=None, populate=True) -> dict:
     if not contract.visit_interval_days:
         raise ValidationError("دوره بازدید برای این قرارداد تعریف نشده است.")
 
+    centers = list(contract.centers.all())
+    if contract.is_provincial:
+        visit_center = None  # استان‌گسترده؛ فقط مدیر استان می‌تواند این بازدید را مدیریت کند.
+    elif len(centers) == 1:
+        visit_center = centers[0]
+    else:
+        raise ValidationError(
+            "برای برنامه‌ریزی بازدید، قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد."
+        )
+
     total = contract.planned_visit_count()
     created = 0
     existing = 0
@@ -112,6 +122,7 @@ def generate_visits(contract, *, user=None, populate=True) -> dict:
             defaults={
                 "scheduled_date": scheduled_start,
                 "scheduled_end_date": scheduled_end,
+                "center": visit_center,
                 "period_label": f"بازدید دوره‌ای شماره {index + 1}",
                 "created_by": user if getattr(user, "is_authenticated", False) else None,
             },

@@ -66,11 +66,14 @@ class ReportsHomeView(StaffRequiredMixin, PageContextMixin, View):
             "reports": REPORT_MENU,
             "tickets_total": tickets.count(),
             "assets_total": assets.count(),
-            "contracts_active": Contract.objects.filter(
-                status=Contract.STATUS_ACTIVE
-            ).filter(
-                Q(is_provincial=True) | Q(centers__in=request.user.get_scoped_centers())
-            ).distinct().count(),
+            "contracts_active": (
+                Contract.objects.filter(status=Contract.STATUS_ACTIVE).count()
+                if request.user.is_admin_province
+                else Contract.objects.filter(
+                    status=Contract.STATUS_ACTIVE,
+                    centers__in=request.user.get_scoped_centers(),
+                ).distinct().count()
+            ),
             "breached_total": tickets.filter(Q(response_met=False) | Q(resolve_met=False)).count(),
             "snapshots_total": HardwareSnapshot.objects.filter(asset__in=assets).count(),
             "diff_alarms": HardwareSnapshot.objects.filter(

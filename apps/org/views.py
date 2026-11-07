@@ -249,12 +249,10 @@ class ContractListView(AdminItRequiredMixin, BaseListView):
     filter_form_class = ContractFilterForm
 
     def get_queryset(self):
-        queryset = Contract.objects.select_related("contractor").filter(
-            Q(centers__in=self.request.user.get_scoped_centers())
-            | Q(is_provincial=True, pk__in=Contract.objects.filter(
-                centers__in=self.request.user.get_scoped_centers()
-            ).values("pk"))
-        ).distinct().annotate(
+        queryset = Contract.objects.select_related("contractor")
+        if not self.request.user.is_admin_province:
+            queryset = queryset.filter(centers__in=self.request.user.get_scoped_centers())
+        queryset = queryset.distinct().annotate(
             assets_total=Count("assets", distinct=True),
             tickets_total=Count("tickets", distinct=True),
         ).order_by("-start_date")
