@@ -116,10 +116,7 @@ class OutboxEvent(models.Model):
         verbose_name_plural = "رخدادهای صف ارسال"
         ordering = ("-created_at",)
         indexes = [
-            models.Index(
-                fields=("status", "created_at"),
-                name="integrations_outbox_status_idx",
-            ),
+            models.Index(fields=("status", "created_at")),
             models.Index(fields=("aggregate_type", "aggregate_id")),
         ]
 
@@ -268,7 +265,10 @@ class OutboxDelivery(TimeStampedModel):
             )
         ]
         indexes = [
-            models.Index(fields=("status", "created_at")),
+            models.Index(
+                fields=("status", "created_at"),
+                name="integrations_outbox_status_idx",
+            ),
         ]
 
     def __str__(self):
