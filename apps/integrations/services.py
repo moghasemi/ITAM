@@ -8,11 +8,15 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import http.client
+import ipaddress
 import json
 import logging
+import os
+import socket
+import ssl
 import time
-import urllib.error
-import urllib.request
+from urllib.parse import urlsplit
 
 from django.utils import timezone
 
@@ -63,8 +67,51 @@ def sign_payload(body: bytes, secret: str) -> str:
 # ---------------------------------------------------------------------------
 # ارسال
 # ---------------------------------------------------------------------------
+def _resolve_webhook_target(raw_url: str):
+    """Validate and pin a webhook destination to prevent SSRF and DNS rebinding."""
+    parsed = urlsplit(raw_url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise ValueError("نشانی مقصد باید یک URL معتبر HTTP/HTTPS باشد.")
+    if parsed.username or parsed.password:
+        raise ValueError("قرار دادن اطلاعات کاربری در URL مقصد مجاز نیست.")
+
+    host = parsed.hostname.rstrip(".").lower()
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    allowlist = {
+        item.strip().lower().rstrip(".")
+        for item in os.environ.get("ITAM_WEBHOOK_ALLOWED_HOSTS", "").split(",")
+        if item.strip()
+    }
+    explicitly_allowed = host in allowlist
+    if port not in (80, 443) and not explicitly_allowed:
+        raise ValueError("پورت مقصد فقط 80/443 است؛ پورت سفارشی باید در ITAM_WEBHOOK_ALLOWED_HOSTS مجاز شود.")
+
+    try:
+        resolved = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except OSError as exc:
+        raise ValueError(f"نام میزبان مقصد قابل resolve نیست: {exc}") from exc
+
+    addresses = []
+    for item in resolved:
+        address = item[4][0]
+        if address not in addresses:
+            addresses.append(address)
+    if not addresses:
+        raise ValueError("مقصد به هیچ نشانی IP حل نشد.")
+
+    for address in addresses:
+        ip = ipaddress.ip_address(address)
+        if not ip.is_global and not explicitly_allowed:
+            raise ValueError(
+                "مقصدهای خصوصی/محلی مجاز نیستند؛ در صورت نیاز، نام میزبان دقیق را در ITAM_WEBHOOK_ALLOWED_HOSTS ثبت کنید."
+            )
+
+    # The socket is connected to this exact validated IP below; DNS is not resolved again.
+    return parsed, addresses[0], port
+
+
 def dispatch_event(event: OutboxEvent, endpoint: WebhookEndpoint) -> bool:
-    """ارسال یک رخداد به یک مقصد؛ در صورت موفقیت True."""
+    """ارسال یک رخداد؛ مقصدهای خصوصی فقط با allowlist صریح مجازند."""
     envelope = build_envelope(event)
     body = json.dumps(envelope, ensure_ascii=False).encode("utf-8")
 
@@ -78,36 +125,64 @@ def dispatch_event(event: OutboxEvent, endpoint: WebhookEndpoint) -> bool:
         headers[SIGNATURE_HEADER] = sign_payload(body, endpoint.secret)
     elif endpoint.auth_type == WebhookEndpoint.AUTH_TOKEN and endpoint.token:
         headers["Authorization"] = f"Bearer {endpoint.token}"
+    header_validation_error = ""
     for key, value in (endpoint.extra_headers or {}).items():
-        headers[str(key)] = str(value)
-
-    request = urllib.request.Request(
-        endpoint.url, data=body, headers=headers, method=endpoint.method or "POST"
-    )
+        key, value = str(key), str(value)
+        if key.lower() in {"host", "content-length", "transfer-encoding", "connection", "authorization"}:
+            header_validation_error = f"سرآیند رزروشده قابل بازنویسی نیست: {key}"
+            break
+        if any(char in key + value for char in "\r\n"):
+            header_validation_error = "سرآیند سفارشی دارای CR/LF غیرمجاز است."
+            break
+        headers[key] = value
 
     started = time.monotonic()
     status_code = None
     response_text = ""
     ok = False
     error = ""
+    connection = None
     try:
-        with urllib.request.urlopen(request, timeout=endpoint.timeout_seconds or 10) as response:
-            status_code = response.status
-            response_text = response.read(2000).decode("utf-8", errors="replace")
-            ok = 200 <= status_code < 300
-            if not ok:
-                error = f"کد پاسخ نامعتبر: {status_code}"
-    except urllib.error.HTTPError as exc:
-        status_code = exc.code
-        try:
-            response_text = exc.read(2000).decode("utf-8", errors="replace")
-        except Exception:
-            response_text = ""
-        error = f"خطای HTTP {exc.code}: {exc.reason}"
-    except urllib.error.URLError as exc:
-        error = f"عدم دسترسی به مقصد: {exc.reason}"
+        if header_validation_error:
+            raise ValueError(header_validation_error)
+        parsed, pinned_ip, port = _resolve_webhook_target(endpoint.url)
+        connection_type = (
+            http.client.HTTPSConnection if parsed.scheme == "https"
+            else http.client.HTTPConnection
+        )
+        if parsed.scheme == "https":
+            connection = connection_type(
+                parsed.hostname, port, timeout=endpoint.timeout_seconds or 10,
+                context=ssl.create_default_context(),
+            )
+        else:
+            connection = connection_type(
+                parsed.hostname, port, timeout=endpoint.timeout_seconds or 10
+            )
+
+        def _pinned_connect(address, timeout, source_address=None):
+            return socket.create_connection((pinned_ip, port), timeout, source_address)
+
+        connection._create_connection = _pinned_connect
+        target = parsed.path or "/"
+        if parsed.query:
+            target += "?" + parsed.query
+        connection.request(endpoint.method or "POST", target, body=body, headers=headers)
+        response = connection.getresponse()
+        status_code = response.status
+        response_text = response.read(2000).decode("utf-8", errors="replace")
+        ok = 200 <= status_code < 300
+        if not ok:
+            error = (
+                "هدایت HTTP غیرفعال است؛ مقصد باید مستقیماً پاسخ موفق بدهد."
+                if 300 <= status_code < 400
+                else f"کد پاسخ نامعتبر: {status_code}"
+            )
     except Exception as exc:  # noqa: BLE001
-        error = f"خطای نامشخص: {exc}"
+        error = f"عدم امکان ارسال امن به مقصد: {exc}"
+    finally:
+        if connection is not None:
+            connection.close()
 
     duration_ms = int((time.monotonic() - started) * 1000)
     ApiCallLog.objects.create(

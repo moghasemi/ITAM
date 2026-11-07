@@ -34,7 +34,7 @@ def env_list(name: str, default=None):
 # امنیت پایه و تنظیمات محیط عملیاتی (Production Hardening)
 # ---------------------------------------------------------------------------
 RUNNING_TESTS = "test" in sys.argv
-IS_DEV_CLI = any(arg in sys.argv for arg in ["test", "makemigrations", "migrate", "reconcile_organizational_data", "seed_demo", "check", "showmigrations"])
+IS_DEV_CLI = any(arg in sys.argv for arg in ["test", "makemigrations"])
 
 DEBUG = env_bool("ITAM_DEBUG", False)
 
@@ -90,7 +90,8 @@ CSRF_COOKIE_SECURE = env_bool("ITAM_CSRF_COOKIE_SECURE", cookie_secure_override)
 # Reverse Proxy، هدایت TLS/HTTPS و HSTS
 # ---------------------------------------------------------------------------
 # در صورت استقرار پشت Reverse Proxy (مانند Nginx، HAProxy، Traefik یا ALB) با TLS Termination:
-if env_bool("ITAM_USE_PROXY_SSL_HEADER", not DEBUG and not RUNNING_TESTS):
+USE_PROXY_SSL_HEADER = env_bool("ITAM_USE_PROXY_SSL_HEADER", not DEBUG and not RUNNING_TESTS)
+if USE_PROXY_SSL_HEADER:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 SECURE_SSL_REDIRECT = env_bool("ITAM_SECURE_SSL_REDIRECT", False)
@@ -99,13 +100,16 @@ if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_BROWSER_XSS_FILTER = True
 
-hsts_seconds = int(os.environ.get("ITAM_HSTS_SECONDS", 31536000 if (not DEBUG and not RUNNING_TESTS and SECURE_SSL_REDIRECT) else 0))
+# در استقرار TLS Termination پشت پراکسی، SECURE_SSL_REDIRECT معمولاً خاموش است؛
+# در این حالت نیز با فعال بودن اعتماد به هدر پراکسی، HSTS باید پیش‌فرض فعال باشد.
+default_hsts_seconds = 31536000 if (not DEBUG and not RUNNING_TESTS and (SECURE_SSL_REDIRECT or USE_PROXY_SSL_HEADER)) else 0
+hsts_seconds = int(os.environ.get("ITAM_HSTS_SECONDS", default_hsts_seconds))
 if hsts_seconds > 0:
     SECURE_HSTS_SECONDS = hsts_seconds
     SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("ITAM_HSTS_INCLUDE_SUBDOMAINS", True)
     SECURE_HSTS_PRELOAD = env_bool("ITAM_HSTS_PRELOAD", True)
 
-X_FRAME_OPTIONS = "SAMEORIGIN"
+X_FRAME_OPTIONS = "DENY"
 # ---------------------------------------------------------------------------
 # برنامه‌ها
 # ---------------------------------------------------------------------------

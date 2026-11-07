@@ -33,27 +33,50 @@ from .models import MaintenanceVisit, VisitAssetCheck
 # دسترسی
 # ---------------------------------------------------------------------------
 def visible_visits(user):
-    queryset = MaintenanceVisit.objects.select_related("contract", "contract__contractor", "technician")
+    """بازدیدهای قابل مشاهده؛ دامنه مرکز/پیمانکار به‌صورت fail-closed اعمال می‌شود."""
+    queryset = MaintenanceVisit.objects.select_related(
+        "contract", "contract__contractor", "technician", "center"
+    )
     if not getattr(user, "is_authenticated", False):
         return queryset.none()
-    if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
+    if user.is_admin_province:
         return queryset
+    if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
+        centers = user.get_scoped_centers()
+        if not centers.exists():
+            return queryset.none()
+        return queryset.filter(center__in=centers)
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id:
             return queryset.none()
-        return queryset.filter(contract__contractor_id=user.contractor_id)
+        return queryset.filter(
+            contractor_id=user.contractor_id, center__in=user.get_scoped_centers()
+        )
     return queryset.none()
 
 
 def visible_checks(user, visit: MaintenanceVisit):
-    return visit.checks.select_related("asset", "asset__category", "asset__location")
+    if not visible_visits(user).filter(pk=visit.pk).exists():
+        return visit.checks.none()
+    checks = visit.checks.select_related("asset", "asset__category", "asset__location")
+    if user.is_admin_province:
+        return checks
+    return checks.filter(asset__center__in=user.get_scoped_centers())
 
 
 def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
-    if user.has_role(User.ROLE_ADMIN_IT):
+    if not visible_visits(user).filter(pk=visit.pk).exists():
+        return False
+    if user.is_admin_province:
         return True
+    if user.has_role(User.ROLE_ADMIN_IT):
+        return user.get_scoped_centers().filter(pk=visit.center_id).exists()
     if user.has_role(User.ROLE_TECHNICIAN):
-        return bool(user.contractor_id and visit.contract.contractor_id == user.contractor_id)
+        return bool(
+            user.contractor_id
+            and visit.contract.contractor_id == user.contractor_id
+            and user.get_scoped_centers().filter(pk=visit.center_id).exists()
+        )
     return False
 
 
@@ -76,6 +99,16 @@ def generate_visits(contract, *, user=None, populate=True) -> dict:
     if not contract.visit_interval_days:
         raise ValidationError("دوره بازدید برای این قرارداد تعریف نشده است.")
 
+    centers = list(contract.centers.all())
+    if contract.is_provincial:
+        visit_center = None  # استان‌گسترده؛ فقط مدیر استان می‌تواند این بازدید را مدیریت کند.
+    elif len(centers) == 1:
+        visit_center = centers[0]
+    else:
+        raise ValidationError(
+            "برای برنامه‌ریزی بازدید، قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد."
+        )
+
     total = contract.planned_visit_count()
     created = 0
     existing = 0
@@ -89,6 +122,7 @@ def generate_visits(contract, *, user=None, populate=True) -> dict:
             defaults={
                 "scheduled_date": scheduled_start,
                 "scheduled_end_date": scheduled_end,
+                "center": visit_center,
                 "period_label": f"بازدید دوره‌ای شماره {index + 1}",
                 "created_by": user if getattr(user, "is_authenticated", False) else None,
             },
@@ -250,8 +284,8 @@ def complete_visit(visit: MaintenanceVisit, user, *, report_text="", recommendat
 @transaction.atomic
 def confirm_visit(visit: MaintenanceVisit, user, note: str = ""):
     """تایید بازدید توسط کارشناس فناوری اطلاعات مرکز."""
-    if not user.has_role(User.ROLE_ADMIN_IT):
-        raise PermissionDenied("تایید بازدید فقط توسط کارشناس فناوری اطلاعات مرکز انجام می‌شود.")
+    if not user.has_role(User.ROLE_ADMIN_IT) or not can_manage_visit(user, visit):
+        raise PermissionDenied("تایید بازدید فقط توسط کارشناس فناوری اطلاعات مجاز همان دامنه انجام می‌شود.")
     visit.it_confirmed_by = user
     visit.it_confirmed_at = timezone.now()
     visit.it_note = note[:300]
@@ -265,6 +299,10 @@ def save_check(check: VisitAssetCheck, user, *, condition=None, actions_taken=No
                parts_replaced=None, notes=None, next_due_date=None, photo=None,
                hardware_snapshot=None, checked=True):
     """ثبت نتیجه بازدید یک تجهیز."""
+    if not can_manage_visit(user, check.visit):
+        raise PermissionDenied("اجازه ثبت نتیجه این برگه بازدید را ندارید.")
+    if not user.is_admin_province and not user.get_scoped_centers().filter(pk=check.asset.center_id).exists():
+        raise PermissionDenied("این تجهیز خارج از دامنه مراکز مجاز شماست.")
     if condition:
         check.condition = condition
     if actions_taken is not None:

@@ -1,8 +1,9 @@
 """ایجاد داده نمونه و کاربران پایه برای راه‌اندازی سریع سامانه.
 
 نمونه اجرا:
-    python manage.py seed_demo
-    python manage.py seed_demo --admin-password 12345678
+    python manage.py seed_demo --admin-password "<strong-unique-password>"
+
+این فرمان فقط برای محیط توسعه/آزمایش است؛ حساب مدیر نمونه superuser نیست.
 """
 from __future__ import annotations
 
@@ -67,7 +68,7 @@ class Command(BaseCommand):
     help = "ایجاد داده نمونه، کاربران پایه و قرارداد نمونه برای شروع کار"
 
     def add_arguments(self, parser):
-        parser.add_argument("--admin-password", default="Admin@1403", help="گذرواژه کاربران نمونه")
+        parser.add_argument("--admin-password", required=True, help="گذرواژه یکتای کاربران نمونه")
         parser.add_argument("--assets", type=int, default=12, help="تعداد دارایی نمونه")
         parser.add_argument("--no-demo-tickets", action="store_true", help="بدون ساخت درخواست نمونه")
         parser.add_argument("--reset", action="store_true", help="پاک‌کردن داده‌های نمونه قبلی")
@@ -248,7 +249,7 @@ class Command(BaseCommand):
                 "phone": "09120001122",
                 "job_title": "مدیر فناوری اطلاعات استان",
                 "is_staff": True,
-                "is_superuser": True,
+                "is_superuser": False,
             },
         )
         admin_province.set_password(password)

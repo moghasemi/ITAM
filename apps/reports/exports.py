@@ -8,6 +8,17 @@ from django.http import HttpResponse
 XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
+def _safe_spreadsheet_value(value):
+    """Neutralize spreadsheet formula injection in untrusted text cells."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        candidate = value.lstrip(" \t\r\n")
+        if candidate.startswith(("=", "+", "-", "@")):
+            return "'" + value
+    return value
+
+
 def xlsx_available() -> bool:
     try:
         import openpyxl  # noqa: F401
@@ -23,7 +34,7 @@ def make_csv(filename: str, headers: list, rows: list) -> HttpResponse:
     writer = csv.writer(response)
     writer.writerow(headers)
     for row in rows:
-        writer.writerow(["" if value is None else value for value in row])
+        writer.writerow([_safe_spreadsheet_value(value) for value in row])
     return response
 
 
@@ -63,7 +74,7 @@ def make_xlsx(filename: str, sheet_title: str, headers: list, rows: list, title_
 
     for offset, row in enumerate(rows, start=1):
         for column, value in enumerate(row, start=1):
-            cell = sheet.cell(row=header_row + offset, column=column, value=value)
+            cell = sheet.cell(row=header_row + offset, column=column, value=_safe_spreadsheet_value(value))
             cell.alignment = Alignment(horizontal="center", vertical="center")
 
     for column, header in enumerate(headers, start=1):

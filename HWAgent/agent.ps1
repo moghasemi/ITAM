@@ -229,12 +229,10 @@ try {
         $res  = $ctx.Response
         $path = $req.Url.AbsolutePath
 
-        $res.Headers.Add("Access-Control-Allow-Origin", "*")
-        $res.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        $res.Headers.Add("Access-Control-Allow-Headers", "Content-Type")
-
+        # The agent UI is served by this same localhost origin. Do not enable
+        # wildcard CORS: it would let arbitrary websites read local hardware data.
         if ($req.HttpMethod -eq "OPTIONS") {
-            $res.StatusCode = 200
+            $res.StatusCode = 405
             $res.Close()
             continue
         }

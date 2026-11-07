@@ -8,7 +8,7 @@ from apps.core.forms import JalaliDateField, StyledForm, StyledModelForm
 from apps.core.constants import ASSET_STATUS_CHOICES
 from apps.org.models import Center, Contract, Department, Location
 
-from .models import Asset, AssetAttachment, AssetCategory, ComponentType, HardwareSnapshot, SnapshotItem
+from .models import Asset, AssetAttachment, AssetCategory, AssetRelationship, ComponentType, HardwareSnapshot, SnapshotItem
 
 
 class AssetForm(StyledModelForm):
@@ -16,6 +16,15 @@ class AssetForm(StyledModelForm):
 
     purchase_date = JalaliDateField(label="تاریخ خرید", required=False)
     warranty_until = JalaliDateField(label="پایان گارانتی", required=False)
+    connected_computers = forms.ModelMultipleChoiceField(
+        label="رایانه‌های متصل", required=False, queryset=Asset.objects.none(),
+        help_text="برای چاپگرها و تجهیزات جانبی؛ فقط رایانه‌های ثبت‌شده در همان مرکز قابل انتخاب‌اند.",
+        widget=forms.SelectMultiple(attrs={"size": 5}),
+    )
+    connection_type = forms.ChoiceField(
+        label="روش اتصال", required=False,
+        choices=(("", "— انتخاب روش اتصال —"),) + AssetRelationship.CONNECTION_TYPE_CHOICES,
+    )
 
     class Meta:
         model = Asset
@@ -23,26 +32,111 @@ class AssetForm(StyledModelForm):
             "asset_tag", "title", "category", "brand", "model_name", "serial_number",
             "center", "contract", "department", "location", "custodian", "status",
             "hostname", "ip_address", "mac_address", "os_name", "office_software",
+            "connected_computers", "connection_type",
             "spec_summary", "purchase_date", "warranty_until", "price", "supplier", "notes",
         ]
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
-        self.fields["center"].queryset = Center.objects.filter(is_active=True)
-        self.fields["center"].empty_label = "— انتخاب مرکز —"
-        if self.user and getattr(self.user, "center_id", None) and not getattr(self.user, "is_admin_province", False):
-            self.fields["center"].initial = self.user.center
-        self.fields["category"].queryset = AssetCategory.objects.filter(is_active=True)
-        self.fields["contract"].queryset = Contract.objects.select_related("contractor").order_by("-start_date")
-        self.fields["department"].queryset = Department.objects.filter(is_active=True)
-        self.fields["location"].queryset = Location.objects.filter(is_active=True)
-        self.fields["custodian"].queryset = (
-            self.fields["custodian"].queryset.filter(is_active=True).order_by("last_name", "first_name")
+
+        scoped_centers = (
+            self.user.get_scoped_centers()
+            if self.user and getattr(self.user, "is_authenticated", False)
+            else Center.objects.none()
         )
+        self.fields["center"].queryset = scoped_centers.filter(is_active=True)
+        self.fields["center"].empty_label = "— انتخاب مرکز —"
+
+        selected_center_id = self.instance.center_id if self.instance.pk else None
+        if self.is_bound:
+            raw_center_id = self.data.get(self.add_prefix("center"))
+            if raw_center_id:
+                try:
+                    selected_center_id = int(raw_center_id)
+                except (TypeError, ValueError):
+                    selected_center_id = None
+        elif self.user and getattr(self.user, "center_id", None):
+            selected_center_id = self.user.center_id
+            self.fields["center"].initial = self.user.center
+        if self.user and getattr(self.user, "center_id", None) and self.user.has_role("admin_it", "manager"):
+            self.fields["center"].required = True
+
+        self.fields["category"].queryset = AssetCategory.objects.filter(is_active=True)
+        # قرارداد باید صریحاً یکی از مراکز مجاز کاربر را در دامنه پوشش داشته باشد.
+        self.fields["contract"].queryset = Contract.objects.filter(
+            centers__in=scoped_centers
+        ).select_related("contractor").distinct().order_by("-start_date")
+        self.fields["department"].queryset = Department.objects.filter(center__in=scoped_centers, is_active=True)
+        self.fields["location"].queryset = Location.objects.filter(center__in=scoped_centers, is_active=True)
+        if selected_center_id:
+            self.fields["department"].queryset = self.fields["department"].queryset.filter(center_id=selected_center_id)
+            self.fields["location"].queryset = self.fields["location"].queryset.filter(center_id=selected_center_id)
+            self.fields["contract"].queryset = self.fields["contract"].queryset.filter(
+                centers__pk=selected_center_id
+            ).distinct()
+
+        self.fields["custodian"].queryset = self.fields["custodian"].queryset.filter(
+            is_active=True, center__in=scoped_centers
+        ).order_by("last_name", "first_name")
         self.fields["custodian"].label_from_instance = lambda obj: obj.display_name
         self.fields["contract"].empty_label = "— بدون قرارداد —"
         self.fields["custodian"].empty_label = "— بدون امانت‌دار —"
+
+        selected_category = self.instance.category if self.instance.pk else None
+        if self.is_bound:
+            raw_category_id = self.data.get(self.add_prefix("category"))
+            if raw_category_id:
+                selected_category = AssetCategory.objects.filter(pk=raw_category_id).first()
+
+        computer_assets = Asset.objects.filter(
+            center__in=scoped_centers, category__is_computing_device=True
+        ).select_related("category", "center").exclude(pk=self.instance.pk)
+        if selected_center_id:
+            computer_assets = computer_assets.filter(center_id=selected_center_id)
+        if selected_category and selected_category.is_computing_device:
+            computer_assets = Asset.objects.none()
+        self.fields["connected_computers"].queryset = computer_assets.order_by("asset_tag")
+        if self.instance.pk:
+            self.fields["connected_computers"].initial = self.instance.outgoing_relationships.filter(
+                relationship_type=AssetRelationship.RELATION_CONNECTED_TO,
+                is_active=True,
+            ).values_list("related_asset_id", flat=True)
+
+        computing_ids = list(AssetCategory.objects.filter(
+            is_active=True, is_computing_device=True
+        ).values_list("pk", flat=True))
+        self.fields["category"].widget.attrs["data-computing-category-ids"] = ",".join(map(str, computing_ids))
+        for field_name in ("hostname", "os_name", "office_software"):
+            self.fields[field_name].widget.attrs["data-computer-only"] = "true"
+        self.fields["connected_computers"].widget.attrs["data-peripheral-only"] = "true"
+        self.fields["connection_type"].widget.attrs["data-peripheral-only"] = "true"
+
+    def clean(self):
+        cleaned = super().clean()
+        center = cleaned.get("center")
+        category = cleaned.get("category")
+        for field_name in ("department", "location"):
+            related = cleaned.get(field_name)
+            if related and center and related.center_id != center.pk:
+                self.add_error(field_name, "این گزینه باید متعلق به مرکز انتخاب‌شده باشد.")
+        contract = cleaned.get("contract")
+        if contract and center and not contract.is_provincial and not contract.centers.filter(pk=center.pk).exists():
+            self.add_error("contract", "قرارداد انتخاب‌شده به مرکز انتخاب‌شده تعلق ندارد.")
+        custodian = cleaned.get("custodian")
+        if custodian and center and custodian.center_id != center.pk:
+            self.add_error("custodian", "امانت‌دار باید از کاربران همان مرکز باشد.")
+        computers = cleaned.get("connected_computers")
+        if category and category.is_computing_device and computers:
+            self.add_error("connected_computers", "برای خود رایانه، انتخاب رایانه متصل در این فرم مجاز نیست.")
+        elif computers and not center:
+            self.add_error("center", "برای ثبت ارتباط میان دارایی‌ها، ابتدا مرکز را مشخص کنید.")
+        elif computers and any(item.center_id != center.pk for item in computers):
+            self.add_error("connected_computers", "رایانه‌های مرتبط باید متعلق به همان مرکز باشند.")
+        if category and not category.is_computing_device:
+            for field_name in ("hostname", "os_name", "office_software"):
+                cleaned[field_name] = getattr(self.instance, field_name, "") or ""
+        return cleaned
 
     def clean_asset_tag(self):
         value = (self.cleaned_data.get("asset_tag") or "").strip()
@@ -52,7 +146,21 @@ class AssetForm(StyledModelForm):
 
 
 class AssetFilterForm(StyledForm):
-    """پالایه فهرست دارایی‌ها."""
+    """پالایه فهرست دارایی‌ها با گزینه‌های محدود به دامنه مجاز کاربر."""
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        scoped = (
+            user.get_scoped_centers()
+            if user and getattr(user, "is_authenticated", False)
+            else Center.objects.none()
+        )
+        self.fields["center"].queryset = scoped
+        self.fields["department"].queryset = Department.objects.filter(center__in=scoped)
+        self.fields["location"].queryset = Location.objects.filter(center__in=scoped)
+        self.fields["contract"].queryset = Contract.objects.filter(
+            centers__in=scoped
+        ).distinct()
 
     q = forms.CharField(label="جستجو", required=False)
     center = forms.ModelChoiceField(label="مرکز", required=False, queryset=Center.objects.all())
@@ -158,7 +266,7 @@ class CategoryForm(StyledModelForm):
     class Meta:
         model = AssetCategory
         fields = [
-            "name", "code", "icon", "requires_component_tracking", "is_portable",
+            "name", "code", "icon", "requires_component_tracking", "is_computing_device", "is_portable",
             "is_active", "description",
         ]
 

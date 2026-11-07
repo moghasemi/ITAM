@@ -151,7 +151,7 @@ async function readSnapshot() {
     toast("✅ اسنپ‌شات جدید ذخیره شد");
   } catch(e) {
     document.getElementById("content").innerHTML =
-      `<div class="error">❌ ${e.message}<br><small>مطمئن شوید agent.ps1 در حال اجراست.</small></div>`;
+      `<div class="error">❌ ${escapeHtml(e.message)}<br><small>مطمئن شوید agent.ps1 در حال اجراست.</small></div>`;
     toast("خطا در اسکن", true);
   } finally { btn.disabled = false; }
 }
@@ -179,7 +179,7 @@ async function compareSnapshots() {
     const data = await r.json();
     if (data.error) {
       document.getElementById("diffContent").innerHTML =
-        `<div class="error">${data.error}</div>`;
+        `<div class="error">${escapeHtml(data.error)}</div>`;
     } else {
       renderDiff(data);
     }
@@ -204,8 +204,8 @@ async function loadHistory() {
           <thead><tr><th class="fa">فایل</th><th class="fa">تاریخ</th><th class="fa">حجم</th></tr></thead>
           <tbody>
             ${list.map(x => `<tr>
-              <td>${x.file}</td>
-              <td class="fa">${x.time}</td>
+              <td>${escapeHtml(x.file)}</td>
+              <td class="fa">${escapeHtml(x.time)}</td>
               <td>${(x.size/1024).toFixed(1)} KB</td>
             </tr>`).join("")}
           </tbody>
@@ -220,16 +220,16 @@ function render(d) {
   const totalDisk = d.disks.reduce((s,x) => s + x.sizeGB, 0);
 
   document.getElementById("machineInfo").textContent =
-    `${d.computerName} | ${d.userName} | ${d.timestamp}`;
+    `${escapeHtml(d.computerName)} | ${escapeHtml(d.userName)} | ${escapeHtml(d.timestamp)}`;
 
   document.getElementById("content").innerHTML = `
     <div class="grid">
 
       <div class="card">
         <h2>⚙️ پردازنده</h2>
-        <div class="row"><span class="label">مدل</span><span class="value">${d.cpu.name}</span></div>
-        <div class="row"><span class="label">هسته / رشته</span><span class="value">${d.cpu.cores} / ${d.cpu.threads}</span></div>
-        <div class="row"><span class="label">فرکانس</span><span class="value">${d.cpu.speed} MHz</span></div>
+        <div class="row"><span class="label">مدل</span><span class="value">${escapeHtml(d.cpu.name)}</span></div>
+        <div class="row"><span class="label">هسته / رشته</span><span class="value">${escapeHtml(d.cpu.cores)} / ${escapeHtml(d.cpu.threads)}</span></div>
+        <div class="row"><span class="label">فرکانس</span><span class="value">${escapeHtml(d.cpu.speed)} MHz</span></div>
       </div>
 
       <div class="card">
@@ -237,8 +237,8 @@ function render(d) {
         <div class="row"><span class="label">حجم کل</span><span class="value">${totalRam} GB</span></div>
         <div class="chart-container"><canvas id="ramChart"></canvas></div>
         ${d.ram.map(r => `<div class="row">
-          <span class="label">${r.slot}</span>
-          <span class="value">${r.capacityGB}GB <span class="chip">${r.speedMHz}MHz</span></span>
+          <span class="label">${escapeHtml(r.slot)}</span>
+          <span class="value">${escapeHtml(r.capacityGB)}GB <span class="chip">${escapeHtml(r.speedMHz)}MHz</span></span>
         </div>`).join("")}
       </div>
 
@@ -247,32 +247,32 @@ function render(d) {
         <div class="row"><span class="label">حجم کل</span><span class="value">${totalDisk} GB</span></div>
         <div class="chart-container"><canvas id="diskChart"></canvas></div>
         ${d.disks.map(x => `<div class="row">
-          <span class="label">${x.name} <span class="chip">${x.mediaType}</span></span>
-          <span class="value">${x.sizeGB} GB</span>
+          <span class="label">${escapeHtml(x.name)} <span class="chip">${escapeHtml(x.mediaType)}</span></span>
+          <span class="value">${escapeHtml(x.sizeGB)} GB</span>
         </div>`).join("")}
       </div>
 
       <div class="card">
         <h2>🔧 مادربرد و BIOS</h2>
-        <div class="row"><span class="label">مادربرد</span><span class="value">${d.motherboard.manufacturer} ${d.motherboard.product}</span></div>
-        <div class="row"><span class="label">سریال مادربرد</span><span class="value">${d.motherboard.serial || "—"}</span></div>
-        <div class="row"><span class="label">BIOS</span><span class="value">${d.bios.manufacturer} ${d.bios.version}</span></div>
-        <div class="row"><span class="label">System UUID</span><span class="value">${d.system.uuid}</span></div>
+        <div class="row"><span class="label">مادربرد</span><span class="value">${escapeHtml(d.motherboard.manufacturer)} ${escapeHtml(d.motherboard.product)}</span></div>
+        <div class="row"><span class="label">سریال مادربرد</span><span class="value">${escapeHtml(d.motherboard.serial || "—")}</span></div>
+        <div class="row"><span class="label">BIOS</span><span class="value">${escapeHtml(d.bios.manufacturer)} ${escapeHtml(d.bios.version)}</span></div>
+        <div class="row"><span class="label">System UUID</span><span class="value">${escapeHtml(d.system.uuid)}</span></div>
       </div>
 
       <div class="card">
         <h2>🎮 کارت گرافیک</h2>
         ${d.gpu.map(g => `
-          <div class="row"><span class="label">مدل</span><span class="value">${g.name}</span></div>
-          <div class="row"><span class="label">نسخه درایور</span><span class="value">${g.driverVersion}</span></div>
+          <div class="row"><span class="label">مدل</span><span class="value">${escapeHtml(g.name)}</span></div>
+          <div class="row"><span class="label">نسخه درایور</span><span class="value">${escapeHtml(g.driverVersion)}</span></div>
         `).join("") || '<div class="row">—</div>'}
       </div>
 
       <div class="card">
         <h2>🌐 کارت شبکه</h2>
         ${d.network.map(n => `<div class="row">
-          <span class="label">${n.name}</span>
-          <span class="value">${n.mac}</span>
+          <span class="label">${escapeHtml(n.name)}</span>
+          <span class="value">${escapeHtml(n.mac)}</span>
         </div>`).join("") || '<div class="row">—</div>'}
       </div>
 
@@ -280,11 +280,11 @@ function render(d) {
         <h2>🔐 اثر انگشت سیستم (Hash)</h2>
         <div class="row">
           <span class="label">Identity Hash <span class="chip green">هویت پایدار</span></span>
-          <span class="value mono" title="${d.hashes.identity}">${d.hashes.identity}</span>
+          <span class="value mono" title="${escapeHtml(d.hashes.identity)}">${escapeHtml(d.hashes.identity)}</span>
         </div>
         <div class="row">
           <span class="label">Master Hash <span class="chip amber">کل سیستم</span></span>
-          <span class="value mono" title="${d.hashes.master}">${d.hashes.master}</span>
+          <span class="value mono" title="${escapeHtml(d.hashes.master)}">${escapeHtml(d.hashes.master)}</span>
         </div>
         <h3 style="font-size:12px;margin:14px 0 6px;color:#475569">هش هر مؤلفه:</h3>
         <table>
@@ -292,8 +292,8 @@ function render(d) {
           <tbody>
             ${Object.entries(d.hashes.components).map(([k,v]) => `
               <tr>
-                <td class="fa"><span class="chip">${k}</span></td>
-                <td class="mono" title="${v}">${v}</td>
+                <td class="fa"><span class="chip">${escapeHtml(k)}</span></td>
+                <td class="mono" title="${escapeHtml(v)}">${escapeHtml(v)}</td>
               </tr>`).join("")}
           </tbody>
         </table>
@@ -332,7 +332,7 @@ function renderDiff(data) {
   } else if (r.identityChanged) {
     banner = `<div class="banner crit">🚨 هویت سیستم تغییر کرده! (مادربرد / BIOS / UUID) — این یک تغییر مشکوک است.</div>`;
   } else {
-    banner = `<div class="banner warn">⚠️ ${r.changedComponents.length} مؤلفه تغییر کرده: ${r.changedComponents.join(", ")}</div>`;
+    banner = `<div class="banner warn">⚠️ ${r.changedComponents.length} مؤلفه تغییر کرده: ${escapeHtml(r.changedComponents.join(", "))}</div>`;
   }
 
   let tableHtml = "";
@@ -349,8 +349,8 @@ function renderDiff(data) {
           </tr></thead>
           <tbody>
             ${r.details.map(d => `<tr>
-              <td class="fa"><span class="chip">${d.component}</span></td>
-              <td class="fa">${d.field}</td>
+              <td class="fa"><span class="chip">${escapeHtml(d.component)}</span></td>
+              <td class="fa">${escapeHtml(d.field)}</td>
               <td><span class="old-val">${escapeHtml(d.oldValue)}</span></td>
               <td><span class="new-val">${escapeHtml(d.newValue)}</span></td>
             </tr>`).join("")}
@@ -363,8 +363,8 @@ function renderDiff(data) {
     ${banner}
     <div class="card" style="margin-top:16px">
       <h2>📅 بازه مقایسه</h2>
-      <div class="row"><span class="label">اسنپ‌شات قدیمی</span><span class="value">${data.oldTime}</span></div>
-      <div class="row"><span class="label">اسنپ‌شات جدید</span><span class="value">${data.newTime}</span></div>
+      <div class="row"><span class="label">اسنپ‌شات قدیمی</span><span class="value">${escapeHtml(data.oldTime)}</span></div>
+      <div class="row"><span class="label">اسنپ‌شات جدید</span><span class="value">${escapeHtml(data.newTime)}</span></div>
     </div>
     ${tableHtml}`;
 }
@@ -470,8 +470,8 @@ async function syncWithItamServer() {
           <div class="banner ok">
             <div>
               <strong>✅ ثبت موفق در سرور ITAM</strong><br>
-              شماره اموال: <b>${result.asset_tag}</b> (${result.asset_title || ""})<br>
-              نسخه اسنپ‌شات: <b>${result.version}</b> ${result.is_baseline ? "(اسنپ‌شات پایه)" : ""}<br>
+              شماره اموال: <b>${escapeHtml(result.asset_tag)}</b> (${escapeHtml(result.asset_title || "")})<br>
+              نسخه اسنپ‌شات: <b>${escapeHtml(result.version)}</b> ${result.is_baseline ? "(اسنپ‌شات پایه)" : ""}<br>
               تعداد تغییرات قطعات: <b>${result.diff_count}</b>
               ${result.has_alarm ? "<br><span style='color:#b91c1c; font-weight:bold;'>⚠️ هشدار مغایرت/سرقت قطعات فعال شد!</span>" : ""}
             </div>

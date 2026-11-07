@@ -78,6 +78,31 @@
   </div>
 </div>
 
+{% if asset_relationships %}
+<div class="card mt-2">
+  <div class="card-head"><h2 class="card-title">ارتباطات این دارایی</h2></div>
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead><tr><th>دارایی مرتبط</th><th>نوع ارتباط</th><th>روش اتصال</th><th>مرکز</th></tr></thead>
+      <tbody>
+        {% for relation in asset_relationships %}
+          <tr>
+            {% if relation.asset_id == object.pk %}
+              <td><a href="{{ relation.related_asset.get_absolute_url }}">{{ relation.related_asset.asset_tag }} — {{ relation.related_asset.display_name }}</a></td>
+            {% else %}
+              <td><a href="{{ relation.asset.get_absolute_url }}">{{ relation.asset.asset_tag }} — {{ relation.asset.display_name }}</a></td>
+            {% endif %}
+            <td>{{ relation.get_relationship_type_display }}</td>
+            <td>{{ relation.get_connection_type_display|default:"—" }}</td>
+            <td>{{ object.center|default:"—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <div data-tabs-scope>
   <div class="tabs" data-tabs>
     <button class="tab active" type="button" data-tab-target="hardware">🔧 اقلام سخت‌افزاری</button>
