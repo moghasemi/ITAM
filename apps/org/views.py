@@ -249,7 +249,9 @@ class ContractListView(AdminItRequiredMixin, BaseListView):
     filter_form_class = ContractFilterForm
 
     def get_queryset(self):
-        queryset = Contract.objects.select_related("contractor").annotate(
+        queryset = Contract.objects.select_related("contractor").filter(
+            Q(is_provincial=True) | Q(centers__in=self.request.user.get_scoped_centers())
+        ).distinct().annotate(
             assets_total=Count("assets", distinct=True),
             tickets_total=Count("tickets", distinct=True),
         ).order_by("-start_date")
@@ -325,6 +327,11 @@ class ContractDetailView(AdminItRequiredMixin, BaseDetailView):
     page_title = "پرونده قرارداد"
     active_menu = "contracts"
 
+    def get_queryset(self):
+        return Contract.objects.filter(
+            Q(is_provincial=True) | Q(centers__in=self.request.user.get_scoped_centers())
+        ).distinct()
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         contract = self.object
@@ -344,11 +351,25 @@ class ContractDetailView(AdminItRequiredMixin, BaseDetailView):
 
 def contract_generate_visits(request, pk: int):
     """برنامه‌ریزی بازدیدهای دوره‌ای یک قرارداد."""
-    contract = get_object_or_404(Contract, pk=pk)
+    contract = get_object_or_404(
+        Contract.objects.filter(
+            Q(is_provincial=True) | Q(centers__in=request.user.get_scoped_centers())
+        ).distinct(),
+        pk=pk,
+    )
     if not request.user.has_role("admin_it"):
         from django.core.exceptions import PermissionDenied
 
         raise PermissionDenied("فقط کارشناس فناوری اطلاعات مرکز می‌تواند بازدیدها را برنامه‌ریزی کند.")
+    if (
+        request.user.has_role("admin_it")
+        and not request.user.is_admin_province
+        and contract.is_provincial
+    ):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied(
+            "برنامه‌ریزی قرارداد استانی باید توسط مدیر استان انجام شود تا بازدیدها بین مراکز تفکیک شوند."
+        )
     if request.method == "POST":
         from apps.maintenance.services import generate_visits
 

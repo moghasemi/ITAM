@@ -111,7 +111,17 @@ def can_confirm_as_user(user, ticket: Ticket) -> bool:
 
 
 def can_confirm_as_it(user, ticket: Ticket) -> bool:
-    return user.has_role(User.ROLE_ADMIN_IT)
+    """تایید نهایی فقط در دامنه سازمانی کاربر مجاز است."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if user.is_admin_province:
+        return True
+    ticket_center_id = ticket.center_id or ticket.asset.center_id
+    return bool(
+        user.has_role(User.ROLE_ADMIN_IT)
+        and user.center_id
+        and ticket_center_id == user.center_id
+    )
 
 
 # ---------------------------------------------------------------------------
