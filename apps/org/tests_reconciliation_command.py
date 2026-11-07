@@ -3,7 +3,8 @@
 import tempfile
 from pathlib import Path
 
-from django.core.management import call_command
+from django.core.management import call_command, get_commands, load_command_class
+from django.core.management.base import CommandError
 from django.test import TestCase
 
 from apps.assets.models import Asset, AssetCategory
@@ -94,9 +95,11 @@ class ReconciliationCommandRegressionTests(TestCase):
         self.assertEqual(legacy_center.parent_unit_id, self.county.pk)
 
     def test_apply_and_dry_run_flags_are_mutually_exclusive(self):
-        from django.core.management import load_command_class
+        command_name = "reconcile_organizational_data"
+        app_name = get_commands()[command_name]
+        command = load_command_class(app_name, command_name)
 
-        command = load_command_class("apps.org", "reconcile_organizational_data")
-        parser = command.create_parser("manage.py", "reconcile_organizational_data")
-        with self.assertRaises(SystemExit):
+        parser = command.create_parser("manage.py", command_name)
+
+        with self.assertRaises(CommandError):
             parser.parse_args(["--apply", "--dry-run"])

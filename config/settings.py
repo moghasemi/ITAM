@@ -109,7 +109,7 @@ if hsts_seconds > 0:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("ITAM_HSTS_INCLUDE_SUBDOMAINS", True)
     SECURE_HSTS_PRELOAD = env_bool("ITAM_HSTS_PRELOAD", True)
 
-X_FRAME_OPTIONS = "SAMEORIGIN"
+X_FRAME_OPTIONS = "DENY"
 # ---------------------------------------------------------------------------
 # برنامه‌ها
 # ---------------------------------------------------------------------------
