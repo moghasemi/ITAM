@@ -125,12 +125,15 @@ def dispatch_event(event: OutboxEvent, endpoint: WebhookEndpoint) -> bool:
         headers[SIGNATURE_HEADER] = sign_payload(body, endpoint.secret)
     elif endpoint.auth_type == WebhookEndpoint.AUTH_TOKEN and endpoint.token:
         headers["Authorization"] = f"Bearer {endpoint.token}"
+    header_validation_error = ""
     for key, value in (endpoint.extra_headers or {}).items():
         key, value = str(key), str(value)
         if key.lower() in {"host", "content-length", "transfer-encoding", "connection", "authorization"}:
-            raise ValueError(f"سرآیند رزروشده قابل بازنویسی نیست: {key}")
+            header_validation_error = f"سرآیند رزروشده قابل بازنویسی نیست: {key}"
+            break
         if any(char in key + value for char in "\r\n"):
-            raise ValueError("سرآیند سفارشی دارای CR/LF غیرمجاز است.")
+            header_validation_error = "سرآیند سفارشی دارای CR/LF غیرمجاز است."
+            break
         headers[key] = value
 
     started = time.monotonic()
@@ -140,6 +143,8 @@ def dispatch_event(event: OutboxEvent, endpoint: WebhookEndpoint) -> bool:
     error = ""
     connection = None
     try:
+        if header_validation_error:
+            raise ValueError(header_validation_error)
         parsed, pinned_ip, port = _resolve_webhook_target(endpoint.url)
         connection_type = (
             http.client.HTTPSConnection if parsed.scheme == "https"
