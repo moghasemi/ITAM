@@ -111,6 +111,11 @@ class DepartmentCreateView(AdminItRequiredMixin, BaseCreateView):
     success_message = "واحد سازمانی ثبت شد."
 
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
 class DepartmentUpdateView(AdminItRequiredMixin, BaseUpdateView):
     model = Department
     form_class = DepartmentForm
@@ -141,6 +146,11 @@ class LocationListView(AdminItRequiredMixin, BaseListView):
         return apply_search(queryset, self.request.GET.get("q"), ["name", "building", "floor", "room", "code"])
 
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
 class LocationCreateView(AdminItRequiredMixin, BaseCreateView):
     model = Location
     form_class = LocationForm
@@ -150,6 +160,11 @@ class LocationCreateView(AdminItRequiredMixin, BaseCreateView):
     success_url = reverse_lazy("org:location_list")
     success_message = "محل استقرار ثبت شد."
 
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 class LocationUpdateView(AdminItRequiredMixin, BaseUpdateView):
     model = Location
@@ -180,6 +195,11 @@ class ContractorListView(AdminItRequiredMixin, BaseListView):
         ).order_by("name")
         return apply_search(queryset, self.request.GET.get("q"), ["name", "code", "contact_person", "phone"])
 
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 class ContractorCreateView(ProvinceAdminRequiredMixin, BaseCreateView):
     model = Contractor
