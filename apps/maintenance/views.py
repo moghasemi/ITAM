@@ -151,7 +151,11 @@ class VisitCreateView(RepairStaffRequiredMixin, PageContextMixin, CreateView):
         visit.center = centers[0]
 
     def form_valid(self, form):
-        self._bind_visit_center(form.instance)
+        try:
+            self._bind_visit_center(form.instance)
+        except ValidationError as exc:
+            form.add_error("contract", exc)
+            return self.form_invalid(form)
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
         populate_checks(self.object)
@@ -180,17 +184,21 @@ class VisitUpdateView(RepairStaffRequiredMixin, PageContextMixin, UpdateView):
 
     def form_valid(self, form):
         contract = form.cleaned_data["contract"]
-        if contract.is_provincial:
-            if not self.request.user.is_admin_province:
-                raise PermissionDenied("ویرایش بازدید قرارداد استانی فقط توسط مدیر استان مجاز است.")
-            form.instance.center = None
-        else:
-            centers = list(contract.centers.all())
-            if len(centers) != 1:
-                raise ValidationError("قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد.")
-            if not self.request.user.is_admin_province and not self.request.user.get_scoped_centers().filter(pk=centers[0].pk).exists():
-                raise PermissionDenied("قرارداد خارج از دامنه مراکز مجاز شماست.")
-            form.instance.center = centers[0]
+        try:
+            if contract.is_provincial:
+                if not self.request.user.is_admin_province:
+                    raise PermissionDenied("ویرایش بازدید قرارداد استانی فقط توسط مدیر استان مجاز است.")
+                form.instance.center = None
+            else:
+                centers = list(contract.centers.all())
+                if len(centers) != 1:
+                    raise ValidationError("قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد.")
+                if not self.request.user.is_admin_province and not self.request.user.get_scoped_centers().filter(pk=centers[0].pk).exists():
+                    raise PermissionDenied("قرارداد خارج از دامنه مراکز مجاز شماست.")
+                form.instance.center = centers[0]
+        except ValidationError as exc:
+            form.add_error("contract", exc)
+            return self.form_invalid(form)
         response = super().form_valid(form)
         log_action("update", self.object, note="ویرایش نوبت بازدید", user=self.request.user)
         messages.success(self.request, "نوبت بازدید ذخیره شد.")
