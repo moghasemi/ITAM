@@ -15,6 +15,7 @@ from django.views.generic import ListView, UpdateView
 from apps.accounts.permissions import AdminItRequiredMixin, StaffRequiredMixin
 from apps.assets.models import Asset, HardwareSnapshot
 from apps.maintenance.models import MaintenanceVisit
+from apps.maintenance.services import visible_visits
 from apps.tickets.models import Ticket, TicketEvent
 
 from . import jalali
@@ -155,11 +156,7 @@ class DashboardView(PageContextMixin, ListView):
             }
         )
 
-        visits = MaintenanceVisit.objects.select_related("contract", "contract__contractor")
-        if user.is_technician and user.contractor_id:
-            visits = visits.filter(contract__contractor_id=user.contractor_id)
-        elif not user.has_role("admin_it", "manager"):
-            visits = visits.none()
+        visits = visible_visits(user)
 
         context.update(
             {

@@ -119,8 +119,8 @@ def can_confirm_as_it(user, ticket: Ticket) -> bool:
     ticket_center_id = ticket.center_id or ticket.asset.center_id
     return bool(
         user.has_role(User.ROLE_ADMIN_IT)
-        and user.center_id
-        and ticket_center_id == user.center_id
+        and ticket_center_id
+        and user.get_scoped_centers().filter(pk=ticket_center_id).exists()
     )
 
 

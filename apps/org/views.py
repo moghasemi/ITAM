@@ -250,7 +250,10 @@ class ContractListView(AdminItRequiredMixin, BaseListView):
 
     def get_queryset(self):
         queryset = Contract.objects.select_related("contractor").filter(
-            Q(is_provincial=True) | Q(centers__in=self.request.user.get_scoped_centers())
+            Q(centers__in=self.request.user.get_scoped_centers())
+            | Q(is_provincial=True, pk__in=Contract.objects.filter(
+                centers__in=self.request.user.get_scoped_centers()
+            ).values("pk"))
         ).distinct().annotate(
             assets_total=Count("assets", distinct=True),
             tickets_total=Count("tickets", distinct=True),
@@ -329,8 +332,8 @@ class ContractDetailView(AdminItRequiredMixin, BaseDetailView):
 
     def get_queryset(self):
         return Contract.objects.filter(
-            Q(is_provincial=True) | Q(centers__in=self.request.user.get_scoped_centers())
-        ).distinct()
+            Q(centers__in=self.request.user.get_scoped_centers())
+        ).distinct() if not self.request.user.is_admin_province else Contract.objects.all()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -353,8 +356,8 @@ def contract_generate_visits(request, pk: int):
     """برنامه‌ریزی بازدیدهای دوره‌ای یک قرارداد."""
     contract = get_object_or_404(
         Contract.objects.filter(
-            Q(is_provincial=True) | Q(centers__in=request.user.get_scoped_centers())
-        ).distinct(),
+            Q(centers__in=request.user.get_scoped_centers())
+        ).distinct() if not request.user.is_admin_province else Contract.objects.all(),
         pk=pk,
     )
     if not request.user.has_role("admin_it"):

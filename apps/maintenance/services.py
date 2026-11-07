@@ -42,9 +42,10 @@ def visible_visits(user):
     if user.is_admin_province:
         return queryset
     if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
-        if not user.center_id:
+        centers = user.get_scoped_centers()
+        if not centers.exists():
             return queryset.none()
-        return queryset.filter(center_id=user.center_id)
+        return queryset.filter(center__in=centers)
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id:
             return queryset.none()
@@ -69,7 +70,7 @@ def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
     if user.is_admin_province:
         return True
     if user.has_role(User.ROLE_ADMIN_IT):
-        return bool(user.center_id and visit.center_id == user.center_id)
+        return user.get_scoped_centers().filter(pk=visit.center_id).exists()
     if user.has_role(User.ROLE_TECHNICIAN):
         return bool(
             user.contractor_id
@@ -272,8 +273,8 @@ def complete_visit(visit: MaintenanceVisit, user, *, report_text="", recommendat
 @transaction.atomic
 def confirm_visit(visit: MaintenanceVisit, user, note: str = ""):
     """تایید بازدید توسط کارشناس فناوری اطلاعات مرکز."""
-    if not user.has_role(User.ROLE_ADMIN_IT):
-        raise PermissionDenied("تایید بازدید فقط توسط کارشناس فناوری اطلاعات مرکز انجام می‌شود.")
+    if not user.has_role(User.ROLE_ADMIN_IT) or not can_manage_visit(user, visit):
+        raise PermissionDenied("تایید بازدید فقط توسط کارشناس فناوری اطلاعات مجاز همان دامنه انجام می‌شود.")
     visit.it_confirmed_by = user
     visit.it_confirmed_at = timezone.now()
     visit.it_note = note[:300]
