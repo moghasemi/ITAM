@@ -64,6 +64,15 @@ class AgentCredentialAdmin(admin.ModelAdmin):
     )
     actions = ("revoke_credentials", "rotate_credentials", "suspend_credentials", "activate_credentials")
 
+    def get_readonly_fields(self, request, obj=None):
+        fields = list(super().get_readonly_fields(request, obj))
+        if obj is not None:
+            fields.extend(("center", "name", "hostname"))
+        return tuple(fields)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     def save_model(self, request, obj, form, change):
         if not change:
             # The raw token is generated once and shown only in this response.
