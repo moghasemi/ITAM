@@ -571,3 +571,54 @@ class AssetScopeAndRelationshipTests(TestCase):
         )
         with self.assertRaises(ValidationError):
             relation.full_clean()
+
+
+class OrganizationFormScopeTests(TestCase):
+    def test_department_and_location_forms_only_offer_the_users_centers(self):
+        from apps.org.forms import DepartmentForm, LocationForm
+        from apps.org.models import Center, OrganizationalUnit
+
+        national = OrganizationalUnit.objects.create(
+            name="کشور فرم", code="FORM-NAT", unit_type=OrganizationalUnit.UNIT_NATIONAL
+        )
+        province = OrganizationalUnit.objects.create(
+            name="استان فرم", code="FORM-PRV", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national
+        )
+        county = OrganizationalUnit.objects.create(
+            name="شهرستان فرم", code="FORM-CNT", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=province
+        )
+        center_a = Center.objects.create(name="مرکز فرم الف", code="FORM-A", parent_unit=county)
+        Center.objects.create(name="مرکز فرم ب", code="FORM-B", parent_unit=county)
+        user = User.objects.create_user(
+            username="form_scope_it", password="test-password", role=User.ROLE_ADMIN_IT, center=center_a
+        )
+
+        department_form = DepartmentForm(user=user)
+        location_form = LocationForm(user=user)
+        self.assertEqual(list(department_form.fields["center"].queryset), [center_a])
+        self.assertEqual(list(location_form.fields["center"].queryset), [center_a])
+
+    def test_asset_filter_form_only_offers_scoped_centers_and_departments(self):
+        from apps.assets.forms import AssetFilterForm
+        from apps.org.models import Center, Department, OrganizationalUnit
+
+        national = OrganizationalUnit.objects.create(
+            name="کشور فیلتر", code="FILTER-NAT", unit_type=OrganizationalUnit.UNIT_NATIONAL
+        )
+        province = OrganizationalUnit.objects.create(
+            name="استان فیلتر", code="FILTER-PRV", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national
+        )
+        county = OrganizationalUnit.objects.create(
+            name="شهرستان فیلتر", code="FILTER-CNT", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=province
+        )
+        center_a = Center.objects.create(name="مرکز فیلتر الف", code="FILTER-A", parent_unit=county)
+        center_b = Center.objects.create(name="مرکز فیلتر ب", code="FILTER-B", parent_unit=county)
+        department_a = Department.objects.create(center=center_a, name="واحد فیلتر الف")
+        Department.objects.create(center=center_b, name="واحد فیلتر ب")
+        user = User.objects.create_user(
+            username="filter_scope_it", password="test-password", role=User.ROLE_ADMIN_IT, center=center_a
+        )
+
+        form = AssetFilterForm(user=user)
+        self.assertEqual(list(form.fields["center"].queryset), [center_a])
+        self.assertEqual(list(form.fields["department"].queryset), [department_a])
