@@ -81,7 +81,13 @@ class Center(TimeStampedModel):
 
     name = models.CharField("نام مرکز", max_length=150, unique=True)
     code = models.CharField("کد مرکز", max_length=30, blank=True, unique=True)
-    province = models.CharField("استان", max_length=80, default="مرکزی")
+    province = models.CharField(
+        "استان (منسوخ‌شده)",
+        max_length=80,
+        blank=True,
+        default="مرکزی",
+        help_text="این فیلد منسوخ شده است؛ استان رسماً از سلسله‌مراتب سازمانی واحد بالادست استخراج می‌شود.",
+    )
     city = models.CharField("شهر / شهرستان", max_length=80, blank=True)
     address = models.TextField("نشانی", blank=True)
     phone = models.CharField("تلفن", max_length=30, blank=True)
@@ -98,8 +104,9 @@ class Center(TimeStampedModel):
         verbose_name="واحد سازمانی شهرستانی بالادست",
         on_delete=models.PROTECT,
         null=True,
-        blank=True,
+        blank=False,
         related_name="centers",
+        help_text="اتصال مرکز به یک واحد سازمانی شهرستانی (County) الزامی است.",
     )
     notes = models.TextField("یادداشت", blank=True)
 
@@ -114,8 +121,22 @@ class Center(TimeStampedModel):
 
     def clean(self):
         super().clean()
+        is_new = self._state.adding or not self.pk
+        if is_new and not self.parent_unit:
+            raise ValidationError({"parent_unit": "اتصال مرکز جدید به واحد سازمانی شهرستانی (County) الزامی است."})
         if self.parent_unit and self.parent_unit.unit_type != OrganizationalUnit.UNIT_COUNTY:
             raise ValidationError({"parent_unit": "واحد بالادست مرکز باید حتماً از سطح شهرستانی باشد."})
+
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding or not self.pk
+        if is_new and not self.parent_unit:
+            raise ValidationError({"parent_unit": "اتصال مرکز جدید به واحد سازمانی شهرستانی (County) الزامی است."})
+        if self.parent_unit:
+            if self.parent_unit.unit_type != OrganizationalUnit.UNIT_COUNTY:
+                raise ValidationError({"parent_unit": "واحد بالادست مرکز باید حتماً از سطح شهرستانی باشد."})
+            if self.parent_unit.parent and self.parent_unit.parent.name:
+                self.province = self.parent_unit.parent.name
+        super().save(*args, **kwargs)
 
     @property
     def province_name(self) -> str:

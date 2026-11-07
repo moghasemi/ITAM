@@ -34,10 +34,11 @@ def env_list(name: str, default=None):
 # امنیت پایه و تنظیمات محیط عملیاتی (Production Hardening)
 # ---------------------------------------------------------------------------
 RUNNING_TESTS = "test" in sys.argv
+IS_DEV_CLI = any(arg in sys.argv for arg in ["test", "makemigrations", "migrate", "reconcile_organizational_data", "seed_demo", "check", "showmigrations"])
 
 DEBUG = env_bool("ITAM_DEBUG", False)
 
-if DEBUG or RUNNING_TESTS:
+if DEBUG or IS_DEV_CLI:
     SECRET_KEY = os.environ.get("ITAM_SECRET_KEY") or "django-insecure-itam-dev-key-change-in-production-only-entropy-12345"
     ALLOWED_HOSTS = env_list("ITAM_ALLOWED_HOSTS", ["localhost", "127.0.0.1", "[::1]", "testserver"])
 else:
@@ -56,23 +57,55 @@ else:
 
 CSRF_TRUSTED_ORIGINS = env_list("ITAM_CSRF_TRUSTED_ORIGINS", [])
 
-# HTTPS و کوکی‌های امن
-SECURE_SSL_REDIRECT = env_bool("ITAM_SECURE_SSL_REDIRECT", False)
-if env_bool("ITAM_USE_PROXY_SSL_HEADER", False):
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# ---------------------------------------------------------------------------
+# کوکی‌ها، نشست‌ها (Sessions)، CSRF و امنیت ارتباطات
+# ---------------------------------------------------------------------------
+# در محیط عملیاتی (DEBUG=False)، کوکی‌های Session و CSRF به‌صورت پیش‌فرض فقط روی HTTPS ارسال می‌شوند.
+default_secure_cookies = (not DEBUG) and (not RUNNING_TESTS)
 
-SESSION_COOKIE_SECURE = env_bool("ITAM_SESSION_COOKIE_SECURE", False)
-CSRF_COOKIE_SECURE = env_bool("ITAM_CSRF_COOKIE_SECURE", False)
-SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = 60 * 60 * 12  # ۱۲ ساعت
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_COOKIE_NAME = "itam_sessionid"
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
-hsts_seconds = int(os.environ.get("ITAM_HSTS_SECONDS", 0))
+# کوکی نشست به دلیل محافظت در برابر حملات XSS و سرقت Session Hijacking همواره باید HttpOnly باشد.
+SESSION_COOKIE_HTTPONLY = True
+
+# تصمیم آگاهانه معماری (Conscious Architecture Decision):
+# مقدار CSRF_COOKIE_HTTPONLY صریحاً برابر با False تنظیم شده است.
+# دلایل فنی:
+# ۱. در نرم‌افزارهای تحت وب Django، اسکریپت‌های جاوا اسکریپت سمت کلاینت (AJAX / Fetch API)
+#    نیاز دارند مقدار CSRF Token را از کوکی csrftoken در document.cookie بخوانند و در هدر X-CSRFToken قرار دهند.
+# ۲. فعال‌سازی HttpOnly روی کوکی CSRF مانع از خواندن آن توسط JS شده و فرم‌های پویا و ارسال‌های ایجکس را مسدود می‌کند.
+# ۳. امنیت کوکی CSRF از طریق CSRF_COOKIE_SECURE=True بر بستر TLS/HTTPS و فلگ SameSite=Lax تضمین می‌گردد.
+CSRF_COOKIE_HTTPONLY = False
+
+# ارسال امن کوکی فقط از طریق HTTPS (در پروداکشن پیش‌فرض True است و از طریق متغیرهای محیطی نیز پشتیبانی می‌شود)
+cookie_secure_override = env_bool("ITAM_SECURE_COOKIES", default_secure_cookies)
+SESSION_COOKIE_SECURE = env_bool("ITAM_SESSION_COOKIE_SECURE", cookie_secure_override)
+CSRF_COOKIE_SECURE = env_bool("ITAM_CSRF_COOKIE_SECURE", cookie_secure_override)
+
+# ---------------------------------------------------------------------------
+# Reverse Proxy، هدایت TLS/HTTPS و HSTS
+# ---------------------------------------------------------------------------
+# در صورت استقرار پشت Reverse Proxy (مانند Nginx، HAProxy، Traefik یا ALB) با TLS Termination:
+if env_bool("ITAM_USE_PROXY_SSL_HEADER", not DEBUG and not RUNNING_TESTS):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+SECURE_SSL_REDIRECT = env_bool("ITAM_SECURE_SSL_REDIRECT", False)
+
+if not DEBUG:
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+
+hsts_seconds = int(os.environ.get("ITAM_HSTS_SECONDS", 31536000 if (not DEBUG and not RUNNING_TESTS and SECURE_SSL_REDIRECT) else 0))
 if hsts_seconds > 0:
     SECURE_HSTS_SECONDS = hsts_seconds
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("ITAM_HSTS_INCLUDE_SUBDOMAINS", False)
-    SECURE_HSTS_PRELOAD = env_bool("ITAM_HSTS_PRELOAD", False)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("ITAM_HSTS_INCLUDE_SUBDOMAINS", True)
+    SECURE_HSTS_PRELOAD = env_bool("ITAM_HSTS_PRELOAD", True)
+
+X_FRAME_OPTIONS = "SAMEORIGIN"
 # ---------------------------------------------------------------------------
 # برنامه‌ها
 # ---------------------------------------------------------------------------
@@ -222,22 +255,7 @@ DATA_UPLOAD_MAX_NUMBER_FILES = 200
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ---------------------------------------------------------------------------
-# نشست‌ها
-# ---------------------------------------------------------------------------
-SESSION_COOKIE_AGE = 60 * 60 * 12  # ۱۲ ساعت
-SESSION_SAVE_EVERY_REQUEST = True
-SESSION_COOKIE_NAME = "itam_sessionid"
-SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = False  # برای فرم‌های AJAX لازم است
-X_FRAME_OPTIONS = "SAMEORIGIN"
-
-# رؤسای شبکه داخلی معمولاً HTTPS ندارند؛ این گزینه‌ها فقط در حالت غیر اشکال‌زدایی
-if not DEBUG:
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_BROWSER_XSS_FILTER = True
-    SESSION_COOKIE_SECURE = env_bool("ITAM_SECURE_COOKIES", False)
-    CSRF_COOKIE_SECURE = env_bool("ITAM_SECURE_COOKIES", False)
+# تنظیمات نشست و کوکی‌ها در بخش بالای فایل تجمیع و استانداردسازی شده‌اند.
 
 # ---------------------------------------------------------------------------
 # پیام‌ها (کلاس‌های CSS متناظر با قالب)

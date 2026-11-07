@@ -14,7 +14,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.assets.models import Asset
 from apps.maintenance.models import MaintenanceVisit
-from apps.org.models import Center, Department, Location
+from apps.org.models import Center, Department, Location, OrganizationalUnit
 from apps.tickets.models import Ticket
 
 
@@ -53,7 +53,9 @@ class Command(BaseCommand):
         self.stdout.write(self.style.NOTICE("=" * 70))
 
         # موجودی‌برداری
+        orphaned_centers = list(Center.objects.filter(parent_unit__isnull=True))
         orphaned_assets = list(Asset.objects.filter(center__isnull=True).select_related("location", "custodian", "department"))
+        quarantined_existing_count = Asset.objects.filter(is_quarantined=True).count()
         orphaned_users = list(User.objects.filter(center__isnull=True, is_superuser=False, role__in=[User.ROLE_ADMIN_IT, User.ROLE_REQUESTER, User.ROLE_MANAGER]))
         orphaned_tickets = list(Ticket.objects.filter(center__isnull=True).select_related("asset", "reported_by"))
         orphaned_visits = list(MaintenanceVisit.objects.filter(center__isnull=True).prefetch_related("checks__asset"))
@@ -61,7 +63,8 @@ class Command(BaseCommand):
         orphaned_locations = list(Location.objects.filter(center__isnull=True))
 
         total_orphaned = (
-            len(orphaned_assets)
+            len(orphaned_centers)
+            + len(orphaned_assets)
             + len(orphaned_users)
             + len(orphaned_tickets)
             + len(orphaned_visits)
@@ -69,14 +72,16 @@ class Command(BaseCommand):
             + len(orphaned_locations)
         )
 
-        self.stdout.write(f"\n📊 آمار اقلام فاقد مرکز شناسایی‌شده در سامانه:")
-        self.stdout.write(f"  * دارایی‌ها (Assets): {len(orphaned_assets)}")
+        self.stdout.write(" آمار اقلام فاقد مرکز / والد سازمانی شناسایی‌شده:")
+        self.stdout.write(f"  * مراکز فاقد واحد شهرستانی بالادست (Centers without County): {len(orphaned_centers)}")
+        self.stdout.write(f"  * دارایی‌های فاقد مرکز (Assets without Center): {len(orphaned_assets)}")
+        self.stdout.write(f"  * دارایی‌های در قرنطینه جاری (Quarantined Assets): {quarantined_existing_count}")
         self.stdout.write(f"  * کاربران (Users): {len(orphaned_users)}")
         self.stdout.write(f"  * درخواست‌های خرابی (Tickets): {len(orphaned_tickets)}")
         self.stdout.write(f"  * نوبت‌های بازدید دوره‌ای (Visits): {len(orphaned_visits)}")
         self.stdout.write(f"  * واحدهای سازمانی (Departments): {len(orphaned_departments)}")
         self.stdout.write(f"  * محل‌های استقرار (Locations): {len(orphaned_locations)}")
-        self.stdout.write(self.style.NOTICE(f"  مجموع کل رکوردهای نیازمند تعیین تکلیف: {total_orphaned}\n"))
+        self.stdout.write(self.style.NOTICE(f"  مجموع کل رکوردهای نیازمند تعیین تکلیف: {total_orphaned}"))
 
         report_rows: List[Dict[str, Any]] = []
         high_confidence_count = 0
@@ -184,6 +189,39 @@ class Command(BaseCommand):
                 "action": "ASSIGN" if (status == "RESOLVED" and not is_dry_run) else ("QUARANTINE" if not is_dry_run else "DRY_RUN_PREVIEW"),
             })
 
+        # ۰) بررسی مراکز فاقد واحد شهرستانی
+        for center in orphaned_centers:
+            suggested_unit = None
+            confidence = "UNRESOLVED"
+            reason = "مرکز بدون واحد سازمانی شهرستانی بالادست - نیازمند تعیین انتساب دستی"
+            if center.city:
+                matching_counties = OrganizationalUnit.objects.filter(
+                    unit_type=OrganizationalUnit.UNIT_COUNTY,
+                    is_active=True,
+                    name__icontains=center.city,
+                )
+                if matching_counties.count() == 1:
+                    suggested_unit = matching_counties.first()
+                    confidence = "HIGH"
+                    reason = f"تطبیق بر اساس انطباق شهر مرکز ({center.city}) با واحد شهرستانی ({suggested_unit.name})"
+            status = "RESOLVED" if confidence == "HIGH" else "QUARANTINED"
+            if status == "RESOLVED":
+                high_confidence_count += 1
+            else:
+                quarantine_count += 1
+            report_rows.append({
+                "entity_type": "Center",
+                "object_id": center.pk,
+                "identifier": center.code or str(center.pk),
+                "title_or_name": center.name,
+                "current_center": "None (Missing Parent Unit)",
+                "suggested_center_id": suggested_unit.pk if suggested_unit else "",
+                "suggested_center_name": suggested_unit.name if suggested_unit else "",
+                "confidence": confidence,
+                "heuristic_reason": reason,
+                "action": "ASSIGN" if (status == "RESOLVED" and not is_dry_run) else ("QUARANTINE" if not is_dry_run else "DRY_RUN_PREVIEW"),
+            })
+
         # تولید گزارش CSV
         fieldnames = [
             "entity_type",
@@ -224,6 +262,14 @@ class Command(BaseCommand):
                             applied_count += 1
                         elif row["entity_type"] == "Ticket":
                             Ticket.objects.filter(pk=row["object_id"]).update(center=center_obj)
+                            applied_count += 1
+                        elif row["entity_type"] == "Center":
+                            unit_obj = OrganizationalUnit.objects.get(pk=row["suggested_center_id"])
+                            prov_name = unit_obj.parent.name if unit_obj.parent else "مرکزی"
+                            Center.objects.filter(pk=row["object_id"]).update(
+                                parent_unit=unit_obj,
+                                province=prov_name,
+                            )
                             applied_count += 1
                     elif row["confidence"] == "UNRESOLVED":
                         if row["entity_type"] == "Asset":

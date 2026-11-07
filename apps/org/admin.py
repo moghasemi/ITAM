@@ -52,6 +52,21 @@ class OrganizationalUnitAdmin(admin.ModelAdmin):
 
 @admin.register(Center)
 class CenterAdmin(admin.ModelAdmin):
-    list_display = ("name", "code", "province", "city", "parent_unit", "is_headquarters", "is_active")
-    list_filter = ("province", "is_headquarters", "is_active")
+    list_display = ("name", "code", "parent_unit", "get_province_display", "city", "is_headquarters", "is_active")
+    list_filter = ("is_headquarters", "is_active")
     search_fields = ("name", "code", "city")
+
+    @admin.display(description="استان (سلسله‌مراتب سازمانی)")
+    def get_province_display(self, obj):
+        return obj.province_name
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "parent_unit":
+            kwargs["queryset"] = OrganizationalUnit.objects.filter(
+                unit_type=OrganizationalUnit.UNIT_COUNTY, is_active=True
+            )
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        obj.full_clean()
+        super().save_model(request, obj, form, change)

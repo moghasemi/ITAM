@@ -62,6 +62,11 @@ class CenterCreateView(ProvinceAdminRequiredMixin, BaseCreateView):
     success_url = reverse_lazy("org:center_list")
     success_message = "مرکز جدید با موفقیت ثبت شد."
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
 
 class CenterUpdateView(ProvinceAdminRequiredMixin, BaseUpdateView):
     model = Center
@@ -74,6 +79,11 @@ class CenterUpdateView(ProvinceAdminRequiredMixin, BaseUpdateView):
 
     def get_queryset(self):
         return self.request.user.get_scoped_centers()
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 
 # ---------------------------------------------------------------------------

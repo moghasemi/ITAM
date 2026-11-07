@@ -5,18 +5,51 @@ from django import forms
 from django.forms import inlineformset_factory
 
 from apps.core.forms import JalaliDateField, StyledModelForm
-from .models import Center, Contract, Contractor, Department, Location, SlaPolicy
+from .models import Center, Contract, Contractor, Department, Location, OrganizationalUnit, SlaPolicy
 
 
 class CenterForm(StyledModelForm):
-    """فرم ثبت و ویرایش مرکز اداری / شهرستان."""
+    """فرم ثبت و ویرایش مرکز اداری / شهرستان با الزام اتصال به واحد شهرستانی."""
+
     class Meta:
         model = Center
         fields = [
-            "name", "code", "province", "city", "manager_name",
-            "it_lead_name", "phone", "is_headquarters", "is_active",
-            "address", "notes",
+            "name",
+            "code",
+            "parent_unit",
+            "city",
+            "manager_name",
+            "it_lead_name",
+            "phone",
+            "is_headquarters",
+            "is_active",
+            "address",
+            "notes",
         ]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        county_qs = OrganizationalUnit.objects.filter(
+            unit_type=OrganizationalUnit.UNIT_COUNTY, is_active=True
+        ).select_related("parent")
+
+        if user and not user.is_superuser:
+            if getattr(user, "org_unit", None) and user.org_unit.unit_type == OrganizationalUnit.UNIT_PROVINCE:
+                county_qs = county_qs.filter(parent=user.org_unit)
+            elif getattr(user, "center", None) and user.center.parent_unit and user.center.parent_unit.parent:
+                county_qs = county_qs.filter(parent=user.center.parent_unit.parent)
+
+        self.fields["parent_unit"].queryset = county_qs
+        self.fields["parent_unit"].required = True
+        self.fields["parent_unit"].help_text = "انتخاب واحد سازمانی شهرستانی (County) بالادست الزامی است."
+
+    def clean_parent_unit(self):
+        parent_unit = self.cleaned_data.get("parent_unit")
+        if not parent_unit:
+            raise forms.ValidationError("اتصال مرکز به واحد سازمانی شهرستانی الزامی است.")
+        if parent_unit.unit_type != OrganizationalUnit.UNIT_COUNTY:
+            raise forms.ValidationError("مرکز فقط می‌تواند به یک واحد سازمانی از نوع شهرستانی (County) متصل شود.")
+        return parent_unit
 
 
 

@@ -360,9 +360,12 @@ class AssetModelTests(TestCase):
 
 class MultiCenterAndHWAgentTests(TestCase):
     def setUp(self):
-        from apps.org.models import Center
-        self.center_hq = Center.objects.create(name="ستاد استان", code="HQ", is_headquarters=True)
-        self.center_sub = Center.objects.create(name="مرکز شهرستان", code="SUB", is_headquarters=False)
+        from apps.org.models import Center, OrganizationalUnit
+        self.nat = OrganizationalUnit.objects.create(name="کشور", code="OU-TEST-NAT", unit_type=OrganizationalUnit.UNIT_NATIONAL)
+        self.prv = OrganizationalUnit.objects.create(name="استان مرکزی", code="OU-TEST-PRV", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=self.nat)
+        self.cnty = OrganizationalUnit.objects.create(name="شهرستان اراک", code="OU-TEST-CNTY", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.prv)
+        self.center_hq = Center.objects.create(name="ستاد استان", code="HQ", is_headquarters=True, parent_unit=self.cnty)
+        self.center_sub = Center.objects.create(name="مرکز شهرستان", code="SUB", is_headquarters=False, parent_unit=self.cnty)
 
         self.admin_prov = User.objects.create_user(
             username="admin_prov", password="password123", role=User.ROLE_ADMIN_PROVINCE, center=self.center_hq

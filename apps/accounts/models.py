@@ -164,6 +164,9 @@ class User(AbstractUser):
             if self.org_unit:
                 return Center.objects.filter(parent_unit__parent=self.org_unit)
             if self.center:
+                if self.center.parent_unit and self.center.parent_unit.parent:
+                    return Center.objects.filter(parent_unit__parent=self.center.parent_unit.parent)
+                # مسیر سازگار موقت منحصراً برای مراکزی که هنوز به شهرستان متصل نشده‌اند
                 return Center.objects.filter(province=self.center.province)
             return Center.objects.none()
         if self.role == self.ROLE_ADMIN_COUNTY:

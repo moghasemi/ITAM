@@ -27,8 +27,11 @@ class HWAgentSecurityTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.category = AssetCategory.objects.create(name="رایانه رومیزی", code="PC", requires_component_tracking=True)
-        cls.center_a = Center.objects.create(name="مرکز درمانی سینا", code="C-SINA", province="مرکزی")
-        cls.center_b = Center.objects.create(name="مرکز درمانی امام رضا", code="C-REZA", province="مرکزی")
+        cls.national = OrganizationalUnit.objects.create(name="ستاد کشوری", code="OU-TEST-NAT-HW", unit_type=OrganizationalUnit.UNIT_NATIONAL)
+        cls.province = OrganizationalUnit.objects.create(name="دانشگاه علوم پزشکی استان مرکزی", code="OU-TEST-PRV-HW", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=cls.national)
+        cls.county = OrganizationalUnit.objects.create(name="شبکه بهداشت و درمان اراک", code="OU-TEST-CNTY-HW", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=cls.province)
+        cls.center_a = Center.objects.create(name="مرکز درمانی سینا", code="C-SINA", parent_unit=cls.county)
+        cls.center_b = Center.objects.create(name="مرکز درمانی امام رضا", code="C-REZA", parent_unit=cls.county)
 
         cls.asset_a = Asset.objects.create(
             asset_tag="TAG-A01",
@@ -227,9 +230,8 @@ class OrganizationalHierarchyTests(TestCase):
 
     def test_center_parent_unit_must_be_county(self):
         province = OrganizationalUnit.objects.create(name="استان", code="OU-P1", unit_type=OrganizationalUnit.UNIT_PROVINCE)
-        center = Center.objects.create(name="مرکز با والد غیرشهرستانی", code="C-ERR", parent_unit=province)
         with self.assertRaises(ValidationError):
-            center.clean()
+            Center.objects.create(name="مرکز با والد غیرشهرستانی", code="C-ERR", parent_unit=province)
 
 
 class RBACAndDataIsolationTests(TestCase):
@@ -333,7 +335,10 @@ class DataReconciliationCommandTests(TestCase):
         from django.core.management import call_command
 
         category = AssetCategory.objects.create(name="مانیتور", code="MON")
-        center = Center.objects.create(name="مرکز نمونه", code="C-SMP", province="مرکزی")
+        nat_r = OrganizationalUnit.objects.create(name="کشور تطبیق", code="OU-RC-NAT", unit_type=OrganizationalUnit.UNIT_NATIONAL)
+        prv_r = OrganizationalUnit.objects.create(name="استان تطبیق", code="OU-RC-PRV", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=nat_r)
+        cnty_r = OrganizationalUnit.objects.create(name="شهرستان تطبیق", code="OU-RC-CNTY", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=prv_r)
+        center = Center.objects.create(name="مرکز نمونه", code="C-SMP", parent_unit=cnty_r)
         loc = Location.objects.create(name="اتاق سرور", center=center)
 
         # ایجاد دارایی بدون مرکز با لوکیشن دارای مرکز
@@ -355,3 +360,169 @@ class DataReconciliationCommandTests(TestCase):
         asset.refresh_from_db()
         self.assertTrue(asset.is_quarantined)
         self.assertIn("قرنطینه", asset.quarantine_notes)
+
+
+class PostImplementationSecurityRemediationTests(TestCase):
+    """آزمون‌های اعتبارسنجی نهایی، امنیت کوکی‌ها، الزام والد شهرستانی، و پیشگیری از نشت اطلاعات."""
+
+    def test_production_cookie_settings_and_httponly_rationale(self):
+        """بررسی تنظیمات امنیتی کوکی‌ها و مستندسازی تفاوت Session و CSRF HttpOnly."""
+        from django.conf import settings
+        self.assertTrue(settings.SESSION_COOKIE_HTTPONLY)
+        self.assertFalse(settings.CSRF_COOKIE_HTTPONLY)
+        self.assertEqual(settings.SESSION_COOKIE_SAMESITE, "Lax")
+        self.assertEqual(settings.CSRF_COOKIE_SAMESITE, "Lax")
+
+    def test_center_creation_requires_county_parent_unit(self):
+        """ایجاد هر مرکز جدید بدون اتصال به واحد شهرستانی بالادست باید در مدل و ذخیره‌سازی رد شود."""
+        with self.assertRaises(ValidationError) as ctx:
+            Center.objects.create(name="مرکز جدید نامعتبر بدون شهرستان", code="C-FAIL-01")
+        self.assertIn("parent_unit", ctx.exception.message_dict)
+
+    def test_center_creation_with_non_county_parent_rejected(self):
+        """اتصال مرکز به واحد غیر شهرستانی (مانند واحد استانی یا کشوری) باید با خطا متوقف شود."""
+        nat = OrganizationalUnit.objects.create(name="کشور تست", code="OU-NAT-T1", unit_type=OrganizationalUnit.UNIT_NATIONAL)
+        prv = OrganizationalUnit.objects.create(name="استان تست", code="OU-PRV-T1", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=nat)
+
+        with self.assertRaises(ValidationError) as ctx:
+            Center.objects.create(name="مرکز با والد استانی", code="C-FAIL-02", parent_unit=prv)
+        self.assertIn("parent_unit", ctx.exception.message_dict)
+
+    def test_center_form_requires_parent_unit_and_rejects_non_county(self):
+        """فرم مرکز باید parent_unit را اجباری بداند و فقط واحدهای شهرستانی را معتبر بشمارد."""
+        from apps.org.forms import CenterForm
+        nat = OrganizationalUnit.objects.create(name="کشور تست", code="OU-NAT-F1", unit_type=OrganizationalUnit.UNIT_NATIONAL)
+        prv = OrganizationalUnit.objects.create(name="استان تست", code="OU-PRV-F1", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=nat)
+        cnty = OrganizationalUnit.objects.create(name="شهرستان تست", code="OU-CNTY-F1", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=prv)
+
+        form_no_parent = CenterForm(data={"name": "مرکز آزمایشی", "code": "C-FRM-01"})
+        self.assertFalse(form_no_parent.is_valid())
+        self.assertIn("parent_unit", form_no_parent.errors)
+
+        form_wrong_parent = CenterForm(data={"name": "مرکز با استان", "code": "C-FRM-02", "parent_unit": prv.pk})
+        self.assertFalse(form_wrong_parent.is_valid())
+        self.assertIn("parent_unit", form_wrong_parent.errors)
+
+        form_valid = CenterForm(data={"name": "مرکز صحیح", "code": "C-FRM-03", "parent_unit": cnty.pk})
+        self.assertTrue(form_valid.is_valid(), form_valid.errors)
+        created_center = form_valid.save()
+        self.assertEqual(created_center.province_name, prv.name)
+
+    def test_legacy_center_without_parent_preserved(self):
+        """مراکز قدیمی پایگاه داده بدون واحد شهرستانی بالادست بدون تخریب اطلاعات در دسترس و معتبر می‌مانند."""
+        nat = OrganizationalUnit.objects.create(name="کشور تست", code="OU-NAT-LEG", unit_type=OrganizationalUnit.UNIT_NATIONAL)
+        prv = OrganizationalUnit.objects.create(name="استان تست", code="OU-PRV-LEG", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=nat)
+        cnty = OrganizationalUnit.objects.create(name="شهرستان تست", code="OU-CNTY-LEG", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=prv)
+
+        c = Center.objects.create(name="مرکز قدیمی اولیه", code="C-LEGACY-01", parent_unit=cnty)
+        Center.objects.filter(pk=c.pk).update(parent_unit=None, province="اصفهان")
+
+        legacy = Center.objects.get(pk=c.pk)
+        self.assertIsNone(legacy.parent_unit)
+        self.assertEqual(legacy.province_name, "اصفهان")
+        legacy.notes = "به‌روزرسانی یادداشت مرکز قدیمی"
+        legacy.save()
+
+    def test_concurrent_replayed_nonce_triggers_atomic_integrity_and_401(self):
+        """ثبت مجدد همزمان Nonce باید با خطای یکتایی (IntegrityError) اتمیک مدیریت شده و وضعیت ۴۰۱ با لاگ ممیزی بازگرداند."""
+        nat = OrganizationalUnit.objects.create(name="کشور تست", code="OU-NAT-NONCE", unit_type=OrganizationalUnit.UNIT_NATIONAL)
+        prv = OrganizationalUnit.objects.create(name="استان تست", code="OU-PRV-NONCE", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=nat)
+        cnty = OrganizationalUnit.objects.create(name="شهرستان تست", code="OU-CNTY-NONCE", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=prv)
+        center = Center.objects.create(name="مرکز تست نانس", code="C-NONCE-01", parent_unit=cnty)
+        cred, raw_token = AgentCredential.generate(center, name="Agent-Nonce-Test")
+
+        nonce_val = f"nonce-{uuid.uuid4().hex}"
+        AgentNonce.objects.create(agent=cred, nonce=nonce_val)
+
+        client = Client()
+        headers = {
+            "HTTP_AUTHORIZATION": f"Bearer {raw_token}",
+            "HTTP_X_ITAM_TIMESTAMP": timezone.now().isoformat(),
+            "HTTP_X_ITAM_NONCE": nonce_val,
+        }
+        resp = client.post("/api/v1/hardware/agent-sync/", data=json.dumps({"computerName": "TEST-PC"}), content_type="application/json", **headers)
+        self.assertEqual(resp.status_code, 401)
+        data = resp.json()
+        self.assertEqual(data["status"], "error")
+        self.assertIn("Replay attack detected", data["error"])
+
+        log = AgentSyncAuditLog.objects.filter(agent=cred, http_status=401).first()
+        self.assertIsNotNone(log)
+
+    def test_error_sanitization_no_technical_leakage(self):
+        """هیچ‌گونه اطلاعات فنی، نام کلاس خطای پایتون یا Traceback نباید به کلاینت ایجنت افشا شود."""
+        from unittest.mock import patch
+        nat = OrganizationalUnit.objects.create(name="کشور تست", code="OU-NAT-SEC", unit_type=OrganizationalUnit.UNIT_NATIONAL)
+        prv = OrganizationalUnit.objects.create(name="استان تست", code="OU-PRV-SEC", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=nat)
+        cnty = OrganizationalUnit.objects.create(name="شهرستان تست", code="OU-CNTY-SEC", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=prv)
+        center = Center.objects.create(name="مرکز تست امنیتی", code="C-SEC-01", parent_unit=cnty)
+        cred, raw_token = AgentCredential.generate(center, name="Agent-Sec-Test")
+
+        client = Client()
+        headers = {
+            "HTTP_AUTHORIZATION": f"Bearer {raw_token}",
+            "HTTP_X_ITAM_TIMESTAMP": timezone.now().isoformat(),
+            "HTTP_X_ITAM_NONCE": f"nonce-{uuid.uuid4().hex}",
+        }
+        resp = client.post("/api/v1/hardware/agent-sync/", data=b"INVALID_MALFORMED_JSON{{{", content_type="application/json", **headers)
+        self.assertEqual(resp.status_code, 400)
+        data = resp.json()
+        self.assertEqual(data["status"], "error")
+        self.assertNotIn("JSONDecodeError", data["error"])
+        self.assertNotIn("Traceback", data["error"])
+
+        headers2 = {
+            "HTTP_AUTHORIZATION": f"Bearer {raw_token}",
+            "HTTP_X_ITAM_TIMESTAMP": timezone.now().isoformat(),
+            "HTTP_X_ITAM_NONCE": f"nonce-{uuid.uuid4().hex}",
+        }
+        with patch("apps.assets.views.match_asset_for_hwagent", side_effect=RuntimeError("CRITICAL_DATABASE_CRASH_TABLE_ASSETS")):
+            resp500 = client.post("/api/v1/hardware/agent-sync/", data=json.dumps({"computerName": "PC-TEST"}), content_type="application/json", **headers2)
+            self.assertEqual(resp500.status_code, 500)
+            data500 = resp500.json()
+            self.assertEqual(data500["status"], "error")
+            self.assertIn("tracking_id", data500)
+            self.assertNotIn("CRITICAL_DATABASE_CRASH_TABLE_ASSETS", str(data500))
+            self.assertNotIn("RuntimeError", str(data500))
+            self.assertNotIn("Traceback", str(data500))
+
+    def test_unauthenticated_or_invalid_agent_cannot_mutate_asset(self):
+        """در صورت عدم احراز هویت یا باطل بودن توکن، هیچ تغییری در مشخصات دارایی نباید اعمال شود."""
+        nat = OrganizationalUnit.objects.create(name="کشور تست", code="OU-NAT-MUT", unit_type=OrganizationalUnit.UNIT_NATIONAL)
+        prv = OrganizationalUnit.objects.create(name="استان تست", code="OU-PRV-MUT", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=nat)
+        cnty = OrganizationalUnit.objects.create(name="شهرستان تست", code="OU-CNTY-MUT", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=prv)
+        center = Center.objects.create(name="مرکز تست تغییر دارایی", code="C-MUT-01", parent_unit=cnty)
+        category = AssetCategory.objects.create(name="کیس", code="PC-MUT", requires_component_tracking=True)
+        asset = Asset.objects.create(
+            asset_tag="TAG-MUT-01",
+            title="سیستم مالی",
+            category=category,
+            center=center,
+            hostname="PC-FINANCE-01",
+            serial_number="MB-ORIGINAL-123",
+            spec_summary="Core i3-10100 / 8GB RAM",
+        )
+        updated_before = asset.updated_at
+
+        client = Client()
+        headers = {
+            "HTTP_AUTHORIZATION": "Bearer invalid_fake_token_123456",
+            "HTTP_X_ITAM_TIMESTAMP": timezone.now().isoformat(),
+            "HTTP_X_ITAM_NONCE": f"nonce-{uuid.uuid4().hex}",
+        }
+        payload = {
+            "computerName": "PC-FINANCE-01",
+            "baseboard": {"serial": "MB-HACKED-999"},
+            "cpu": {"name": "HACKED CPU CORE I9 99990K", "cores": 64},
+            "memory": {"totalGb": 128},
+        }
+        resp = client.post("/api/v1/hardware/agent-sync/", data=json.dumps(payload), content_type="application/json", **headers)
+        self.assertEqual(resp.status_code, 401)
+
+        asset.refresh_from_db()
+        self.assertEqual(asset.hostname, "PC-FINANCE-01")
+        self.assertEqual(asset.serial_number, "MB-ORIGINAL-123")
+        self.assertEqual(asset.spec_summary, "Core i3-10100 / 8GB RAM")
+        self.assertIsNone(asset.current_snapshot)
+        self.assertEqual(asset.snapshots.count(), 0)
+        self.assertEqual(asset.updated_at, updated_before)

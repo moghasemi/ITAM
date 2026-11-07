@@ -25,7 +25,7 @@ from apps.assets.services import approve_snapshot, create_snapshot, submit_snaps
 from apps.core.constants import PRIORITY_HIGH, PRIORITY_LOW, PRIORITY_MEDIUM
 from apps.core.models import Holiday, SystemSetting
 from apps.maintenance.services import generate_visits
-from apps.org.models import Center, Contract, Contractor, Department, Location, SlaPolicy
+from apps.org.models import Center, Contract, Contractor, Department, Location, OrganizationalUnit, SlaPolicy
 from apps.tickets.models import Ticket, TicketPart
 from apps.tickets.services import (
     acknowledge,
@@ -100,12 +100,33 @@ class Command(BaseCommand):
                 defaults={"title": title, "is_recurring_annual": True},
             )
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۳) مراکز استان و واحدهای سازمانی"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۳) ساختار سازمانی چهارسطحی و مراکز استان"))
+        ou_national, _ = OrganizationalUnit.objects.get_or_create(
+            code="OU-NAT-MOH",
+            defaults={"name": "ستاد کشوری مدیریت فاوا", "unit_type": OrganizationalUnit.UNIT_NATIONAL},
+        )
+        ou_markazi, _ = OrganizationalUnit.objects.get_or_create(
+            code="OU-PRV-MARKAZI",
+            defaults={"name": "دانشگاه علوم پزشکی استان مرکزی", "unit_type": OrganizationalUnit.UNIT_PROVINCE, "parent": ou_national},
+        )
+        ou_arak, _ = OrganizationalUnit.objects.get_or_create(
+            code="OU-CNTY-ARAK",
+            defaults={"name": "شبکه بهداشت و درمان شهرستان اراک", "unit_type": OrganizationalUnit.UNIT_COUNTY, "parent": ou_markazi},
+        )
+        ou_saveh, _ = OrganizationalUnit.objects.get_or_create(
+            code="OU-CNTY-SAVEH",
+            defaults={"name": "شبکه بهداشت و درمان شهرستان ساوه", "unit_type": OrganizationalUnit.UNIT_COUNTY, "parent": ou_markazi},
+        )
+        ou_khomein, _ = OrganizationalUnit.objects.get_or_create(
+            code="OU-CNTY-KHOMEIN",
+            defaults={"name": "شبکه بهداشت و درمان شهرستان خمین", "unit_type": OrganizationalUnit.UNIT_COUNTY, "parent": ou_markazi},
+        )
         center_hq, _ = Center.objects.get_or_create(
             code="HQ-01",
             defaults={
                 "name": "مرکز ستاد مدیریت فناوری اطلاعات استان",
                 "province": "مرکزی",
+                "parent_unit": ou_arak,
                 "city": "اراک",
                 "manager_name": "مهندس صادقی (مدیر فناوری اطلاعات استان)",
                 "it_lead_name": "علی محمدی",
@@ -119,6 +140,7 @@ class Command(BaseCommand):
             defaults={
                 "name": "مرکز فناوری اطلاعات ساوه",
                 "province": "مرکزی",
+                "parent_unit": ou_saveh,
                 "city": "ساوه",
                 "manager_name": "حسین اکبری",
                 "it_lead_name": "مهرداد کاظمی",
@@ -132,6 +154,7 @@ class Command(BaseCommand):
             defaults={
                 "name": "مرکز فناوری اطلاعات خمین",
                 "province": "مرکزی",
+                "parent_unit": ou_khomein,
                 "city": "خمین",
                 "manager_name": "سعید مرادی",
                 "it_lead_name": "پیمان خسروی",
@@ -215,6 +238,7 @@ class Command(BaseCommand):
         admin_province, _ = User.objects.get_or_create(
             username="admin.province",
             defaults={
+                "org_unit": ou_markazi,
                 "first_name": "سهراب",
                 "last_name": "صادقی",
                 "role": User.ROLE_ADMIN_PROVINCE,
