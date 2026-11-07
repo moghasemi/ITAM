@@ -7,6 +7,7 @@ import secrets
 import uuid
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -36,6 +37,11 @@ class AssetCategory(TimeStampedModel):
         "نیازمند ثبت اقلام داخلی (اسنپ‌شات)",
         default=False,
         help_text="برای کیس و لپ‌تاپ فعال شود تا اقلام داخلی ثبت و کنترل گردد",
+    )
+    is_computing_device = models.BooleanField(
+        "تجهیز رایانه‌ای",
+        default=False,
+        help_text="برای رایانه رومیزی و لپ‌تاپ فعال شود تا مشخصات اختصاصی رایانه نمایش داده شود.",
     )
     is_portable = models.BooleanField("قابل حمل", default=False)
     description = models.CharField("توضیحات", max_length=250, blank=True)
@@ -261,6 +267,76 @@ class Asset(TimeStampedModel):
                 text += f" — سریال {item.serial_number}"
             lines.append(text)
         return lines
+
+
+class AssetRelationship(TimeStampedModel):
+    """رابطه ثبت‌شده میان دو دارایی؛ مانند اتصال چاپگر به رایانه."""
+
+    RELATION_CONNECTED_TO = "connected_to"
+    RELATION_DEPENDS_ON = "depends_on"
+    RELATION_USES = "uses"
+    RELATIONSHIP_TYPE_CHOICES = (
+        (RELATION_CONNECTED_TO, "متصل به"),
+        (RELATION_DEPENDS_ON, "وابسته به"),
+        (RELATION_USES, "استفاده می‌کند از"),
+    )
+
+    CONNECTION_TYPE_USB = "usb"
+    CONNECTION_TYPE_ETHERNET = "ethernet"
+    CONNECTION_TYPE_WIFI = "wifi"
+    CONNECTION_TYPE_SHARED = "shared"
+    CONNECTION_TYPE_OTHER = "other"
+    CONNECTION_TYPE_CHOICES = (
+        (CONNECTION_TYPE_USB, "USB"),
+        (CONNECTION_TYPE_ETHERNET, "شبکه کابلی"),
+        (CONNECTION_TYPE_WIFI, "Wi-Fi"),
+        (CONNECTION_TYPE_SHARED, "اشتراک‌گذاری شبکه‌ای"),
+        (CONNECTION_TYPE_OTHER, "سایر"),
+    )
+
+    asset = models.ForeignKey(
+        Asset, verbose_name="دارایی مبدأ", on_delete=models.CASCADE,
+        related_name="outgoing_relationships",
+    )
+    related_asset = models.ForeignKey(
+        Asset, verbose_name="دارایی مرتبط", on_delete=models.CASCADE,
+        related_name="incoming_relationships",
+    )
+    relationship_type = models.CharField(
+        "نوع ارتباط", max_length=20, choices=RELATIONSHIP_TYPE_CHOICES,
+        default=RELATION_CONNECTED_TO,
+    )
+    connection_type = models.CharField(
+        "روش اتصال", max_length=20, choices=CONNECTION_TYPE_CHOICES, blank=True,
+    )
+    is_active = models.BooleanField("ارتباط فعال", default=True)
+    notes = models.CharField("توضیحات", max_length=250, blank=True)
+
+    class Meta:
+        verbose_name = "ارتباط دارایی"
+        verbose_name_plural = "ارتباطات دارایی‌ها"
+        ordering = ("asset__asset_tag", "related_asset__asset_tag")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("asset", "related_asset", "relationship_type"),
+                name="unique_asset_relationship",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(asset=models.F("related_asset")),
+                name="asset_relationship_not_self",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.asset_id and self.related_asset_id:
+            if self.asset_id == self.related_asset_id:
+                raise ValidationError("یک دارایی نمی‌تواند با خودش ارتباط داشته باشد.")
+            if not self.asset.center_id or self.asset.center_id != self.related_asset.center_id:
+                raise ValidationError("ارتباط فقط بین دارایی‌های متعلق به یک مرکز مجاز است.")
+
+    def __str__(self):
+        return f"{self.asset.asset_tag} — {self.get_relationship_type_display()} — {self.related_asset.asset_tag}"
 
 
 class HardwareSnapshot(TimeStampedModel):
