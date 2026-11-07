@@ -30,6 +30,7 @@ from apps.org.models import (
 from .models import Ticket, TicketEvent, TicketPause
 from .services import (
     acknowledge,
+    can_confirm_as_it,
     confirm_by_it,
     confirm_by_user,
     create_ticket,
@@ -165,9 +166,7 @@ class TicketWorkflowTests(TestCase):
             role=User.ROLE_ADMIN_IT, center=other_center,
         )
         ticket = self._create()
-        self.assertFalse(__import__(
-            "apps.tickets.services", fromlist=["can_confirm_as_it"]
-        ).can_confirm_as_it(other_it, ticket))
+        self.assertFalse(can_confirm_as_it(other_it, ticket))
         with self.assertRaises(PermissionDenied):
             confirm_by_it(ticket, other_it, "تایید خارج از مرکز")
 
