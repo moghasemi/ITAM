@@ -166,6 +166,8 @@ class TicketWorkflowTests(TestCase):
             role=User.ROLE_ADMIN_IT, center=other_center,
         )
         ticket = self._create()
+        ticket.status = STATUS_USER_CONFIRMED
+        ticket.save(update_fields=["status"])
         self.assertFalse(can_confirm_as_it(other_it, ticket))
         with self.assertRaises(PermissionDenied):
             confirm_by_it(ticket, other_it, "تایید خارج از مرکز")
