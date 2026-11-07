@@ -1,6 +1,8 @@
 """ثبت مدل‌های دارایی در پنل مدیریت جنگو."""
 from django.contrib import admin, messages
 
+from apps.core.utils import log_action
+
 from .models import Asset, AssetAttachment, AssetCategory, AssetRelationship, ComponentType, HardwareSnapshot, SnapshotItem, AgentCredential, AgentNonce, AgentSyncAuditLog
 
 
@@ -82,6 +84,11 @@ class AgentCredentialAdmin(admin.ModelAdmin):
                 setattr(obj, field, getattr(credential, field))
             obj._state.adding = False
             obj._state.db = credential._state.db
+            log_action(
+                "create", credential,
+                note="صدور اعتبارنامه اختصاصی HWAgent",
+                user=request.user,
+            )
             self.message_user(
                 request,
                 f"توکن فقط همین یک‌بار نمایش داده می‌شود؛ آن را در محل امن به ایجنت بدهید: {raw_token}",
@@ -95,6 +102,11 @@ class AgentCredentialAdmin(admin.ModelAdmin):
         count = 0
         for credential in queryset.filter(status=AgentCredential.STATUS_ACTIVE):
             credential.revoke("ابطال توسط مدیر سامانه")
+            log_action(
+                "status_change", credential,
+                note="ابطال اعتبارنامه HWAgent از پنل مدیریت",
+                user=request.user,
+            )
             count += 1
         self.message_user(request, f"{count} اعتبارنامه باطل شد.")
 
@@ -102,6 +114,16 @@ class AgentCredentialAdmin(admin.ModelAdmin):
     def rotate_credentials(self, request, queryset):
         for credential in queryset.filter(status=AgentCredential.STATUS_ACTIVE):
             new_credential, raw_token = credential.rotate(created_by=request.user)
+            log_action(
+                "status_change", credential,
+                note="ابطال اعتبارنامه قبلی و چرخش توکن HWAgent",
+                user=request.user,
+            )
+            log_action(
+                "create", new_credential,
+                note="صدور اعتبارنامه جدید در چرخش توکن HWAgent",
+                user=request.user,
+            )
             self.message_user(
                 request,
                 f"توکن جدید برای {new_credential.name} (فقط یک‌بار): {raw_token}",
@@ -110,16 +132,30 @@ class AgentCredentialAdmin(admin.ModelAdmin):
 
     @admin.action(description="تعلیق اعتبارنامه‌های انتخاب‌شده")
     def suspend_credentials(self, request, queryset):
-        count = queryset.filter(status=AgentCredential.STATUS_ACTIVE).update(
-            status=AgentCredential.STATUS_SUSPENDED
-        )
+        count = 0
+        for credential in queryset.filter(status=AgentCredential.STATUS_ACTIVE):
+            credential.status = AgentCredential.STATUS_SUSPENDED
+            credential.save(update_fields=["status", "updated_at"])
+            log_action(
+                "status_change", credential,
+                note="تعلیق اعتبارنامه HWAgent از پنل مدیریت",
+                user=request.user,
+            )
+            count += 1
         self.message_user(request, f"{count} اعتبارنامه معلق شد.")
 
     @admin.action(description="فعال‌سازی اعتبارنامه‌های معلق")
     def activate_credentials(self, request, queryset):
-        count = queryset.filter(status=AgentCredential.STATUS_SUSPENDED).update(
-            status=AgentCredential.STATUS_ACTIVE
-        )
+        count = 0
+        for credential in queryset.filter(status=AgentCredential.STATUS_SUSPENDED):
+            credential.status = AgentCredential.STATUS_ACTIVE
+            credential.save(update_fields=["status", "updated_at"])
+            log_action(
+                "status_change", credential,
+                note="فعال‌سازی اعتبارنامه HWAgent از پنل مدیریت",
+                user=request.user,
+            )
+            count += 1
         self.message_user(request, f"{count} اعتبارنامه فعال شد.")
 
     def has_delete_permission(self, request, obj=None):
