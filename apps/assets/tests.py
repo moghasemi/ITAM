@@ -8,6 +8,7 @@ from apps.assets import qrgen
 from apps.assets.models import (
     Asset,
     AssetCategory,
+    AssetRelationship,
     ComponentType,
     HardwareSnapshot,
     SnapshotItem,
@@ -481,3 +482,92 @@ class MultiCenterAndHWAgentTests(TestCase):
         data = resp.json()
         self.assertEqual(data["status"], "ok")
         self.assertEqual(data["asset_tag"], "TAG-SUB")
+
+
+class AssetScopeAndRelationshipTests(TestCase):
+    def setUp(self):
+        from apps.org.models import Center, Department, Location, OrganizationalUnit
+
+        national = OrganizationalUnit.objects.create(
+            name="کشور تست", code="SCOPE-NAT", unit_type=OrganizationalUnit.UNIT_NATIONAL
+        )
+        province = OrganizationalUnit.objects.create(
+            name="استان تست", code="SCOPE-PRV", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national
+        )
+        county = OrganizationalUnit.objects.create(
+            name="شهرستان تست", code="SCOPE-CNT", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=province
+        )
+        self.center_a = Center.objects.create(name="مرکز الف", code="SCOPE-A", parent_unit=county)
+        self.center_b = Center.objects.create(name="مرکز ب", code="SCOPE-B", parent_unit=county)
+        self.user = User.objects.create_user(
+            username="scope_it", password="test-password", role=User.ROLE_ADMIN_IT, center=self.center_a
+        )
+        self.department_a = Department.objects.create(center=self.center_a, name="واحد الف")
+        self.department_b = Department.objects.create(center=self.center_b, name="واحد ب")
+        self.location_a = Location.objects.create(center=self.center_a, name="اتاق الف")
+        self.location_b = Location.objects.create(center=self.center_b, name="اتاق ب")
+        self.pc_category = AssetCategory.objects.create(
+            name="رایانه تست", code="SCOPE-PC", is_computing_device=True
+        )
+        self.printer_category = AssetCategory.objects.create(
+            name="چاپگر تست", code="SCOPE-PRN", is_computing_device=False
+        )
+        self.pc_a = Asset.objects.create(
+            asset_tag="SCOPE-PC-A", category=self.pc_category, center=self.center_a, title="رایانه الف"
+        )
+        self.pc_b = Asset.objects.create(
+            asset_tag="SCOPE-PC-B", category=self.pc_category, center=self.center_b, title="رایانه ب"
+        )
+
+    def test_asset_form_limits_center_department_location_and_related_computers(self):
+        from apps.assets.forms import AssetForm
+
+        form = AssetForm(user=self.user)
+        self.assertEqual(list(form.fields["center"].queryset), [self.center_a])
+        self.assertEqual(list(form.fields["department"].queryset), [self.department_a])
+        self.assertEqual(list(form.fields["location"].queryset), [self.location_a])
+        self.assertEqual(list(form.fields["connected_computers"].queryset), [self.pc_a])
+
+    def test_asset_form_rejects_foreign_center_department_and_computer(self):
+        from apps.assets.forms import AssetForm
+
+        form = AssetForm(
+            data={
+                "asset_tag": "SCOPE-PRN-NEW",
+                "title": "چاپگر جدید",
+                "category": str(self.printer_category.pk),
+                "center": str(self.center_a.pk),
+                "department": str(self.department_b.pk),
+                "connected_computers": [str(self.pc_b.pk)],
+                "connection_type": AssetRelationship.CONNECTION_TYPE_USB,
+            },
+            user=self.user,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("department", form.errors)
+        self.assertIn("connected_computers", form.errors)
+
+    def test_asset_relationship_rejects_cross_center_assets(self):
+        from django.core.exceptions import ValidationError
+
+        printer = Asset.objects.create(
+            asset_tag="SCOPE-PRN-CROSS", category=self.printer_category, center=self.center_a
+        )
+        relation = AssetRelationship(
+            asset=printer,
+            related_asset=self.pc_b,
+            relationship_type=AssetRelationship.RELATION_CONNECTED_TO,
+        )
+        with self.assertRaises(ValidationError):
+            relation.full_clean()
+
+    def test_asset_relationship_rejects_self_reference(self):
+        from django.core.exceptions import ValidationError
+
+        relation = AssetRelationship(
+            asset=self.pc_a,
+            related_asset=self.pc_a,
+            relationship_type=AssetRelationship.RELATION_CONNECTED_TO,
+        )
+        with self.assertRaises(ValidationError):
+            relation.full_clean()
