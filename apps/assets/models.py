@@ -335,6 +335,10 @@ class AssetRelationship(TimeStampedModel):
             if not self.asset.center_id or self.asset.center_id != self.related_asset.center_id:
                 raise ValidationError("ارتباط فقط بین دارایی‌های متعلق به یک مرکز مجاز است.")
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.asset.asset_tag} — {self.get_relationship_type_display()} — {self.related_asset.asset_tag}"
 
