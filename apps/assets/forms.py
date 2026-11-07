@@ -83,12 +83,18 @@ class AssetForm(StyledModelForm):
         self.fields["contract"].empty_label = "— بدون قرارداد —"
         self.fields["custodian"].empty_label = "— بدون امانت‌دار —"
 
+        selected_category = self.instance.category if self.instance.pk else None
+        if self.is_bound:
+            raw_category_id = self.data.get(self.add_prefix("category"))
+            if raw_category_id:
+                selected_category = AssetCategory.objects.filter(pk=raw_category_id).first()
+
         computer_assets = Asset.objects.filter(
             center__in=scoped_centers, category__is_computing_device=True
         ).select_related("category", "center").exclude(pk=self.instance.pk)
         if selected_center_id:
             computer_assets = computer_assets.filter(center_id=selected_center_id)
-        if self.instance.pk and self.instance.category.is_computing_device:
+        if selected_category and selected_category.is_computing_device:
             computer_assets = Asset.objects.none()
         self.fields["connected_computers"].queryset = computer_assets.order_by("asset_tag")
         if self.instance.pk:
@@ -123,7 +129,9 @@ class AssetForm(StyledModelForm):
         computers = cleaned.get("connected_computers")
         if category and category.is_computing_device and computers:
             self.add_error("connected_computers", "برای خود رایانه، انتخاب رایانه متصل در این فرم مجاز نیست.")
-        elif computers and center and any(item.center_id != center.pk for item in computers):
+        elif computers and not center:
+            self.add_error("center", "برای ثبت ارتباط میان دارایی‌ها، ابتدا مرکز را مشخص کنید.")
+        elif computers and any(item.center_id != center.pk for item in computers):
             self.add_error("connected_computers", "رایانه‌های مرتبط باید متعلق به همان مرکز باشند.")
         if category and not category.is_computing_device:
             for field_name in ("hostname", "os_name", "office_software"):
