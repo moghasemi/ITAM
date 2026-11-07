@@ -15,4 +15,26 @@
     </form>
   </div>
 </div>
+  <script>
+  (function () {
+    const category = document.getElementById("id_category");
+    if (!category) return;
+    const computerIds = (category.dataset.computingCategoryIds || "").split(",").filter(Boolean);
+    const computerFields = document.querySelectorAll("[data-computer-only]");
+    const peripheralFields = document.querySelectorAll("[data-peripheral-only]");
+    function updateAssetFields() {
+      const isComputer = computerIds.includes(category.value);
+      computerFields.forEach((field) => {
+        const row = field.closest(".form-row");
+        if (row) row.hidden = !isComputer;
+      });
+      peripheralFields.forEach((field) => {
+        const row = field.closest(".form-row");
+        if (row) row.hidden = isComputer;
+      });
+    }
+    category.addEventListener("change", updateAssetFields);
+    updateAssetFields();
+  })();
+  </script>
 {% endblock %}
