@@ -82,6 +82,9 @@ class AssetListView(AnyRoleRequiredMixin, BaseListView):
     paginate_by = 25
     filter_form_class = AssetFilterForm
 
+    def get_filter_form(self):
+        return self.filter_form_class(self.request.GET or None, user=self.request.user)
+
     def get_queryset(self):
         queryset = visible_assets(self.request.user).annotate(
             tickets_total=Count("tickets", distinct=True)
