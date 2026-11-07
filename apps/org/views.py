@@ -128,6 +128,11 @@ class DepartmentUpdateView(AdminItRequiredMixin, BaseUpdateView):
         scoped = self.request.user.get_scoped_centers()
         return Department.objects.filter(center__in=scoped)
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
 
 # ---------------------------------------------------------------------------
 # محل‌های استقرار
@@ -145,11 +150,6 @@ class LocationListView(AdminItRequiredMixin, BaseListView):
         )
         return apply_search(queryset, self.request.GET.get("q"), ["name", "building", "floor", "room", "code"])
 
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 class LocationCreateView(AdminItRequiredMixin, BaseCreateView):
     model = Location
@@ -177,6 +177,11 @@ class LocationUpdateView(AdminItRequiredMixin, BaseUpdateView):
     def get_queryset(self):
         scoped = self.request.user.get_scoped_centers()
         return Location.objects.filter(center__in=scoped)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 
 # ---------------------------------------------------------------------------
