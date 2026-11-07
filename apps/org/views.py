@@ -336,16 +336,22 @@ class ContractDetailView(AdminItRequiredMixin, BaseDetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         contract = self.object
-        tickets = contract.tickets.all()
+        from apps.assets.services import visible_assets
+        from apps.maintenance.services import visible_visits
+        from apps.tickets.services import visible_tickets
+
+        tickets = visible_tickets(self.request.user).filter(contract=contract)
+        visits = visible_visits(self.request.user).filter(contract=contract)
+        assets = visible_assets(self.request.user).filter(contract=contract)
         context["sla_policies"] = contract.sla_table()
-        context["visits"] = contract.visits.select_related("technician").order_by("sequence_number")
-        context["assets"] = contract.assets.select_related("category", "location")[:50]
-        context["assets_total"] = contract.assets.count()
+        context["visits"] = visits.select_related("technician").order_by("sequence_number")
+        context["assets"] = assets.select_related("category", "location")[:50]
+        context["assets_total"] = assets.count()
         context["tickets_total"] = tickets.count()
         context["tickets_open"] = tickets.filter(status__in=TICKET_OPEN_STATUSES).count()
         context["tickets_closed"] = tickets.exclude(status__in=TICKET_OPEN_STATUSES).count()
         context["breached_count"] = tickets.filter(Q(response_met=False) | Q(resolve_met=False)).count()
-        context["planned_visits"] = contract.planned_visit_count()
+        context["planned_visits"] = visits.count()
         context["sla_minutes_to_hours"] = True
         return context
 

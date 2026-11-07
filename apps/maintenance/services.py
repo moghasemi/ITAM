@@ -325,8 +325,9 @@ def save_check(check: VisitAssetCheck, user, *, condition=None, actions_taken=No
     return check
 
 
-def visit_statistics(visit: MaintenanceVisit) -> dict:
-    checks = visit.checks.all()
+def visit_statistics(visit: MaintenanceVisit, checks=None) -> dict:
+    """آمار بازدید؛ در صورت ارسال queryset فقط همان اقلام مجاز محاسبه می‌شوند."""
+    checks = checks if checks is not None else visit.checks.all()
     total = checks.count()
     done = checks.filter(checked=True).count()
     summary = {}

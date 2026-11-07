@@ -28,6 +28,7 @@ from .services import (
     populate_checks,
     save_check,
     start_visit,
+    visible_checks,
     visible_visits,
     visit_statistics,
 )
@@ -112,8 +113,9 @@ class VisitDetailView(AnyRoleRequiredMixin, PageContextMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         visit = self.object
-        context["checks"] = visit.checks.select_related("asset", "asset__category", "asset__location")
-        context["stats"] = visit_statistics(visit)
+        scoped_checks = visible_checks(self.request.user, visit)
+        context["checks"] = scoped_checks.select_related("asset", "asset__category", "asset__location")
+        context["stats"] = visit_statistics(visit, checks=scoped_checks)
         context["can_manage"] = can_manage_visit(self.request.user, visit)
         context["complete_form"] = VisitCompleteForm(
             initial={"report_text": visit.report_text, "recommendation": visit.recommendation}
@@ -272,7 +274,9 @@ def visit_print(request, pk: int):
         "maintenance/visit_print.html",
         {
             "visit": visit,
-            "checks": visit.checks.select_related("asset", "asset__location", "asset__category"),
-            "stats": visit_statistics(visit),
+            "checks": visible_checks(request.user, visit).select_related(
+                "asset", "asset__location", "asset__category"
+            ),
+            "stats": visit_statistics(visit, checks=visible_checks(request.user, visit)),
         },
     )

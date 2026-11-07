@@ -243,8 +243,10 @@ class ContractorScorecardView(StaffRequiredMixin, PageContextMixin, View):
                     "visits_missed": missed,
                     "visit_compliance": (done * 100 / planned) if planned else None,
                     "hardware_diffs": HardwareSnapshot.objects.filter(
-                        asset__contract__contractor=contractor
-                    ).filter(diff_count__gt=0).count(),
+                        asset__in=visible_assets(request.user),
+                        asset__contract__contractor=contractor,
+                        diff_count__gt=0,
+                    ).count(),
                     "late_done": late_done,
                 }
             )
