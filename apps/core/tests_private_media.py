@@ -1,6 +1,7 @@
 import tempfile
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.http import Http404
 from django.test import RequestFactory, TestCase, override_settings
 
 from apps.accounts.models import User
@@ -68,5 +69,5 @@ class PrivateMediaAuthorizationTests(TestCase):
     def test_other_center_staff_cannot_download_attachment(self):
         request = RequestFactory().get(f"/media/{self.attachment.file.name}")
         request.user = self.user_b
-        response = private_media(request, self.attachment.file.name)
-        self.assertEqual(response.status_code, 404)
+        with self.assertRaises(Http404):
+            private_media(request, self.attachment.file.name)
