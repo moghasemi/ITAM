@@ -1,12 +1,12 @@
 import tempfile
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
-from django.urls import reverse
+from django.test import RequestFactory, TestCase, override_settings
 
 from apps.accounts.models import User
 from apps.assets.models import Asset, AssetAttachment, AssetCategory
 from apps.org.models import Center, OrganizationalUnit
+from apps.core.views import private_media
 
 
 class PrivateMediaAuthorizationTests(TestCase):
@@ -58,13 +58,15 @@ class PrivateMediaAuthorizationTests(TestCase):
         )
 
     def test_same_center_staff_can_download_owned_asset_attachment(self):
-        self.client.force_login(self.user_a)
-        response = self.client.get(f"/media/{self.attachment.file.name}")
+        request = RequestFactory().get(f"/media/{self.attachment.file.name}")
+        request.user = self.user_a
+        response = private_media(request, self.attachment.file.name)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(b"".join(response.streaming_content), b"private-evidence")
         self.assertEqual(response["Cache-Control"], "private, no-store")
 
     def test_other_center_staff_cannot_download_attachment(self):
-        self.client.force_login(self.user_b)
-        response = self.client.get(f"/media/{self.attachment.file.name}")
+        request = RequestFactory().get(f"/media/{self.attachment.file.name}")
+        request.user = self.user_b
+        response = private_media(request, self.attachment.file.name)
         self.assertEqual(response.status_code, 404)
