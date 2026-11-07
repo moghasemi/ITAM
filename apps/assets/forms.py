@@ -60,8 +60,8 @@ class AssetForm(StyledModelForm):
         elif self.user and getattr(self.user, "center_id", None):
             selected_center_id = self.user.center_id
             self.fields["center"].initial = self.user.center
-            if self.user.has_role("admin_it", "manager"):
-                self.fields["center"].required = True
+        if self.user and getattr(self.user, "center_id", None) and self.user.has_role("admin_it", "manager"):
+            self.fields["center"].required = True
 
         self.fields["category"].queryset = AssetCategory.objects.filter(is_active=True)
         self.fields["contract"].queryset = Contract.objects.filter(
@@ -139,7 +139,21 @@ class AssetForm(StyledModelForm):
 
 
 class AssetFilterForm(StyledForm):
-    """پالایه فهرست دارایی‌ها."""
+    """پالایه فهرست دارایی‌ها با گزینه‌های محدود به دامنه مجاز کاربر."""
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        scoped = (
+            user.get_scoped_centers()
+            if user and getattr(user, "is_authenticated", False)
+            else Center.objects.none()
+        )
+        self.fields["center"].queryset = scoped
+        self.fields["department"].queryset = Department.objects.filter(center__in=scoped)
+        self.fields["location"].queryset = Location.objects.filter(center__in=scoped)
+        self.fields["contract"].queryset = Contract.objects.filter(
+            Q(centers__in=scoped) | Q(is_provincial=True)
+        ).distinct()
 
     q = forms.CharField(label="جستجو", required=False)
     center = forms.ModelChoiceField(label="مرکز", required=False, queryset=Center.objects.all())
