@@ -6,6 +6,7 @@ from django import forms
 from apps.assets.models import Asset
 from apps.core.constants import CHECK_CONDITION_CHOICES, VISIT_STATUS_CHOICES
 from apps.core.forms import JalaliDateField, StyledForm, StyledModelForm
+from apps.accounts.models import User
 from apps.org.models import Contract, Contractor
 
 from .models import MaintenanceVisit, VisitAssetCheck
@@ -40,9 +41,34 @@ class VisitForm(StyledModelForm):
             "scheduled_date", "scheduled_end_date", "technician", "status",
         ]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["contract"].queryset = Contract.objects.select_related("contractor").order_by("-start_date")
+        if user is None:
+            self.fields["contract"].queryset = Contract.objects.none()
+            self.fields["technician"].queryset = User.objects.none()
+            return
+        if user.is_admin_province:
+            contracts = Contract.objects.all()
+        else:
+            contracts = Contract.objects.filter(
+                centers__in=user.get_scoped_centers()
+            ).distinct()
+        self.fields["contract"].queryset = contracts.select_related(
+            "contractor"
+        ).order_by("-start_date")
+        self.fields["technician"].queryset = User.objects.filter(
+            role=User.ROLE_TECHNICIAN,
+            contractor_id__in=contracts.values("contractor_id"),
+            is_active=True,
+        ).distinct()
+
+    def clean(self):
+        cleaned = super().clean()
+        contract = cleaned.get("contract")
+        technician = cleaned.get("technician")
+        if contract and technician and technician.contractor_id != contract.contractor_id:
+            self.add_error("technician", "کارشناس انتخاب‌شده متعلق به پیمانکار این قرارداد نیست.")
+        return cleaned
 
 
 class VisitCheckForm(StyledModelForm):

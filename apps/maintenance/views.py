@@ -131,7 +131,27 @@ class VisitCreateView(RepairStaffRequiredMixin, PageContextMixin, CreateView):
     page_title = "ثبت نوبت بازدید"
     active_menu = "visits"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def _bind_visit_center(self, visit):
+        contract = visit.contract
+        if contract.is_provincial:
+            if not self.request.user.is_admin_province:
+                raise PermissionDenied("برنامه‌ریزی بازدید قرارداد استانی فقط توسط مدیر استان مجاز است.")
+            visit.center = None
+            return
+        centers = list(contract.centers.all())
+        if len(centers) != 1:
+            raise ValidationError("قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد.")
+        if not self.request.user.is_admin_province and not self.request.user.get_scoped_centers().filter(pk=centers[0].pk).exists():
+            raise PermissionDenied("قرارداد خارج از دامنه مراکز مجاز شماست.")
+        visit.center = centers[0]
+
     def form_valid(self, form):
+        self._bind_visit_center(form.instance)
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
         populate_checks(self.object)
@@ -150,10 +170,27 @@ class VisitUpdateView(RepairStaffRequiredMixin, PageContextMixin, UpdateView):
     page_title = "ویرایش نوبت بازدید"
     active_menu = "visits"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def get_queryset(self):
         return visible_visits(self.request.user)
 
     def form_valid(self, form):
+        contract = form.cleaned_data["contract"]
+        if contract.is_provincial:
+            if not self.request.user.is_admin_province:
+                raise PermissionDenied("ویرایش بازدید قرارداد استانی فقط توسط مدیر استان مجاز است.")
+            form.instance.center = None
+        else:
+            centers = list(contract.centers.all())
+            if len(centers) != 1:
+                raise ValidationError("قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد.")
+            if not self.request.user.is_admin_province and not self.request.user.get_scoped_centers().filter(pk=centers[0].pk).exists():
+                raise PermissionDenied("قرارداد خارج از دامنه مراکز مجاز شماست.")
+            form.instance.center = centers[0]
         response = super().form_valid(form)
         log_action("update", self.object, note="ویرایش نوبت بازدید", user=self.request.user)
         messages.success(self.request, "نوبت بازدید ذخیره شد.")
