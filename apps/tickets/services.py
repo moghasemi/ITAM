@@ -756,7 +756,7 @@ def confirm_by_it(ticket: Ticket, user, note: str = "") -> Ticket:
     if ticket.status == STATUS_USER_CONFIRMED and setting.require_user_confirmation:
         user_confirmation = ticket.events.filter(
             event_type=TicketEvent.EVENT_USER_CONFIRMED
-        ).order_by("-created_at").first()
+        ).order_by("-at").first()
         if not user_confirmation or user_confirmation.actor_id == user.pk:
             raise PermissionDenied("تایید کاربر و تایید نهایی IT باید توسط دو کاربر متفاوت انجام شوند.")
 
