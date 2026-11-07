@@ -27,7 +27,7 @@ class Migration(migrations.Migration):
             name="AssetRelationship",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("created_at", models.DateTimeField(auto_now_add=True, verbose_name="زمان ثبت")),
+                ("created_at", models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="زمان ثبت")),
                 ("updated_at", models.DateTimeField(auto_now=True, verbose_name="آخرین ویرایش")),
                 ("relationship_type", models.CharField(
                     choices=[
