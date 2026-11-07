@@ -201,6 +201,11 @@ class ContractorListView(AdminItRequiredMixin, BaseListView):
     page_title = "پیمانکاران"
     active_menu = "org"
 
+    def get_filter_form(self):
+        return self.filter_form_class(
+            self.request.GET or None, user=self.request.user
+        )
+
     def get_queryset(self):
         user = self.request.user
         contracts = _visible_contracts_for_user(user)

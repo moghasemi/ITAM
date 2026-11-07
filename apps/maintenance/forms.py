@@ -27,6 +27,24 @@ class VisitFilterForm(StyledForm):
     date_to = JalaliDateField(label="تا تاریخ", required=False)
     overdue_only = forms.BooleanField(label="فقط بازدیدهای خارج از مهلت", required=False)
 
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is None:
+            self.fields["contract"].queryset = Contract.objects.none()
+            self.fields["contractor"].queryset = Contractor.objects.none()
+            return
+        if user.is_admin_province:
+            contracts = Contract.objects.all()
+            self.fields["contractor"].queryset = Contractor.objects.all()
+        else:
+            contracts = Contract.objects.filter(
+                centers__in=user.get_scoped_centers()
+            ).distinct()
+            self.fields["contractor"].queryset = Contractor.objects.filter(
+                pk__in=contracts.values("contractor_id")
+            )
+        self.fields["contract"].queryset = contracts
+
 
 class VisitForm(StyledModelForm):
     """ثبت/ویرایش نوبت بازدید."""

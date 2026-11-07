@@ -45,6 +45,11 @@ class VisitListView(AnyRoleRequiredMixin, BaseListView):
     paginate_by = 25
     filter_form_class = VisitFilterForm
 
+    def get_filter_form(self):
+        return self.filter_form_class(
+            self.request.GET or None, user=self.request.user
+        )
+
     def get_queryset(self):
         queryset = visible_visits(self.request.user).annotate(
             checks_count=Count("checks", distinct=True)

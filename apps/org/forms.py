@@ -138,3 +138,15 @@ class ContractFilterForm(forms.Form):
     contractor = forms.ModelChoiceField(
         label="پیمانکار", required=False, queryset=Contractor.objects.all()
     )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is None:
+            self.fields["contractor"].queryset = Contractor.objects.none()
+        elif not user.is_admin_province:
+            scoped_contracts = Contract.objects.filter(
+                centers__in=user.get_scoped_centers()
+            ).distinct()
+            self.fields["contractor"].queryset = Contractor.objects.filter(
+                pk__in=scoped_contracts.values("contractor_id")
+            )

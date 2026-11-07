@@ -44,7 +44,7 @@ REPORT_MENU = [
 
 
 def _filter_form(request):
-    form = ReportFilterForm(request.GET or None)
+    form = ReportFilterForm(request.GET or None, user=request.user)
     data = form.cleaned_data if form.is_valid() else {}
     return form, data
 
@@ -387,7 +387,7 @@ class VisitComplianceView(StaffRequiredMixin, PageContextMixin, View):
     active_menu = "reports"
 
     def get(self, request, *args, **kwargs):
-        form = ReportFilterForm(request.GET or None)
+        form = ReportFilterForm(request.GET or None, user=request.user)
         data = form.cleaned_data if form.is_valid() else {}
         visits = visible_visits(request.user)
         if data.get("contract"):
