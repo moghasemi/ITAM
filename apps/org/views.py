@@ -201,11 +201,6 @@ class ContractorListView(AdminItRequiredMixin, BaseListView):
         return apply_search(queryset, self.request.GET.get("q"), ["name", "code", "contact_person", "phone"])
 
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
-
 class ContractorCreateView(ProvinceAdminRequiredMixin, BaseCreateView):
     model = Contractor
     form_class = ContractorForm
