@@ -262,6 +262,24 @@ class TicketWorkflowTests(TestCase):
         self.assertEqual(ticket.status, STATUS_IN_PROGRESS)
         self.assertIsNone(ticket.resolved_declared_at)
 
+    def test_it_cannot_bypass_required_user_confirmation(self):
+        ticket = self._create()
+        acknowledge(ticket, self.technician)
+        mark_arrived(ticket, self.technician)
+        declare_resolved(ticket, self.technician, root_cause="علت", action_taken="اقدام")
+        with self.assertRaises(PermissionDenied):
+            confirm_by_it(ticket, self.it_expert)
+
+    def test_user_and_it_approvals_must_be_different_actors(self):
+        ticket = self._create()
+        acknowledge(ticket, self.technician)
+        mark_arrived(ticket, self.technician)
+        declare_resolved(ticket, self.technician, root_cause="علت", action_taken="اقدام")
+        confirm_by_user(ticket, self.requester, "تایید")
+        with self.assertRaises(PermissionDenied):
+            confirm_by_it(ticket, self.requester)
+        confirm_by_it(ticket, self.it_expert, "تایید مستقل IT")
+
     def test_only_it_can_confirm_final(self):
         ticket = self._create()
         acknowledge(ticket, self.technician)
