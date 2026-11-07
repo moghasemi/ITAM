@@ -144,9 +144,11 @@ class DashboardView(PageContextMixin, ListView):
                     .order_by("-total")[:5]
                 ),
                 "pending_snapshots": HardwareSnapshot.objects.filter(
-                    status="pending"
+                    asset__in=assets, status="pending"
                 ).select_related("asset", "recorded_by")[:6],
-                "pending_snapshots_count": HardwareSnapshot.objects.filter(status="pending").count(),
+                "pending_snapshots_count": HardwareSnapshot.objects.filter(
+                    asset__in=assets, status="pending"
+                ).count(),
                 "calendar": get_calendar(),
                 "setting": setting,
                 "sla_paused_count": open_tickets.filter(pauses__ended_at__isnull=True).distinct().count(),
@@ -302,6 +304,9 @@ class AuditLogListView(StaffRequiredMixin, BaseListView):
 
     def get_queryset(self):
         queryset = AuditLog.objects.select_related("user")
+        if not self.request.user.is_admin_province:
+            # AuditLog has no center FK: fail closed for non-provincial roles.
+            queryset = queryset.filter(user=self.request.user)
         term = (self.request.GET.get("q") or "").strip()
         action = (self.request.GET.get("action") or "").strip()
         model_name = (self.request.GET.get("model") or "").strip()
@@ -322,7 +327,7 @@ class AuditLogListView(StaffRequiredMixin, BaseListView):
         context = super().get_context_data(**kwargs)
         context["action_choices"] = AuditLog.ACTION_CHOICES
         context["model_choices"] = (
-            AuditLog.objects.exclude(model_name="")
+            self.get_queryset().exclude(model_name="")
             .values_list("model_name", flat=True)
             .distinct()
             .order_by("model_name")

@@ -33,27 +33,49 @@ from .models import MaintenanceVisit, VisitAssetCheck
 # دسترسی
 # ---------------------------------------------------------------------------
 def visible_visits(user):
-    queryset = MaintenanceVisit.objects.select_related("contract", "contract__contractor", "technician")
+    """بازدیدهای قابل مشاهده؛ دامنه مرکز/پیمانکار به‌صورت fail-closed اعمال می‌شود."""
+    queryset = MaintenanceVisit.objects.select_related(
+        "contract", "contract__contractor", "technician", "center"
+    )
     if not getattr(user, "is_authenticated", False):
         return queryset.none()
-    if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
+    if user.is_admin_province:
         return queryset
+    if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
+        if not user.center_id:
+            return queryset.none()
+        return queryset.filter(center_id=user.center_id)
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id:
             return queryset.none()
-        return queryset.filter(contract__contractor_id=user.contractor_id)
+        return queryset.filter(
+            contractor_id=user.contractor_id, center__in=user.get_scoped_centers()
+        )
     return queryset.none()
 
 
 def visible_checks(user, visit: MaintenanceVisit):
-    return visit.checks.select_related("asset", "asset__category", "asset__location")
+    if not visible_visits(user).filter(pk=visit.pk).exists():
+        return visit.checks.none()
+    checks = visit.checks.select_related("asset", "asset__category", "asset__location")
+    if user.is_admin_province:
+        return checks
+    return checks.filter(asset__center__in=user.get_scoped_centers())
 
 
 def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
-    if user.has_role(User.ROLE_ADMIN_IT):
+    if not visible_visits(user).filter(pk=visit.pk).exists():
+        return False
+    if user.is_admin_province:
         return True
+    if user.has_role(User.ROLE_ADMIN_IT):
+        return bool(user.center_id and visit.center_id == user.center_id)
     if user.has_role(User.ROLE_TECHNICIAN):
-        return bool(user.contractor_id and visit.contract.contractor_id == user.contractor_id)
+        return bool(
+            user.contractor_id
+            and visit.contract.contractor_id == user.contractor_id
+            and user.get_scoped_centers().filter(pk=visit.center_id).exists()
+        )
     return False
 
 
@@ -265,6 +287,10 @@ def save_check(check: VisitAssetCheck, user, *, condition=None, actions_taken=No
                parts_replaced=None, notes=None, next_due_date=None, photo=None,
                hardware_snapshot=None, checked=True):
     """ثبت نتیجه بازدید یک تجهیز."""
+    if not can_manage_visit(user, check.visit):
+        raise PermissionDenied("اجازه ثبت نتیجه این برگه بازدید را ندارید.")
+    if not user.is_admin_province and not user.get_scoped_centers().filter(pk=check.asset.center_id).exists():
+        raise PermissionDenied("این تجهیز خارج از دامنه مراکز مجاز شماست.")
     if condition:
         check.condition = condition
     if actions_taken is not None:
