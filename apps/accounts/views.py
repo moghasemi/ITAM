@@ -91,6 +91,40 @@ class ItamPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
         return response
 
 
+def visible_users(current_user):
+    """محدوده کاربران قابل مشاهده و مدیریت برای کاربر جاری (Fail-Closed)."""
+    from django.db.models import Q
+    if not getattr(current_user, "is_authenticated", False):
+        return User.objects.none()
+
+    if current_user.is_superuser or current_user.role == User.ROLE_ADMIN_COUNTRY:
+        return User.objects.all()
+
+    scoped_centers = current_user.get_scoped_centers()
+
+    if current_user.role == User.ROLE_ADMIN_PROVINCE:
+        return User.objects.filter(
+            Q(center__in=scoped_centers) |
+            Q(org_unit__parent=current_user.org_unit) |
+            Q(org_unit=current_user.org_unit)
+        ).exclude(is_superuser=True).exclude(role=User.ROLE_ADMIN_COUNTRY)
+
+    if current_user.role == User.ROLE_ADMIN_COUNTY:
+        return User.objects.filter(
+            Q(center__in=scoped_centers) |
+            Q(org_unit=current_user.org_unit)
+        ).exclude(is_superuser=True).exclude(role__in=[User.ROLE_ADMIN_COUNTRY, User.ROLE_ADMIN_PROVINCE])
+
+    if current_user.role == User.ROLE_ADMIN_IT:
+        if not current_user.center_id:
+            return User.objects.none()
+        return User.objects.filter(center_id=current_user.center_id).exclude(is_superuser=True).exclude(
+            role__in=[User.ROLE_ADMIN_COUNTRY, User.ROLE_ADMIN_PROVINCE, User.ROLE_ADMIN_COUNTY]
+        )
+
+    return User.objects.none()
+
+
 class UserListView(AdminItRequiredMixin, BaseListView):
     model = User
     template_name = "accounts/user_list.html"
@@ -100,7 +134,7 @@ class UserListView(AdminItRequiredMixin, BaseListView):
     filter_form_class = UserFilterForm
 
     def get_queryset(self):
-        queryset = User.objects.select_related("department", "contractor").order_by("last_name", "first_name")
+        queryset = visible_users(self.request.user).select_related("department", "contractor", "center").order_by("last_name", "first_name")
         form = self.get_filter_form()
         if form is not None and form.is_valid():
             data = form.cleaned_data
@@ -127,6 +161,11 @@ class UserCreateView(AdminItRequiredMixin, PageContextMixin, CreateView):
     active_menu = "users"
     success_url = reverse_lazy("accounts:user_list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["current_user"] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
         response = super().form_valid(form)
         log_action("create", self.object, note="ایجاد کاربر", user=self.request.user)
@@ -142,6 +181,14 @@ class UserUpdateView(AdminItRequiredMixin, PageContextMixin, UpdateView):
     active_menu = "users"
     success_url = reverse_lazy("accounts:user_list")
 
+    def get_queryset(self):
+        return visible_users(self.request.user)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["current_user"] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
         response = super().form_valid(form)
         log_action("update", self.object, note="ویرایش کاربر", user=self.request.user)
@@ -155,11 +202,18 @@ class UserDetailView(AdminItRequiredMixin, PageContextMixin, DetailView):
     page_title = "پرونده کاربر"
     active_menu = "users"
 
+    def get_queryset(self):
+        return visible_users(self.request.user)
+
 
 def user_toggle_active(request, pk: int):
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("دسترسی ندارید.")
-    user = get_object_or_404(User, pk=pk)
+
+    user = get_object_or_404(visible_users(request.user), pk=pk)
+    if user.is_superuser and not request.user.is_superuser:
+        raise PermissionDenied("امکان تغییر وضعیت مدیر ارشد کلان وجود ندارد.")
+
     if request.method == "POST":
         if user.pk == request.user.pk:
             messages.error(request, "نمی‌توانید حساب کاربری خود را غیرفعال کنید.")
@@ -179,7 +233,11 @@ def user_toggle_active(request, pk: int):
 def user_set_password(request, pk: int):
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("دسترسی ندارید.")
-    user = get_object_or_404(User, pk=pk)
+
+    user = get_object_or_404(visible_users(request.user), pk=pk)
+    if user.is_superuser and not request.user.is_superuser:
+        raise PermissionDenied("امکان تغییر گذرواژه مدیر ارشد کلان وجود ندارد.")
+
     form = AdminSetPasswordForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         user.set_password(form.cleaned_data["new_password1"])

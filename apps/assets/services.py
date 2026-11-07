@@ -34,70 +34,107 @@ from .models import Asset, HardwareSnapshot, SnapshotItem
 # کنترل دسترسی
 # ---------------------------------------------------------------------------
 def visible_assets(user, center=None):
-    """دارایی‌های قابل مشاهده برای هر نقش و مرکز."""
+    """دارایی‌های قابل مشاهده برای هر نقش و مرکز مبتنی بر دامنه سازمانی مجاز (Fail-Closed)."""
     queryset = Asset.objects.select_related(
         "category", "contract", "contract__contractor", "department", "location", "custodian", "center"
     )
     if not getattr(user, "is_authenticated", False):
         return queryset.none()
 
-    if getattr(user, "is_admin_province", False) or user.is_superuser:
+    # مدیر ارشد کشوری یا Superuser
+    if user.is_superuser or getattr(user, "is_admin_country", False):
         if center:
-            queryset = queryset.filter(center=center)
+            return queryset.filter(center=center)
         return queryset
 
-    if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
-        if user.center_id:
-            queryset = queryset.filter(center_id=user.center_id)
-        elif center:
-            queryset = queryset.filter(center=center)
-        return queryset
-
-    if user.has_role(User.ROLE_TECHNICIAN):
-        if not user.contractor_id:
-            return queryset.none()
-        qs = queryset.filter(
-            Q(contract__contractor_id=user.contractor_id) |
-            Q(contract__is_provincial=True, contract__contractor_id=user.contractor_id)
-        )
+    # مدیر استانی: دسترسی به تمام مراکز استان خودش
+    if getattr(user, "is_admin_province", False):
+        scoped = user.get_scoped_centers()
+        qs = queryset.filter(center__in=scoped)
         if center:
             qs = qs.filter(center=center)
         return qs
 
-    condition = Q(custodian=user)
-    if user.department_id:
-        condition |= Q(department_id=user.department_id)
-    if user.center_id:
-        condition &= (Q(center_id=user.center_id) | Q(center__isnull=True))
-    return queryset.filter(condition).distinct()
+    # مدیر شهرستانی: دسترسی به تمام مراکز شهرستان خودش
+    if getattr(user, "is_admin_county", False):
+        scoped = user.get_scoped_centers()
+        qs = queryset.filter(center__in=scoped)
+        if center:
+            qs = qs.filter(center=center)
+        return qs
+
+    # کارشناس IT مرکز یا مدیر مرکز: منحصراً مرکز خود کاربر
+    if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
+        if not user.center_id:
+            return queryset.none()
+        return queryset.filter(center_id=user.center_id)
+
+    # تکنسین پیمانکار
+    if user.has_role(User.ROLE_TECHNICIAN):
+        if not user.contractor_id:
+            return queryset.none()
+        scoped_centers = user.get_scoped_centers()
+        qs = queryset.filter(
+            Q(contract__contractor_id=user.contractor_id) |
+            Q(contract__is_provincial=True, contract__contractor_id=user.contractor_id)
+        ).filter(center__in=scoped_centers)
+        if center:
+            qs = qs.filter(center=center)
+        return qs
+
+    # کاربر عادی / متقاضی: فقط دارایی‌هایی که خودش امانت‌دار است در مرکز خودش
+    if not user.center_id:
+        return queryset.none()
+    return queryset.filter(custodian=user, center_id=user.center_id)
 
 
 def can_edit_asset(user, asset: Asset) -> bool:
-    if getattr(user, "is_admin_province", False) or user.is_superuser:
+    """بررسی صلاحیت ویرایش دارایی (Fail-Closed)."""
+    if not getattr(user, "is_authenticated", False) or not asset:
+        return False
+    if user.is_superuser or getattr(user, "is_admin_country", False):
         return True
+    if getattr(user, "is_admin_province", False):
+        scoped = user.get_scoped_centers()
+        return bool(asset.center and scoped.filter(pk=asset.center_id).exists())
+    if getattr(user, "is_admin_county", False):
+        scoped = user.get_scoped_centers()
+        return bool(asset.center and scoped.filter(pk=asset.center_id).exists())
     if user.has_role(User.ROLE_ADMIN_IT):
-        if not user.center_id or not asset.center_id:
+        if user.center_id and asset.center_id:
+            return user.center_id == asset.center_id
+        if not user.center_id and not asset.center_id:
             return True
-        return user.center_id == asset.center_id
+        return False
     return False
 
 
 def can_record_snapshot(user, asset: Asset) -> bool:
-    """ثبت اسنپ‌شات سخت‌افزاری: کارشناس IT یا کارشناس پیمانکار مرتبط."""
-    if getattr(user, "is_admin_province", False) or user.is_superuser:
+    """ثبت اسنپ‌شات سخت‌افزاری (Fail-Closed)."""
+    if not getattr(user, "is_authenticated", False) or not asset:
+        return False
+    if user.is_superuser or getattr(user, "is_admin_country", False):
         return True
+    if getattr(user, "is_admin_province", False):
+        scoped = user.get_scoped_centers()
+        return bool(asset.center and scoped.filter(pk=asset.center_id).exists())
+    if getattr(user, "is_admin_county", False):
+        scoped = user.get_scoped_centers()
+        return bool(asset.center and scoped.filter(pk=asset.center_id).exists())
     if user.has_role(User.ROLE_ADMIN_IT):
-        if not user.center_id or not asset.center_id:
+        if user.center_id and asset.center_id:
+            return user.center_id == asset.center_id
+        if not user.center_id and not asset.center_id:
             return True
-        return user.center_id == asset.center_id
+        return False
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id:
             return False
-        if not asset.contract_id:
+        if asset.contract_id and asset.contract.contractor_id == user.contractor_id:
             return True
-        return asset.contract.contractor_id == user.contractor_id
+        scoped_centers = user.get_scoped_centers()
+        return bool(asset.center and scoped_centers.filter(pk=asset.center_id).exists())
     return False
-
 
 # ---------------------------------------------------------------------------
 # مقایسه اقلام (موتور کشف تغییر)

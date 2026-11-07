@@ -1,4 +1,5 @@
-"""کنترل دسترسی مبتنی بر نقش."""
+"""کنترل دسترسی مبتنی بر نقش و دامنه سازمانی چهارسطحی."""
+
 from __future__ import annotations
 
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -6,15 +7,21 @@ from django.core.exceptions import PermissionDenied
 
 from .models import User
 
+ADMIN_COUNTRY = User.ROLE_ADMIN_COUNTRY
+ADMIN_PROVINCE = User.ROLE_ADMIN_PROVINCE
+ADMIN_COUNTY = User.ROLE_ADMIN_COUNTY
 ADMIN_IT = User.ROLE_ADMIN_IT
 TECHNICIAN = User.ROLE_TECHNICIAN
 REQUESTER = User.ROLE_REQUESTER
 MANAGER = User.ROLE_MANAGER
 
-STAFF_ROLES = (ADMIN_IT, MANAGER)
-ALL_ROLES = (ADMIN_IT, TECHNICIAN, REQUESTER, MANAGER)
+STAFF_ROLES = (ADMIN_COUNTRY, ADMIN_PROVINCE, ADMIN_COUNTY, ADMIN_IT, MANAGER)
+ALL_ROLES = (ADMIN_COUNTRY, ADMIN_PROVINCE, ADMIN_COUNTY, ADMIN_IT, TECHNICIAN, REQUESTER, MANAGER)
 
 ROLE_HOME = {
+    ADMIN_COUNTRY: "core:dashboard",
+    ADMIN_PROVINCE: "core:dashboard",
+    ADMIN_COUNTY: "core:dashboard",
     ADMIN_IT: "core:dashboard",
     MANAGER: "core:dashboard",
     TECHNICIAN: "maintenance:visit_list",
@@ -54,13 +61,28 @@ class RoleRequiredMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
+class CountryAdminRequiredMixin(RoleRequiredMixin):
+    """دسترسی انحصاری مدیر فناوری اطلاعات کشوری یا Superuser."""
+    allowed_roles = (ADMIN_COUNTRY,)
+
+
+class ProvinceAdminRequiredMixin(RoleRequiredMixin):
+    """دسترسی مدیر استانی یا کشوری."""
+    allowed_roles = (ADMIN_COUNTRY, ADMIN_PROVINCE)
+
+
+class CountyAdminRequiredMixin(RoleRequiredMixin):
+    """دسترسی مدیر شهرستانی، استانی یا کشوری."""
+    allowed_roles = (ADMIN_COUNTRY, ADMIN_PROVINCE, ADMIN_COUNTY)
+
+
 class AdminItRequiredMixin(RoleRequiredMixin):
-    allowed_roles = (ADMIN_IT,)
+    """کارشناس IT مرکز یا مدیران بالادست (شهرستان، استان، کشور)."""
+    allowed_roles = (ADMIN_COUNTRY, ADMIN_PROVINCE, ADMIN_COUNTY, ADMIN_IT)
 
 
 class StaffRequiredMixin(RoleRequiredMixin):
-    """کارشناس فناوری اطلاعات مرکز یا مدیر/ناظر."""
-
+    """کادر IT مرکز یا مدیران و ناظران."""
     allowed_roles = STAFF_ROLES
 
 
@@ -70,8 +92,7 @@ class TechnicianRequiredMixin(RoleRequiredMixin):
 
 class RepairStaffRequiredMixin(RoleRequiredMixin):
     """کارشناس IT یا کارشناس پیمانکار."""
-
-    allowed_roles = (ADMIN_IT, TECHNICIAN)
+    allowed_roles = (ADMIN_COUNTRY, ADMIN_PROVINCE, ADMIN_COUNTY, ADMIN_IT, TECHNICIAN)
 
 
 class AnyRoleRequiredMixin(RoleRequiredMixin):

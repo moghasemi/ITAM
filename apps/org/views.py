@@ -8,6 +8,11 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
 from apps.core.constants import TICKET_OPEN_STATUSES
+from apps.accounts.permissions import (
+    AdminItRequiredMixin,
+    ProvinceAdminRequiredMixin,
+    CountryAdminRequiredMixin,
+)
 from apps.core.mixins import (
     BaseCreateView,
     BaseDetailView,
@@ -33,21 +38,22 @@ from .models import Center, Contract, Contractor, Department, Location
 # ---------------------------------------------------------------------------
 # مراکز استان
 # ---------------------------------------------------------------------------
-class CenterListView(BaseListView):
+class CenterListView(AdminItRequiredMixin, BaseListView):
     model = Center
     template_name = "org/center_list.html"
     page_title = "مراکز استان و مدیریت ستادی"
     active_menu = "org"
 
     def get_queryset(self):
-        queryset = Center.objects.annotate(
+        scoped = self.request.user.get_scoped_centers()
+        queryset = scoped.annotate(
             assets_total=Count("assets", distinct=True),
             users_total=Count("users", distinct=True),
         ).order_by("-is_headquarters", "name")
         return apply_search(queryset, self.request.GET.get("q"), ["name", "code", "city", "manager_name"])
 
 
-class CenterCreateView(BaseCreateView):
+class CenterCreateView(ProvinceAdminRequiredMixin, BaseCreateView):
     model = Center
     form_class = CenterForm
     template_name = "org/simple_form.html"
@@ -57,7 +63,7 @@ class CenterCreateView(BaseCreateView):
     success_message = "مرکز جدید با موفقیت ثبت شد."
 
 
-class CenterUpdateView(BaseUpdateView):
+class CenterUpdateView(ProvinceAdminRequiredMixin, BaseUpdateView):
     model = Center
     form_class = CenterForm
     template_name = "org/simple_form.html"
@@ -66,22 +72,26 @@ class CenterUpdateView(BaseUpdateView):
     success_url = reverse_lazy("org:center_list")
     success_message = "تغییرات مرکز ذخیره شد."
 
+    def get_queryset(self):
+        return self.request.user.get_scoped_centers()
+
 
 # ---------------------------------------------------------------------------
 # واحدهای سازمانی
 # ---------------------------------------------------------------------------
-class DepartmentListView(BaseListView):
+class DepartmentListView(AdminItRequiredMixin, BaseListView):
     model = Department
     template_name = "org/department_list.html"
     page_title = "واحدهای سازمانی"
     active_menu = "org"
 
     def get_queryset(self):
-        queryset = Department.objects.annotate(assets_total=Count("assets", distinct=True)).order_by("name")
+        scoped = self.request.user.get_scoped_centers()
+        queryset = Department.objects.filter(center__in=scoped).annotate(assets_total=Count("assets", distinct=True)).order_by("name")
         return apply_search(queryset, self.request.GET.get("q"), ["name", "code", "manager_name"])
 
 
-class DepartmentCreateView(BaseCreateView):
+class DepartmentCreateView(AdminItRequiredMixin, BaseCreateView):
     model = Department
     form_class = DepartmentForm
     template_name = "org/simple_form.html"
@@ -91,7 +101,7 @@ class DepartmentCreateView(BaseCreateView):
     success_message = "واحد سازمانی ثبت شد."
 
 
-class DepartmentUpdateView(BaseUpdateView):
+class DepartmentUpdateView(AdminItRequiredMixin, BaseUpdateView):
     model = Department
     form_class = DepartmentForm
     template_name = "org/simple_form.html"
@@ -99,24 +109,29 @@ class DepartmentUpdateView(BaseUpdateView):
     active_menu = "org"
     success_url = reverse_lazy("org:department_list")
 
+    def get_queryset(self):
+        scoped = self.request.user.get_scoped_centers()
+        return Department.objects.filter(center__in=scoped)
+
 
 # ---------------------------------------------------------------------------
 # محل‌های استقرار
 # ---------------------------------------------------------------------------
-class LocationListView(BaseListView):
+class LocationListView(AdminItRequiredMixin, BaseListView):
     model = Location
     template_name = "org/location_list.html"
     page_title = "محل‌های استقرار"
     active_menu = "org"
 
     def get_queryset(self):
-        queryset = Location.objects.annotate(assets_total=Count("assets", distinct=True)).order_by(
+        scoped = self.request.user.get_scoped_centers()
+        queryset = Location.objects.filter(center__in=scoped).annotate(assets_total=Count("assets", distinct=True)).order_by(
             "building", "floor", "name"
         )
         return apply_search(queryset, self.request.GET.get("q"), ["name", "building", "floor", "room", "code"])
 
 
-class LocationCreateView(BaseCreateView):
+class LocationCreateView(AdminItRequiredMixin, BaseCreateView):
     model = Location
     form_class = LocationForm
     template_name = "org/simple_form.html"
@@ -126,7 +141,7 @@ class LocationCreateView(BaseCreateView):
     success_message = "محل استقرار ثبت شد."
 
 
-class LocationUpdateView(BaseUpdateView):
+class LocationUpdateView(AdminItRequiredMixin, BaseUpdateView):
     model = Location
     form_class = LocationForm
     template_name = "org/simple_form.html"
@@ -134,11 +149,15 @@ class LocationUpdateView(BaseUpdateView):
     active_menu = "org"
     success_url = reverse_lazy("org:location_list")
 
+    def get_queryset(self):
+        scoped = self.request.user.get_scoped_centers()
+        return Location.objects.filter(center__in=scoped)
+
 
 # ---------------------------------------------------------------------------
 # پیمانکاران
 # ---------------------------------------------------------------------------
-class ContractorListView(BaseListView):
+class ContractorListView(AdminItRequiredMixin, BaseListView):
     model = Contractor
     template_name = "org/contractor_list.html"
     page_title = "پیمانکاران"
@@ -152,7 +171,7 @@ class ContractorListView(BaseListView):
         return apply_search(queryset, self.request.GET.get("q"), ["name", "code", "contact_person", "phone"])
 
 
-class ContractorCreateView(BaseCreateView):
+class ContractorCreateView(ProvinceAdminRequiredMixin, BaseCreateView):
     model = Contractor
     form_class = ContractorForm
     template_name = "org/contractor_form.html"
@@ -162,7 +181,7 @@ class ContractorCreateView(BaseCreateView):
     success_message = "پیمانکار ثبت شد."
 
 
-class ContractorUpdateView(BaseUpdateView):
+class ContractorUpdateView(ProvinceAdminRequiredMixin, BaseUpdateView):
     model = Contractor
     form_class = ContractorForm
     template_name = "org/contractor_form.html"
@@ -171,7 +190,7 @@ class ContractorUpdateView(BaseUpdateView):
     success_url_name = "org:contractor_detail"
 
 
-class ContractorDetailView(BaseDetailView):
+class ContractorDetailView(AdminItRequiredMixin, BaseDetailView):
     model = Contractor
     template_name = "org/contractor_detail.html"
     page_title = "پرونده پیمانکار"
@@ -192,7 +211,7 @@ class ContractorDetailView(BaseDetailView):
 # ---------------------------------------------------------------------------
 # قراردادها
 # ---------------------------------------------------------------------------
-class ContractListView(BaseListView):
+class ContractListView(AdminItRequiredMixin, BaseListView):
     model = Contract
     template_name = "org/contract_list.html"
     page_title = "قراردادهای نگهداری و تعمیرات"
@@ -250,7 +269,7 @@ class ContractFormMixin:
         return redirect(self.get_success_url())
 
 
-class ContractCreateView(ContractFormMixin, BaseCreateView):
+class ContractCreateView(ProvinceAdminRequiredMixin, ContractFormMixin, BaseCreateView):
     model = Contract
     form_class = ContractForm
     template_name = "org/contract_form.html"
@@ -260,7 +279,7 @@ class ContractCreateView(ContractFormMixin, BaseCreateView):
     creating = True
 
 
-class ContractUpdateView(ContractFormMixin, BaseUpdateView):
+class ContractUpdateView(ProvinceAdminRequiredMixin, ContractFormMixin, BaseUpdateView):
     model = Contract
     form_class = ContractForm
     template_name = "org/contract_form.html"
@@ -270,7 +289,7 @@ class ContractUpdateView(ContractFormMixin, BaseUpdateView):
     creating = False
 
 
-class ContractDetailView(BaseDetailView):
+class ContractDetailView(AdminItRequiredMixin, BaseDetailView):
     model = Contract
     template_name = "org/contract_detail.html"
     page_title = "پرونده قرارداد"

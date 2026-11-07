@@ -6,6 +6,12 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 import json
+import time
+import hashlib
+from datetime import datetime, timezone as dt_timezone
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from django.db import transaction
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -42,6 +48,9 @@ from .models import (
     AssetCategory,
     ComponentType,
     HardwareSnapshot,
+    AgentCredential,
+    AgentNonce,
+    AgentSyncAuditLog,
 )
 from .qrgen import svg as qr_svg
 from .hwagent_service import apply_hwagent_snapshot, process_batch_hwagent_files, match_asset_for_hwagent
@@ -168,6 +177,10 @@ class AssetUpdateView(AdminItRequiredMixin, BaseUpdateView):
     page_title = "ویرایش دارایی"
     active_menu = "assets"
     success_url_name = "assets:detail"
+
+    def get_queryset(self):
+        from apps.assets.services import visible_assets
+        return visible_assets(self.request.user)
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -596,12 +609,13 @@ def asset_hwagent_upload(request, asset_pk: int):
 
 
 def hwagent_batch_import(request):
-    """بارگذاری دسته‌ای فایل‌های JSON تولید شده توسط HWAgent."""
-    if not (request.user.is_superuser or request.user.has_role("admin_it", "admin_province")):
+    """بارگذاری دسته‌ای فایل‌های JSON تولید شده توسط HWAgent با اعتبارسنجی قطعی دامنه مرکز."""
+    if not (request.user.is_superuser or request.user.has_role("admin_it", "admin_province", "admin_country", "admin_county")):
         raise PermissionDenied("فقط کارشناسان فناوری اطلاعات به بارگذاری دسته‌ای دسترسی دارند.")
 
     from apps.org.models import Center
-    centers = Center.objects.filter(is_active=True)
+
+    scoped_centers = request.user.get_scoped_centers().filter(is_active=True)
 
     if request.method == "POST":
         files = request.FILES.getlist("files")
@@ -609,29 +623,49 @@ def hwagent_batch_import(request):
             messages.error(request, "هیچ فایلی برای بارگذاری انتخاب نشده است.")
             return redirect("assets:hwagent_batch_import")
 
-        center_id = request.POST.get("center")
-        center = Center.objects.filter(pk=center_id).first() if center_id else getattr(request.user, "center", None)
+        # استخراج مرکز منحصراً بر اساس دامنه احراز هویت شده کاربر
+        if request.user.is_superuser or request.user.has_role("admin_country", "admin_province", "admin_county"):
+            center_id = request.POST.get("center")
+            if center_id:
+                center = scoped_centers.filter(pk=center_id).first()
+                if not center:
+                    raise PermissionDenied("مرکز انتخاب‌شده خارج از دامنه مجاز شما است.")
+            else:
+                center = getattr(request.user, "center", None) or scoped_centers.first()
+        else:
+            # برای کارشناس مرکز، مقدار ارسالی فرم کلاینت نادیده گرفته شده و صرفاً مرکز خود کاربر اعمال می‌شود
+            center = request.user.center
+            if not center:
+                raise PermissionDenied("کاربر به هیچ مرکزی منتسب نشده است.")
+
         auto_create = request.POST.get("auto_create") == "on"
 
-        results = process_batch_hwagent_files(
-            files=files,
-            user=request.user,
-            center=center,
-            auto_create_asset=auto_create,
-        )
+        with transaction.atomic():
+            results = process_batch_hwagent_files(
+                files=files,
+                user=request.user,
+                center=center,
+                auto_create_asset=auto_create,
+            )
 
-        messages.info(
-            request,
-            f"عملیات پردازش پایان یافت: {results['success']} موفق، {results['failed']} ناموفق، {results['alarms']} هشدار سرقت/مغایرت.",
-        )
+        if results["success"] > 0:
+            messages.success(
+                request,
+                f"{results['success']} فایل با موفقیت پردازش شد. (تعداد هشدار مغایرت: {results['alarms']})",
+            )
+        if results["failed"] > 0:
+            messages.warning(
+                request,
+                f"{results['failed']} فایل به دلیل عدم تطبیق یا خطا پردازش نشدند.",
+            )
+
         return render(
             request,
             "assets/hwagent_batch_import.html",
             {
                 "results": results,
-                "centers": centers,
-                "selected_center": center,
-                "page_title": "نتایج بارگذاری دسته‌ای HWAgent",
+                "centers": scoped_centers,
+                "page_title": "نتیجه بارگذاری دسته‌ای HWAgent",
                 "active_menu": "assets",
             },
         )
@@ -640,9 +674,8 @@ def hwagent_batch_import(request):
         request,
         "assets/hwagent_batch_import.html",
         {
-            "centers": centers,
-            "user_center": getattr(request.user, "center", None),
-            "page_title": "بارگذاری دسته‌ای فایل‌های JSON ایجنت سخت‌افزاری",
+            "centers": scoped_centers,
+            "page_title": "بارگذاری دسته‌ای فایل‌های HWAgent",
             "active_menu": "assets",
         },
     )
@@ -650,48 +683,212 @@ def hwagent_batch_import(request):
 
 @csrf_exempt
 def api_hwagent_sync(request):
-    """اندپوینت دریافت مستقیم و برخط اسنپ‌شات از کلاینت‌های HWAgent."""
+    """اندپوینت ایمن دریافت مستقیم و برخط اسنپ‌شات از کلاینت‌های فیزیکی HWAgent.
+
+    سیاست‌های امنیتی اجراشده:
+    ۱. احراز هویت با Bearer Token اختصاصی هر کلاینت (One-way hashed).
+    ۲. مقابله با حملات تکرار (Anti-Replay) با بررسی Timestamp (حداکثر انحراف ۳۰۰ ثانیه) و Nonce یکتا.
+    ۳. انقیاد قطعی به مرکز (Center-Binding) بدون اعتماد به Payload کلاینت.
+    ۴. تراکنش اتمیک و ثبت کامل لاگ ممیزی (Audit Logging).
+    """
+    start_time = time.time()
+    remote_ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip() or request.META.get("REMOTE_ADDR")
+
     if request.method != "POST":
         return JsonResponse({"status": "error", "error": "فقط متد POST مجاز است."}, status=405)
 
+    # ۱. استخراج و اعتبارسنجی هدر Authorization
+    auth_header = request.headers.get("Authorization") or request.META.get("HTTP_AUTHORIZATION", "")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return JsonResponse(
+            {"status": "error", "error": "اعتبارنامه نامعتبر است (Bearer Token الزامی است)."},
+            status=401,
+        )
+
+    raw_token = auth_header[7:].strip()
+    agent = AgentCredential.verify_token(raw_token)
+    if not agent:
+        AgentSyncAuditLog.objects.create(
+            agent=None,
+            center=None,
+            remote_ip=remote_ip,
+            http_status=401,
+            success=False,
+            rejection_reason="توکن ایجنت نامعتبر، منقضی یا باطل شده است",
+            execution_duration_ms=int((time.time() - start_time) * 1000),
+        )
+        return JsonResponse(
+            {"status": "error", "error": "اعتبارنامه نامعتبر است یا منقضی/ابطال شده است."},
+            status=401,
+        )
+
+    # ۲. بررسی هدر Timestamp و مقابله با انحراف ساعت (Anti-Clock Skew)
+    timestamp_header = request.headers.get("X-ITAM-Timestamp") or request.META.get("HTTP_X_ITAM_TIMESTAMP", "")
+    if not timestamp_header:
+        AgentSyncAuditLog.objects.create(
+            agent=agent,
+            center=agent.center,
+            remote_ip=remote_ip,
+            http_status=401,
+            success=False,
+            rejection_reason="هدر X-ITAM-Timestamp ارسال نشده است",
+            execution_duration_ms=int((time.time() - start_time) * 1000),
+        )
+        return JsonResponse(
+            {"status": "error", "error": "هدر زمان‌سنجی (X-ITAM-Timestamp) الزامی است."},
+            status=401,
+        )
+
+    req_dt = None
     try:
-        if request.content_type == "application/json" or request.body:
-            body = json.loads(request.body.decode("utf-8"))
+        req_dt = parse_datetime(timestamp_header)
+        if not req_dt:
+            req_dt = datetime.fromtimestamp(float(timestamp_header), tz=dt_timezone.utc)
+    except Exception:
+        pass
+
+    if not req_dt:
+        return JsonResponse(
+            {"status": "error", "error": "قالب هدر X-ITAM-Timestamp نامعتبر است."},
+            status=401,
+        )
+
+    now = timezone.now()
+    if timezone.is_naive(req_dt):
+        req_dt = timezone.make_aware(req_dt, dt_timezone.utc)
+
+    skew_seconds = abs((now - req_dt).total_seconds())
+    if skew_seconds > 300:
+        AgentSyncAuditLog.objects.create(
+            agent=agent,
+            center=agent.center,
+            remote_ip=remote_ip,
+            http_status=401,
+            success=False,
+            rejection_reason=f"انحراف زمانی بیش از ۳۰۰ ثانیه ({int(skew_seconds)} ثانیه)",
+            execution_duration_ms=int((time.time() - start_time) * 1000),
+        )
+        return JsonResponse(
+            {"status": "error", "error": f"انحراف زمانی بیش از ۳۰۰ ثانیه است (Clock skew: {int(skew_seconds)}s)."},
+            status=401,
+        )
+
+    # ۳. بررسی Nonce و مقابله با حمله تکرار (Anti-Replay)
+    nonce = (request.headers.get("X-ITAM-Nonce") or request.META.get("HTTP_X_ITAM_NONCE", "")).strip()
+    if not nonce:
+        return JsonResponse(
+            {"status": "error", "error": "هدر شناسه یکتای درخواست (X-ITAM-Nonce) الزامی است."},
+            status=401,
+        )
+
+    if AgentNonce.objects.filter(agent=agent, nonce=nonce).exists():
+        AgentSyncAuditLog.objects.create(
+            agent=agent,
+            center=agent.center,
+            remote_ip=remote_ip,
+            http_status=401,
+            success=False,
+            rejection_reason=f"حمله تکرار (Replay attack): Nonce {nonce} قبلاً استفاده شده است",
+            execution_duration_ms=int((time.time() - start_time) * 1000),
+        )
+        return JsonResponse(
+            {"status": "error", "error": "شناسه درخواست تکراری است (Replay attack detected)."},
+            status=401,
+        )
+
+    AgentNonce.objects.create(agent=agent, nonce=nonce)
+
+    # ۴. دریافت بدنه درخواست و محاسبه هش
+    raw_body = request.body
+    payload_hash = hashlib.sha256(raw_body).hexdigest()
+
+    try:
+        if request.content_type == "application/json" or raw_body:
+            body = json.loads(raw_body.decode("utf-8"))
         else:
             body = request.POST.dict()
     except Exception as exc:
+        AgentSyncAuditLog.objects.create(
+            agent=agent,
+            center=agent.center,
+            remote_ip=remote_ip,
+            http_status=400,
+            success=False,
+            rejection_reason=f"قالب JSON نامعتبر: {exc}",
+            payload_hash=payload_hash,
+            execution_duration_ms=int((time.time() - start_time) * 1000),
+        )
         return JsonResponse({"status": "error", "error": f"قالب ارسالی نامعتبر است: {exc}"}, status=400)
 
+    # ۵. انقیاد قطعی مرکز و تطبیق دارایی
+    target_center = agent.center
     asset_tag = body.get("asset_tag") or request.GET.get("asset_tag")
-    asset = match_asset_for_hwagent(body, asset_tag=asset_tag)
 
-    if not asset:
-        comp = body.get("computerName", "نامشخص")
-        return JsonResponse(
-            {
-                "status": "error",
-                "error": f"دارایی متناظری برای سیستم «{comp}» در سامانه ITAM یافت نشد. لطفاً ابتدا رایانه را ثبت کرده یا شماره اموال آن را ارسال کنید.",
-            },
-            status=404,
-        )
+    with transaction.atomic():
+        asset = match_asset_for_hwagent(body, center=target_center, asset_tag=asset_tag)
+        if not asset:
+            comp = body.get("computerName", "نامشخص")
+            AgentSyncAuditLog.objects.create(
+                agent=agent,
+                center=target_center,
+                remote_ip=remote_ip,
+                http_status=404,
+                success=False,
+                rejection_reason=f"عدم تطبیق دارایی برای کلاینت {comp} در مرکز {target_center.name}",
+                payload_hash=payload_hash,
+                execution_duration_ms=int((time.time() - start_time) * 1000),
+            )
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "error": f"دارایی متناظری برای سیستم «{comp}» در مرکز «{target_center.name}» یافت نشد.",
+                },
+                status=404,
+            )
 
-    try:
-        snapshot, diff = apply_hwagent_snapshot(
-            asset=asset,
-            raw_data=body,
-            user=None,
-            note="همگام‌سازی خودکار و مستقیم از HWAgent شبکه محلی",
-        )
-        return JsonResponse({
-            "status": "ok",
-            "asset_tag": asset.asset_tag,
-            "asset_title": str(asset),
-            "hostname": asset.hostname,
-            "version": snapshot.version,
-            "is_baseline": snapshot.is_baseline,
-            "diff_count": snapshot.diff_count,
-            "has_alarm": diff.get("has_alarm", False),
-            "message": f"اسنپ‌شات سخت‌افزاری نسخه {snapshot.version} با موفقیت در سامانه ITAM ثبت شد.",
-        })
-    except Exception as exc:
-        return JsonResponse({"status": "error", "error": str(exc)}, status=500)
+        try:
+            snapshot, diff = apply_hwagent_snapshot(
+                asset=asset,
+                raw_data=body,
+                user=None,
+                note=f"همگام‌سازی از کلاینت {agent.name} با توکن اختصاصی",
+            )
+            agent.last_sync_at = timezone.now()
+            agent.last_ip = remote_ip
+            agent.save(update_fields=["last_sync_at", "last_ip", "updated_at"])
+
+            duration = int((time.time() - start_time) * 1000)
+            AgentSyncAuditLog.objects.create(
+                agent=agent,
+                center=target_center,
+                remote_ip=remote_ip,
+                http_status=200,
+                success=True,
+                payload_hash=payload_hash,
+                execution_duration_ms=duration,
+            )
+
+            return JsonResponse({
+                "status": "ok",
+                "asset_tag": asset.asset_tag,
+                "asset_title": str(asset),
+                "hostname": asset.hostname,
+                "version": snapshot.version,
+                "is_baseline": snapshot.is_baseline,
+                "diff_count": snapshot.diff_count,
+                "has_alarm": diff.get("has_alarm", False),
+                "message": f"اسنپ‌شات سخت‌افزاری نسخه {snapshot.version} با موفقیت در سامانه ITAM ثبت شد.",
+            })
+        except Exception as exc:
+            duration = int((time.time() - start_time) * 1000)
+            AgentSyncAuditLog.objects.create(
+                agent=agent,
+                center=target_center,
+                remote_ip=remote_ip,
+                http_status=500,
+                success=False,
+                rejection_reason=f"خطا در ثبت اسنپ‌شات: {exc}",
+                payload_hash=payload_hash,
+                execution_duration_ms=duration,
+            )
+            return JsonResponse({"status": "error", "error": f"خطا در ذخیره‌سازی اسنپ‌شات: {exc}"}, status=500)

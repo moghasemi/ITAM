@@ -59,8 +59,42 @@ class UserForm(StyledModelForm):
         ]
 
     def __init__(self, *args, **kwargs):
+        self.current_user = kwargs.pop("current_user", None)
         super().__init__(*args, **kwargs)
-        self.fields["center"].queryset = Center.objects.filter(is_active=True)
+
+        if self.current_user and not self.current_user.is_superuser and self.current_user.role != User.ROLE_ADMIN_COUNTRY:
+            scoped_centers = self.current_user.get_scoped_centers().filter(is_active=True)
+            self.fields["center"].queryset = scoped_centers
+            if self.current_user.role == User.ROLE_ADMIN_IT:
+                allowed_roles = [
+                    (User.ROLE_REQUESTER, "کاربر / امانت‌دار"),
+                    (User.ROLE_ADMIN_IT, "کارشناس فناوری اطلاعات مرکز"),
+                    (User.ROLE_MANAGER, "مدیر و ناظر مرکز"),
+                ]
+                self.fields["role"].choices = allowed_roles
+                if self.current_user.center:
+                    self.fields["center"].initial = self.current_user.center
+            elif self.current_user.role == User.ROLE_ADMIN_COUNTY:
+                allowed_roles = [
+                    (User.ROLE_REQUESTER, "کاربر / امانت‌دار"),
+                    (User.ROLE_ADMIN_IT, "کارشناس فناوری اطلاعات مرکز"),
+                    (User.ROLE_MANAGER, "مدیر و ناظر مرکز"),
+                    (User.ROLE_ADMIN_COUNTY, "مدیر فناوری اطلاعات شهرستان"),
+                ]
+                self.fields["role"].choices = allowed_roles
+            elif self.current_user.role == User.ROLE_ADMIN_PROVINCE:
+                allowed_roles = [
+                    (User.ROLE_REQUESTER, "کاربر / امانت‌دار"),
+                    (User.ROLE_ADMIN_IT, "کارشناس فناوری اطلاعات مرکز"),
+                    (User.ROLE_MANAGER, "مدیر و ناظر مرکز"),
+                    (User.ROLE_ADMIN_COUNTY, "مدیر فناوری اطلاعات شهرستان"),
+                    (User.ROLE_ADMIN_PROVINCE, "مدیر فناوری اطلاعات استان"),
+                    (User.ROLE_TECHNICIAN, "کارشناس پیمانکار (پشتیبان استانی)"),
+                ]
+                self.fields["role"].choices = allowed_roles
+        else:
+            self.fields["center"].queryset = Center.objects.filter(is_active=True)
+
         self.fields["department"].queryset = Department.objects.filter(is_active=True)
         self.fields["contractor"].queryset = Contractor.objects.filter(is_active=True)
         if not self.instance.pk:
@@ -80,6 +114,19 @@ class UserForm(StyledModelForm):
         contractor = cleaned.get("contractor")
         if role == User.ROLE_TECHNICIAN and not contractor:
             raise forms.ValidationError({"contractor": "برای کارشناس پیمانکار، انتخاب شرکت الزامی است."})
+
+        if self.current_user and not self.current_user.is_superuser and self.current_user.role != User.ROLE_ADMIN_COUNTRY:
+            if self.current_user.role == User.ROLE_ADMIN_IT and role in (
+                User.ROLE_ADMIN_COUNTRY,
+                User.ROLE_ADMIN_PROVINCE,
+                User.ROLE_ADMIN_COUNTY,
+            ):
+                raise forms.ValidationError({"role": "شما مجاز به تخصیص نقش‌های فراتر از سطح کارشناس IT نیستید."})
+
+            center = cleaned.get("center")
+            if center and not self.current_user.get_scoped_centers().filter(pk=center.pk).exists():
+                raise forms.ValidationError({"center": "مرکز انتخاب‌شده خارج از حوزه سازمانی مجاز شما است."})
+
         return cleaned
 
     def save(self, commit=True):

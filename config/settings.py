@@ -31,33 +31,48 @@ def env_list(name: str, default=None):
 
 
 # ---------------------------------------------------------------------------
-# امنیت پایه
+# امنیت پایه و تنظیمات محیط عملیاتی (Production Hardening)
 # ---------------------------------------------------------------------------
-def _secret_key() -> str:
-    """کلید امنیتی پایدار؛ در اولین اجرا ساخته و ذخیره می‌شود."""
-    key = os.environ.get("ITAM_SECRET_KEY")
-    if key:
-        return key
-    key_file = BASE_DIR / "secret_key.txt"
-    if key_file.exists():
-        stored = key_file.read_text(encoding="utf-8").strip()
-        if stored:
-            return stored
-    generated = secrets.token_urlsafe(64)
-    try:
-        key_file.write_text(generated, encoding="utf-8")
-    except OSError:  # محیط فقط-خواندنی
-        pass
-    return generated
+RUNNING_TESTS = "test" in sys.argv
 
+DEBUG = env_bool("ITAM_DEBUG", False)
 
-SECRET_KEY = _secret_key()
-DEBUG = env_bool("ITAM_DEBUG", True)
+if DEBUG or RUNNING_TESTS:
+    SECRET_KEY = os.environ.get("ITAM_SECRET_KEY") or "django-insecure-itam-dev-key-change-in-production-only-entropy-12345"
+    ALLOWED_HOSTS = env_list("ITAM_ALLOWED_HOSTS", ["localhost", "127.0.0.1", "[::1]", "testserver"])
+else:
+    SECRET_KEY = os.environ.get("ITAM_SECRET_KEY", "")
+    if not SECRET_KEY:
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured("متغیر محیطی ITAM_SECRET_KEY در محیط عملیاتی (DEBUG=False) الزامی است.")
+    if len(SECRET_KEY) < 50:
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured("طول کلید ITAM_SECRET_KEY در محیط عملیاتی باید حداقل ۵۰ نویسه با آنتروپی بالا باشد.")
 
-# در شبکه محلی معمولاً با IP یا نام سرور دسترسی انجام می‌شود
-ALLOWED_HOSTS = env_list("ITAM_ALLOWED_HOSTS", ["*"])
+    ALLOWED_HOSTS = env_list("ITAM_ALLOWED_HOSTS", [])
+    if not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS:
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured("در محیط عملیاتی (DEBUG=False)، ITAM_ALLOWED_HOSTS باید صریحاً تعریف شود و نمی‌تواند ستاره (*) باشد.")
+
 CSRF_TRUSTED_ORIGINS = env_list("ITAM_CSRF_TRUSTED_ORIGINS", [])
 
+# HTTPS و کوکی‌های امن
+SECURE_SSL_REDIRECT = env_bool("ITAM_SECURE_SSL_REDIRECT", False)
+if env_bool("ITAM_USE_PROXY_SSL_HEADER", False):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+SESSION_COOKIE_SECURE = env_bool("ITAM_SESSION_COOKIE_SECURE", False)
+CSRF_COOKIE_SECURE = env_bool("ITAM_CSRF_COOKIE_SECURE", False)
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+
+hsts_seconds = int(os.environ.get("ITAM_HSTS_SECONDS", 0))
+if hsts_seconds > 0:
+    SECURE_HSTS_SECONDS = hsts_seconds
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("ITAM_HSTS_INCLUDE_SUBDOMAINS", False)
+    SECURE_HSTS_PRELOAD = env_bool("ITAM_HSTS_PRELOAD", False)
 # ---------------------------------------------------------------------------
 # برنامه‌ها
 # ---------------------------------------------------------------------------
@@ -129,16 +144,35 @@ ASGI_APPLICATION = "config.asgi.application"
 # ---------------------------------------------------------------------------
 # پایگاه داده (SQLite — بکاپ با کپی یک فایل)
 # ---------------------------------------------------------------------------
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": Path(os.environ.get("ITAM_DB_PATH", BASE_DIR / "db.sqlite3")),
-        "OPTIONS": {
-            "timeout": 30,
-            # فعال‌سازی WAL و کلیدهای خارجی در apps/core/apps.py انجام می‌شود
-        },
+# ---------------------------------------------------------------------------
+# پایگاه داده (پشتیبانی کامل از PostgreSQL برای سطح سازمانی و SQLite برای توسعه محلی)
+# ---------------------------------------------------------------------------
+DB_ENGINE = os.environ.get("ITAM_DB_ENGINE", "sqlite").lower()
+
+if DB_ENGINE in ("postgres", "postgresql") or os.environ.get("ITAM_DB_NAME"):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("ITAM_DB_NAME", "itam"),
+            "USER": os.environ.get("ITAM_DB_USER", "postgres"),
+            "PASSWORD": os.environ.get("ITAM_DB_PASSWORD", ""),
+            "HOST": os.environ.get("ITAM_DB_HOST", "localhost"),
+            "PORT": os.environ.get("ITAM_DB_PORT", "5432"),
+            "OPTIONS": {
+                "connect_timeout": int(os.environ.get("ITAM_DB_TIMEOUT", 10)),
+            },
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": Path(os.environ.get("ITAM_DB_PATH", BASE_DIR / "db.sqlite3")),
+            "OPTIONS": {
+                "timeout": 30,
+            },
+        }
+    }
 
 # ---------------------------------------------------------------------------
 # احراز هویت

@@ -2,7 +2,7 @@
 from django.contrib import admin
 from django.forms import inlineformset_factory
 
-from .models import Contract, Contractor, Department, Location, SlaPolicy
+from .models import Center, Contract, Contractor, Department, Location, OrganizationalUnit, SlaPolicy
 
 
 class SlaPolicyInline(admin.TabularInline):
@@ -42,3 +42,16 @@ class ContractAdmin(admin.ModelAdmin):
 class SlaPolicyAdmin(admin.ModelAdmin):
     list_display = ("contract", "priority", "response_minutes", "resolve_minutes")
     list_filter = ("priority",)
+
+@admin.register(OrganizationalUnit)
+class OrganizationalUnitAdmin(admin.ModelAdmin):
+    list_display = ("name", "code", "unit_type", "parent", "is_active")
+    list_filter = ("unit_type", "is_active")
+    search_fields = ("name", "code")
+
+
+@admin.register(Center)
+class CenterAdmin(admin.ModelAdmin):
+    list_display = ("name", "code", "province", "city", "parent_unit", "is_headquarters", "is_active")
+    list_filter = ("province", "is_headquarters", "is_active")
+    search_fields = ("name", "code", "city")

@@ -115,21 +115,38 @@ def generate_technical_spec_summary(data: Dict[str, Any]) -> str:
     return " | ".join(parts)
 
 
-def match_asset_for_hwagent(data: Dict[str, Any], asset_tag: Optional[str] = None, center=None) -> Optional[Asset]:
-    """یافتن دارایی متناظر با اطلاعات HWAgent بر اساس اموال، سریال، نام کامپیوتر یا MAC."""
+def match_asset_for_hwagent(data: Dict[str, Any], center=None, asset_tag: Optional[str] = None) -> Optional[Asset]:
+    """یافتن دارایی متناظر با اطلاعات HWAgent صرفاً در محدوده مرکز مشخص‌شده (Center-Bound Matching).
+
+    قوانین امنیتی و انطباق:
+    ۱. در صورت مشخص نبودن مرکز، هیچ دارایی جستجو یا بازگردانده نمی‌شود (Fail-Closed).
+    ۲. جستجو منحصراً روی دارایی‌های فعال همان مرکز انجام می‌گیرد.
+    ۳. در صورت بروز هرگونه ابهام (بیش از یک دارایی منطبق)، جهت جلوگیری از تغییر اشتباه هیچ دارایی انتخاب نمی‌شود.
+    """
+    if center is None:
+        return None
+
+    base_qs = Asset.objects.filter(center=center)
+
     # ۱) تطبیق بر اساس شماره اموال مشخص‌شده
-    if asset_tag:
-        asset = Asset.objects.filter(asset_tag__iexact=asset_tag.strip()).first()
-        if asset:
-            return asset
+    if asset_tag and asset_tag.strip():
+        tag_matches = base_qs.filter(asset_tag__iexact=asset_tag.strip())
+        cnt = tag_matches.count()
+        if cnt == 1:
+            return tag_matches.first()
+        if cnt > 1:
+            return None
 
     # ۲) تطبیق با سریال مادربرد یا شماره سریال دستگاه
     bb = data.get("baseboard", {})
     bb_serial = (bb.get("serial") or "").strip() if isinstance(bb, dict) else ""
     if bb_serial and bb_serial.lower() not in ("none", "default string", "to be filled by o.e.m.", ""):
-        asset = Asset.objects.filter(serial_number__iexact=bb_serial).first()
-        if asset:
-            return asset
+        serial_matches = base_qs.filter(serial_number__iexact=bb_serial)
+        cnt = serial_matches.count()
+        if cnt == 1:
+            return serial_matches.first()
+        if cnt > 1:
+            return None
 
     # ۳) تطبیق با آدرس فیزیکی MAC کارت شبکه
     networks = data.get("network", [])
@@ -138,22 +155,24 @@ def match_asset_for_hwagent(data: Dict[str, Any], asset_tag: Optional[str] = Non
             if isinstance(net, dict) and net.get("mac"):
                 mac = net["mac"].strip()
                 if mac:
-                    asset = Asset.objects.filter(mac_address__iexact=mac).first()
-                    if asset:
-                        return asset
+                    mac_matches = base_qs.filter(mac_address__iexact=mac)
+                    cnt = mac_matches.count()
+                    if cnt == 1:
+                        return mac_matches.first()
+                    if cnt > 1:
+                        return None
 
     # ۴) تطبیق با نام کامپیوتر (Hostname)
     comp_name = (data.get("computerName") or "").strip()
     if comp_name:
-        qs = Asset.objects.filter(hostname__iexact=comp_name)
-        if center:
-            qs = qs.filter(center=center)
-        asset = qs.first()
-        if asset:
-            return asset
+        host_matches = base_qs.filter(hostname__iexact=comp_name)
+        cnt = host_matches.count()
+        if cnt == 1:
+            return host_matches.first()
+        if cnt > 1:
+            return None
 
     return None
-
 
 @transaction.atomic
 def apply_hwagent_snapshot(

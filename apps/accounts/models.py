@@ -17,14 +17,18 @@ class User(AbstractUser):
       * مدیر و ناظر مرکز — مشاهده و گزارش‌گیری مرکز
     """
 
+    ROLE_ADMIN_COUNTRY = "admin_country"
     ROLE_ADMIN_PROVINCE = "admin_province"
+    ROLE_ADMIN_COUNTY = "admin_county"
     ROLE_ADMIN_IT = "admin_it"
     ROLE_TECHNICIAN = "technician"
     ROLE_REQUESTER = "requester"
     ROLE_MANAGER = "manager"
 
     ROLE_CHOICES = (
+        (ROLE_ADMIN_COUNTRY, "مدیر فناوری اطلاعات کشوری (ستاد)"),
         (ROLE_ADMIN_PROVINCE, "مدیر فناوری اطلاعات استان"),
+        (ROLE_ADMIN_COUNTY, "مدیر فناوری اطلاعات شهرستان"),
         (ROLE_ADMIN_IT, "کارشناس فناوری اطلاعات مرکز"),
         (ROLE_TECHNICIAN, "کارشناس پیمانکار (پشتیبان استانی)"),
         (ROLE_REQUESTER, "کاربر / امانت‌دار"),
@@ -32,14 +36,24 @@ class User(AbstractUser):
     )
     ROLE_LABELS = dict(ROLE_CHOICES)
     ROLE_CSS = {
+        ROLE_ADMIN_COUNTRY: "danger",
         ROLE_ADMIN_PROVINCE: "primary",
+        ROLE_ADMIN_COUNTY: "info",
         ROLE_ADMIN_IT: "success",
-        ROLE_TECHNICIAN: "info",
+        ROLE_TECHNICIAN: "secondary",
         ROLE_REQUESTER: "neutral",
         ROLE_MANAGER: "warning",
     }
-
     role = models.CharField("نقش", max_length=20, choices=ROLE_CHOICES, default=ROLE_REQUESTER)
+    org_unit = models.ForeignKey(
+        "org.OrganizationalUnit",
+        verbose_name="واحد سازمانی کلان",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="users",
+        help_text="واحد سازمانی کشوری، استانی یا شهرستانی تحت مدیریت کاربر",
+    )
     center = models.ForeignKey(
         "org.Center",
         verbose_name="مرکز خدمت",
@@ -112,21 +126,69 @@ class User(AbstractUser):
         if self.is_superuser:
             return [code for code, _ in self.ROLE_CHOICES]
         codes = [self.role]
-        if self.role == self.ROLE_ADMIN_PROVINCE:
-            codes.append(self.ROLE_ADMIN_IT)
-            codes.append(self.ROLE_MANAGER)
+        if self.role == self.ROLE_ADMIN_COUNTRY:
+            codes.extend([self.ROLE_ADMIN_PROVINCE, self.ROLE_ADMIN_COUNTY, self.ROLE_ADMIN_IT, self.ROLE_MANAGER])
+        elif self.role == self.ROLE_ADMIN_PROVINCE:
+            codes.extend([self.ROLE_ADMIN_COUNTY, self.ROLE_ADMIN_IT, self.ROLE_MANAGER])
+        elif self.role == self.ROLE_ADMIN_COUNTY:
+            codes.extend([self.ROLE_ADMIN_IT, self.ROLE_MANAGER])
         return codes
 
     def has_role(self, *roles: str) -> bool:
         return bool(set(roles) & set(self.role_codes()))
 
     @property
+    def is_admin_country(self) -> bool:
+        return self.is_superuser or self.role == self.ROLE_ADMIN_COUNTRY
+
+    @property
     def is_admin_province(self) -> bool:
-        return self.is_superuser or self.role == self.ROLE_ADMIN_PROVINCE
+        return self.is_superuser or self.role in (self.ROLE_ADMIN_COUNTRY, self.ROLE_ADMIN_PROVINCE)
+
+    @property
+    def is_admin_county(self) -> bool:
+        return self.is_superuser or self.role in (self.ROLE_ADMIN_COUNTRY, self.ROLE_ADMIN_PROVINCE, self.ROLE_ADMIN_COUNTY)
 
     @property
     def is_admin_it(self) -> bool:
-        return self.is_superuser or self.has_role(self.ROLE_ADMIN_PROVINCE, self.ROLE_ADMIN_IT)
+        return self.is_superuser or self.has_role(self.ROLE_ADMIN_COUNTRY, self.ROLE_ADMIN_PROVINCE, self.ROLE_ADMIN_COUNTY, self.ROLE_ADMIN_IT)
+
+    def get_scoped_centers(self):
+        """محاسبه دقیق دامنه مراکز مجاز کاربر (Fail-Closed)."""
+        from apps.org.models import Center
+        if not getattr(self, "is_authenticated", False):
+            return Center.objects.none()
+        if self.is_superuser or self.role == self.ROLE_ADMIN_COUNTRY:
+            return Center.objects.all()
+        if self.role == self.ROLE_ADMIN_PROVINCE:
+            if self.org_unit:
+                return Center.objects.filter(parent_unit__parent=self.org_unit)
+            if self.center:
+                return Center.objects.filter(province=self.center.province)
+            return Center.objects.none()
+        if self.role == self.ROLE_ADMIN_COUNTY:
+            if self.org_unit:
+                return Center.objects.filter(parent_unit=self.org_unit)
+            if self.center:
+                return Center.objects.filter(pk=self.center_id)
+            return Center.objects.none()
+        if self.role in (self.ROLE_ADMIN_IT, self.ROLE_MANAGER):
+            if self.center_id:
+                return Center.objects.filter(pk=self.center_id)
+            return Center.objects.none()
+        if self.role == self.ROLE_TECHNICIAN:
+            if self.contractor_id:
+                from apps.org.models import Contract
+                active_contracts = self.contractor.contracts.filter(status=Contract.STATUS_ACTIVE)
+                if active_contracts.filter(is_provincial=True).exists():
+                    return Center.objects.all()
+                return Center.objects.filter(contracts__in=active_contracts).distinct()
+            return Center.objects.none()
+        if self.role == self.ROLE_REQUESTER:
+            if self.center_id:
+                return Center.objects.filter(pk=self.center_id)
+            return Center.objects.none()
+        return Center.objects.none()
 
     @property
     def is_technician(self) -> bool:

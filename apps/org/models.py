@@ -13,6 +13,69 @@ from apps.core.constants import PRIORITY_CHOICES, PRIORITY_MEDIUM, PRIORITY_ORDE
 from apps.core.models import TimeStampedModel
 
 
+class OrganizationalUnit(TimeStampedModel):
+    """واحد سازمانی سلسله‌مراتبی (سطح ۱: کشوری، سطح ۲: استانی، سطح ۳: شهرستانی)."""
+
+    UNIT_NATIONAL = "national"
+    UNIT_PROVINCE = "province"
+    UNIT_COUNTY = "county"
+
+    UNIT_TYPE_CHOICES = (
+        (UNIT_NATIONAL, "کشوری (ستاد کل)"),
+        (UNIT_PROVINCE, "استانی (دانشگاه / اداره کل)"),
+        (UNIT_COUNTY, "شهرستانی (شبکه بهداشت / مدیریت شهرستان)"),
+    )
+
+    name = models.CharField("نام واحد", max_length=150)
+    code = models.CharField("کد سازمانی", max_length=40, unique=True)
+    unit_type = models.CharField("نوع واحد", max_length=20, choices=UNIT_TYPE_CHOICES)
+    parent = models.ForeignKey(
+        "self",
+        verbose_name="واحد بالادست",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="children",
+    )
+    is_active = models.BooleanField("فعال", default=True)
+    notes = models.TextField("یادداشت", blank=True)
+
+    class Meta:
+        verbose_name = "واحد سازمانی کلان"
+        verbose_name_plural = "واحدهای سازمانی کلان"
+        ordering = ("unit_type", "name")
+
+    def __str__(self) -> str:
+        return f"{self.name} [{self.get_unit_type_display()}]"
+
+    def clean(self):
+        super().clean()
+        if self.pk and self.parent_id == self.pk:
+            raise ValidationError({"parent": "یک واحد سازمانی نمی‌تواند والد خودش باشد."})
+
+        curr = self.parent
+        visited = {self.pk} if self.pk else set()
+        while curr:
+            if curr.pk in visited:
+                raise ValidationError({"parent": "ایجاد ساختار سلسله‌مراتبی حلقوی غیرمجاز است."})
+            visited.add(curr.pk)
+            curr = curr.parent
+
+        if self.unit_type == self.UNIT_NATIONAL:
+            if self.parent:
+                raise ValidationError({"parent": "واحد سطح کشوری نمی‌تواند واحد بالادست داشته باشد."})
+        elif self.unit_type == self.UNIT_PROVINCE:
+            if not self.parent:
+                raise ValidationError({"parent": "واحد استانی باید به یک واحد کشوری متصل باشد."})
+            if self.parent.unit_type != self.UNIT_NATIONAL:
+                raise ValidationError({"parent": "واحد بالادست یک استان باید از سطح کشوری باشد."})
+        elif self.unit_type == self.UNIT_COUNTY:
+            if not self.parent:
+                raise ValidationError({"parent": "واحد شهرستانی باید به یک واحد استانی متصل باشد."})
+            if self.parent.unit_type != self.UNIT_PROVINCE:
+                raise ValidationError({"parent": "واحد بالادست یک شهرستان باید از سطح استانی باشد."})
+
+
 class Center(TimeStampedModel):
     """مرکز اداری / شهرستانی تحت مدیریت و نظارت مرکز فناوری اطلاعات استان."""
 
@@ -30,6 +93,14 @@ class Center(TimeStampedModel):
         help_text="مرکز اصلی فناوری اطلاعات و ستاد مدیریت استان",
     )
     is_active = models.BooleanField("فعال", default=True)
+    parent_unit = models.ForeignKey(
+        "OrganizationalUnit",
+        verbose_name="واحد سازمانی شهرستانی بالادست",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="centers",
+    )
     notes = models.TextField("یادداشت", blank=True)
 
     class Meta:
@@ -40,6 +111,23 @@ class Center(TimeStampedModel):
     def __str__(self) -> str:
         prefix = "★ ستاد استان: " if self.is_headquarters else ""
         return f"{prefix}{self.name}"
+
+    def clean(self):
+        super().clean()
+        if self.parent_unit and self.parent_unit.unit_type != OrganizationalUnit.UNIT_COUNTY:
+            raise ValidationError({"parent_unit": "واحد بالادست مرکز باید حتماً از سطح شهرستانی باشد."})
+
+    @property
+    def province_name(self) -> str:
+        if self.parent_unit and self.parent_unit.parent:
+            return self.parent_unit.parent.name
+        return self.province or "مرکزی"
+
+    @property
+    def county_name(self) -> str:
+        if self.parent_unit:
+            return self.parent_unit.name
+        return self.city or ""
 
     @property
     def display_title(self) -> str:

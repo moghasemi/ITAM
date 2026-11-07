@@ -1,6 +1,9 @@
 """مدل‌های دارایی، اقلام سخت‌افزاری و اسنپ‌شات ضدسرقت."""
 from __future__ import annotations
 
+import hashlib
+import hmac
+import secrets
 import uuid
 
 from django.conf import settings
@@ -159,6 +162,13 @@ class Asset(TimeStampedModel):
         related_name="+",
     )
     baseline_locked_at = models.DateTimeField("زمان قفل اسنپ‌شات پایه", null=True, blank=True)
+    is_quarantined = models.BooleanField(
+        "وضعیت قرنطینه عدم انتساب",
+        default=False,
+        db_index=True,
+        help_text="دارایی‌های بدون مرکز قطعی در حالت قرنطینه قرار می‌گیرند",
+    )
+    quarantine_notes = models.TextField("یادداشت قرنطینه", blank=True)
     notes = models.TextField("یادداشت", blank=True)
 
     class Meta:
@@ -530,3 +540,171 @@ class AssetAttachment(TimeStampedModel):
 
     def __str__(self) -> str:
         return self.title or self.file.name
+
+
+class AgentCredential(TimeStampedModel):
+    """اعتبارنامه امن و اختصاصی هر کلاینت فیزیکی HWAgent."""
+
+    STATUS_ACTIVE = "active"
+    STATUS_REVOKED = "revoked"
+    STATUS_EXPIRED = "expired"
+    STATUS_SUSPENDED = "suspended"
+
+    STATUS_CHOICES = (
+        (STATUS_ACTIVE, "فعال"),
+        (STATUS_REVOKED, "ابطال‌شده"),
+        (STATUS_EXPIRED, "منقضی"),
+        (STATUS_SUSPENDED, "معلق"),
+    )
+
+    center = models.ForeignKey(
+        "org.Center",
+        verbose_name="مرکز خدمت متصل",
+        on_delete=models.PROTECT,
+        related_name="agent_credentials",
+    )
+    agent_uid = models.UUIDField("شناسه یکتای ایجنت", default=uuid.uuid4, unique=True, editable=False)
+    name = models.CharField("نام سیستم / کلاینت", max_length=150)
+    hostname = models.CharField("نام رایانه (Hostname)", max_length=150, blank=True)
+    token_prefix = models.CharField("پیشوند توکن", max_length=16, db_index=True)
+    token_hash = models.CharField("هش رمزنگاری‌شده (SHA-256)", max_length=64, unique=True, db_index=True)
+    status = models.CharField("وضعیت", max_length=20, default=STATUS_ACTIVE, choices=STATUS_CHOICES)
+    last_sync_at = models.DateTimeField("آخرین همگام‌سازی", null=True, blank=True)
+    last_ip = models.GenericIPAddressField("آخرین آدرس IP", null=True, blank=True)
+    expires_at = models.DateTimeField("تاریخ انقضا", null=True, blank=True)
+    revoked_at = models.DateTimeField("تاریخ ابطال", null=True, blank=True)
+    revocation_reason = models.CharField("دلیل ابطال", max_length=250, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="صادرکننده",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_agent_tokens",
+    )
+
+    class Meta:
+        verbose_name = "اعتبارنامه ایجنت سخت‌افزار"
+        verbose_name_plural = "اعتبارنامه‌های ایجنت‌ها"
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.center.name}) [{self.get_status_display()}]"
+
+    @classmethod
+    def generate(
+        cls,
+        center,
+        name: str,
+        hostname: str = "",
+        expires_in_days: int = 365,
+        created_by=None,
+    ) -> tuple[AgentCredential, str]:
+        """تولید اعتبارنامه جدید با آنتروپی رمزنگاری‌شده بالا و ذخیره صرفاً هش در سرور."""
+        raw_secret = secrets.token_urlsafe(36)
+        raw_token = f"itam_agt_{raw_secret}"
+        prefix = raw_token[:12]
+        token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+        expires_at = timezone.now() + timezone.timedelta(days=expires_in_days) if expires_in_days else None
+
+        cred = cls.objects.create(
+            center=center,
+            name=name,
+            hostname=hostname,
+            token_prefix=prefix,
+            token_hash=token_hash,
+            expires_at=expires_at,
+            created_by=created_by,
+        )
+        return cred, raw_token
+
+    @classmethod
+    def verify_token(cls, raw_token: str) -> AgentCredential | None:
+        """اعتبارسنجی توکن بدون ذخیره مقدار خام با الگوریتم Constant-Time."""
+        if not raw_token or not raw_token.startswith("itam_agt_"):
+            return None
+        candidate_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+        cred = cls.objects.filter(token_hash=candidate_hash, status=cls.STATUS_ACTIVE).first()
+        if not cred:
+            return None
+        if not hmac.compare_digest(cred.token_hash, candidate_hash):
+            return None
+        if cred.expires_at and timezone.now() > cred.expires_at:
+            cred.status = cls.STATUS_EXPIRED
+            cred.save(update_fields=["status", "updated_at"])
+            return None
+        return cred
+
+    def revoke(self, reason: str = "") -> None:
+        """ابطال قطعی و فوری توکن ایجنت."""
+        self.status = self.STATUS_REVOKED
+        self.revoked_at = timezone.now()
+        self.revocation_reason = reason
+        self.save(update_fields=["status", "revoked_at", "revocation_reason", "updated_at"])
+
+    def rotate(self, created_by=None) -> tuple[AgentCredential, str]:
+        """چرخش ایمن توکن با ابطال توکن قبلی و صدور توکن جدید."""
+        from django.db import transaction
+
+        with transaction.atomic():
+            self.revoke(reason="چرخش توکن (Token Rotation)")
+            new_cred, raw_token = self.__class__.generate(
+                center=self.center,
+                name=self.name,
+                hostname=self.hostname,
+                created_by=created_by,
+            )
+            return new_cred, raw_token
+
+
+class AgentNonce(TimeStampedModel):
+    """نگهداری شناسه‌های یکتای درخواست جهت مقابله قطعی با حملات تکرار (Anti-Replay)."""
+
+    agent = models.ForeignKey(AgentCredential, on_delete=models.CASCADE, related_name="nonces")
+    nonce = models.CharField("شناسه یکتا", max_length=64, db_index=True)
+
+    class Meta:
+        verbose_name = "شناسه یکتای درخواست ایجنت"
+        verbose_name_plural = "شناسه‌های یکتای درخواست ایجنت"
+        constraints = [
+            models.UniqueConstraint(fields=("agent", "nonce"), name="unique_agent_nonce")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.agent.name}: {self.nonce}"
+
+
+class AgentSyncAuditLog(TimeStampedModel):
+    """ثبت ممیزی دقیق کلیه تلاش‌های همگام‌سازی HWAgent."""
+
+    agent = models.ForeignKey(
+        AgentCredential,
+        verbose_name="اعتبارنامه ایجنت",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="audit_logs",
+    )
+    center = models.ForeignKey(
+        "org.Center",
+        verbose_name="مرکز",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="agent_audit_logs",
+    )
+    remote_ip = models.GenericIPAddressField("آدرس IP کلاینت", null=True, blank=True)
+    http_status = models.PositiveSmallIntegerField("کد وضعیت HTTP", default=200)
+    success = models.BooleanField("موفق", default=True)
+    rejection_reason = models.CharField("علت رد / خطا", max_length=255, blank=True)
+    payload_hash = models.CharField("هش SHA-256 بدنه درخواست", max_length=64, blank=True)
+    execution_duration_ms = models.PositiveIntegerField("مدت اجرا (میلی‌ثانیه)", default=0)
+
+    class Meta:
+        verbose_name = "لاگ ممیزی ایجنت سخت‌افزار"
+        verbose_name_plural = "لاگ‌های ممیزی ایجنت‌های سخت‌افزار"
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        status_text = "موفق" if self.success else f"رد شد ({self.http_status})"
+        return f"ایجنت {self.agent_id} — {status_text} در {self.created_at}"

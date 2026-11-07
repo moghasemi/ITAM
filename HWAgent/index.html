@@ -108,6 +108,12 @@
       <input type="text" id="itamAssetTag" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; direction:ltr;" placeholder="مثال: 10200001 (در صورت خالی بودن با Hostname یا MAC تطبیق داده می‌شود)">
     </div>
 
+    <div style="margin-top:14px;">
+      <label style="display:block; font-size:13px; font-weight:bold; margin-bottom:6px;">توکن اختصاصی احراز هویت ایجنت (Agent Token) <span style="color:#ef4444;">*</span></label>
+      <input type="password" id="itamAgentToken" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; direction:ltr; font-family:Consolas,monospace;" placeholder="مثال: itam_agt_...">
+      <small style="color:#64748b; font-size:11px; display:block; margin-top:4px;">توکن اختصاصی صادر شده توسط کارشناس IT برای این سیستم.</small>
+    </div>
+
     <div style="margin-top:20px; display:flex; gap:10px;">
       <button class="btn" style="background:#10b981; color:#fff;" onclick="syncWithItamServer()">🚀 ارسال آنی اطلاعات به سرور ITAM</button>
       <button class="btn dark" onclick="saveItamSettings()">💾 ذخیره تنظیمات</button>
@@ -374,12 +380,16 @@ function initItamSettings() {
   if (savedUrl) document.getElementById("itamServerUrl").value = savedUrl;
   const savedTag = localStorage.getItem("itam_asset_tag");
   if (savedTag) document.getElementById("itamAssetTag").value = savedTag;
+  const savedTok = localStorage.getItem("itam_agent_token");
+  if (savedTok && document.getElementById("itamAgentToken")) document.getElementById("itamAgentToken").value = savedTok;
 }
 function saveItamSettings() {
   const url = document.getElementById("itamServerUrl").value.trim();
   const tag = document.getElementById("itamAssetTag").value.trim();
+  const tok = document.getElementById("itamAgentToken") ? document.getElementById("itamAgentToken").value.trim() : "";
   localStorage.setItem("itam_server_url", url);
   localStorage.setItem("itam_asset_tag", tag);
+  if (tok) localStorage.setItem("itam_agent_token", tok);
   toast("✅ تنظیمات ذخیره شد");
 }
 window.addEventListener("DOMContentLoaded", initItamSettings);
@@ -415,7 +425,14 @@ async function syncWithItamServer() {
   const resDiv = document.getElementById("syncResult");
   const itamUrl = (document.getElementById("itamServerUrl").value || "http://localhost:8000").trim().replace(/\/+$/, "");
   const assetTag = (document.getElementById("itamAssetTag").value || "").trim();
+  const agentToken = document.getElementById("itamAgentToken") ? document.getElementById("itamAgentToken").value.trim() : "";
   saveItamSettings();
+
+  if (!agentToken) {
+    if (resDiv) resDiv.innerHTML = `<div class="status" style="background:#fee2e2; border-color:#fca5a5; color:#991b1b;"><p>⚠️ لطفاً توکن اختصاصی ایجنت (Agent Token) را وارد کنید.</p></div>`;
+    if (syncBtn) syncBtn.disabled = false;
+    return;
+  }
 
   if (resDiv) {
     resDiv.innerHTML = `<div class="status"><div class="spinner"></div><p>در حال ارسال اسنپ‌شات به سرور ITAM (${escapeHtml(itamUrl)})...</p></div>`;
@@ -426,7 +443,7 @@ async function syncWithItamServer() {
     const relayResp = await fetch(API + "/api/sync-to-itam", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itamUrl, assetTag })
+      body: JSON.stringify({ itamUrl, assetTag, agentToken })
     });
 
     let result;

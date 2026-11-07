@@ -148,6 +148,9 @@ class VisitUpdateView(RepairStaffRequiredMixin, PageContextMixin, UpdateView):
     page_title = "ویرایش نوبت بازدید"
     active_menu = "visits"
 
+    def get_queryset(self):
+        return visible_visits(self.request.user)
+
     def form_valid(self, form):
         response = super().form_valid(form)
         log_action("update", self.object, note="ویرایش نوبت بازدید", user=self.request.user)

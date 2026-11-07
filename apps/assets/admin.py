@@ -1,7 +1,7 @@
 """ثبت مدل‌های دارایی در پنل مدیریت جنگو."""
 from django.contrib import admin
 
-from .models import Asset, AssetAttachment, AssetCategory, ComponentType, HardwareSnapshot, SnapshotItem
+from .models import Asset, AssetAttachment, AssetCategory, ComponentType, HardwareSnapshot, SnapshotItem, AgentCredential, AgentNonce, AgentSyncAuditLog
 
 
 class SnapshotItemInline(admin.TabularInline):
@@ -50,3 +50,18 @@ class SnapshotItemAdmin(admin.ModelAdmin):
 class AssetAttachmentAdmin(admin.ModelAdmin):
     list_display = ("asset", "kind", "title", "uploaded_by", "created_at")
     list_filter = ("kind",)
+
+@admin.register(AgentCredential)
+class AgentCredentialAdmin(admin.ModelAdmin):
+    list_display = ("name", "center", "token_prefix", "status", "last_sync_at", "last_ip")
+    list_filter = ("status", "center")
+    search_fields = ("name", "hostname", "token_prefix")
+    readonly_fields = ("token_hash", "token_prefix", "agent_uid", "last_sync_at", "last_ip")
+
+
+@admin.register(AgentSyncAuditLog)
+class AgentSyncAuditLogAdmin(admin.ModelAdmin):
+    list_display = ("agent", "center", "remote_ip", "http_status", "success", "created_at")
+    list_filter = ("success", "http_status", "center")
+    search_fields = ("agent__name", "remote_ip", "rejection_reason")
+    readonly_fields = ("created_at",)

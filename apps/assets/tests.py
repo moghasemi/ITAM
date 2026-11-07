@@ -435,6 +435,11 @@ class MultiCenterAndHWAgentTests(TestCase):
 
     def test_api_hwagent_sync_endpoint(self):
         from django.test import Client
+        from apps.assets.models import AgentCredential
+        from django.utils import timezone
+        import uuid
+        import json
+
         c = Client()
         payload = {
             "computerName": "PC-SUB-01",
@@ -445,11 +450,29 @@ class MultiCenterAndHWAgentTests(TestCase):
             "disks": [{"name": "KIOXIA 512GB", "mediaType": "SSD", "sizeGB": 512, "serial": "KIOX-99"}],
             "network": [{"name": "Ethernet", "mac": "12:34:56:78:9A:BC"}]
         }
-        import json
-        resp = c.post(
+
+        # ۱) درخواست بدون احراز هویت باید صریحاً با کد 401 رد شود
+        unauth_resp = c.post(
             "/api/v1/hardware/agent-sync/",
             data=json.dumps(payload),
             content_type="application/json"
+        )
+        self.assertEqual(unauth_resp.status_code, 401)
+
+        # ۲) صدور توکن اختصاصی متصل به مرکز
+        cred, raw_token = AgentCredential.generate(self.center_sub, name="PC-SUB-01-Agent")
+
+        # ۳) ارسال درخواست احراز هویت‌شده با هدرهای امنیتی
+        headers = {
+            "HTTP_AUTHORIZATION": f"Bearer {raw_token}",
+            "HTTP_X_ITAM_TIMESTAMP": timezone.now().isoformat(),
+            "HTTP_X_ITAM_NONCE": str(uuid.uuid4()),
+        }
+        resp = c.post(
+            "/api/v1/hardware/agent-sync/",
+            data=json.dumps(payload),
+            content_type="application/json",
+            **headers
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.json()

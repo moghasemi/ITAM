@@ -295,11 +295,48 @@ try {
                     if ($cfg.assetTag) {
                         $snap | Add-Member -NotePropertyName asset_tag -NotePropertyValue "$($cfg.assetTag)" -Force
                     }
+
+                    # خواندن تنظیمات ذخیره‌شده محلی در صورت عدم ارسال از UI
+                    $cfgFile = Join-Path $ScriptDir "agent-config.json"
+                    $localToken = ""
+                    if (Test-Path $cfgFile) {
+                        try {
+                            $localJson = Get-Content $cfgFile -Raw -Encoding UTF8 | ConvertFrom-Json
+                            $localToken = $localJson.agentToken
+                        } catch {}
+                    }
+
+                    $token = if ($cfg.agentToken) { "$($cfg.agentToken)".Trim() } else { $localToken }
+                    if (-not $token) {
+                        $res.StatusCode = 401
+                        Write-Json $res @{ status = "error"; error = "توکن اختصاصی ایجنت (Agent Token) الزامی است." }
+                        break
+                    }
+
                     $baseUrl = if ($cfg.itamUrl) { "$($cfg.itamUrl)".TrimEnd('/') } else { "http://localhost:8000" }
                     $targetUrl = "$baseUrl/api/v1/hardware/agent-sync/"
                     $payloadJson = $snap | ConvertTo-Json -Depth 15 -Compress
-                    $resp = Invoke-RestMethod -Uri $targetUrl -Method Post -Body $payloadJson -ContentType "application/json; charset=utf-8"
-                    Write-Json $res $resp
+
+                    $utcTimestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+                    $nonce = [guid]::NewGuid().ToString()
+
+                    $headers = @{
+                        "Authorization"    = "Bearer $token"
+                        "X-ITAM-Timestamp" = $utcTimestamp
+                        "X-ITAM-Nonce"     = $nonce
+                    }
+
+                    try {
+                        $resp = Invoke-RestMethod -Uri $targetUrl -Method Post -Body $payloadJson -Headers $headers -ContentType "application/json; charset=utf-8"
+                        Write-Json $res $resp
+                    } catch {
+                        $code = 500
+                        if ($_.Exception.Response) {
+                            $code = [int]$_.Exception.Response.StatusCode
+                        }
+                        $res.StatusCode = $code
+                        Write-Json $res @{ status = "error"; error = "خطا در اتصال به سرور ITAM (کد وضعیت $code)" }
+                    }
                 }
                 "^/api/compare$" {
                     $files = @(Get-SnapshotFiles)
