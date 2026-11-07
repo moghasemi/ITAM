@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from django import forms
 from django.forms import inlineformset_factory
-from django.db.models import Q
 
 from apps.core.forms import JalaliDateField, StyledForm, StyledModelForm
 from apps.core.constants import ASSET_STATUS_CHOICES
@@ -64,8 +63,9 @@ class AssetForm(StyledModelForm):
             self.fields["center"].required = True
 
         self.fields["category"].queryset = AssetCategory.objects.filter(is_active=True)
+        # قرارداد باید صریحاً یکی از مراکز مجاز کاربر را در دامنه پوشش داشته باشد.
         self.fields["contract"].queryset = Contract.objects.filter(
-            Q(centers__in=scoped_centers) | Q(is_provincial=True)
+            centers__in=scoped_centers
         ).select_related("contractor").distinct().order_by("-start_date")
         self.fields["department"].queryset = Department.objects.filter(center__in=scoped_centers, is_active=True)
         self.fields["location"].queryset = Location.objects.filter(center__in=scoped_centers, is_active=True)
@@ -73,7 +73,7 @@ class AssetForm(StyledModelForm):
             self.fields["department"].queryset = self.fields["department"].queryset.filter(center_id=selected_center_id)
             self.fields["location"].queryset = self.fields["location"].queryset.filter(center_id=selected_center_id)
             self.fields["contract"].queryset = self.fields["contract"].queryset.filter(
-                Q(centers__pk=selected_center_id) | Q(is_provincial=True)
+                centers__pk=selected_center_id
             ).distinct()
 
         self.fields["custodian"].queryset = self.fields["custodian"].queryset.filter(
@@ -159,7 +159,7 @@ class AssetFilterForm(StyledForm):
         self.fields["department"].queryset = Department.objects.filter(center__in=scoped)
         self.fields["location"].queryset = Location.objects.filter(center__in=scoped)
         self.fields["contract"].queryset = Contract.objects.filter(
-            Q(centers__in=scoped) | Q(is_provincial=True)
+            centers__in=scoped
         ).distinct()
 
     q = forms.CharField(label="جستجو", required=False)
