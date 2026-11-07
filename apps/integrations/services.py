@@ -110,11 +110,21 @@ def _resolve_webhook_target(raw_url: str):
     return parsed, addresses[0], port
 
 
-def dispatch_event(event: OutboxEvent, endpoint: WebhookEndpoint) -> bool:
-    """ارسال یک رخداد؛ مقصدهای خصوصی فقط با allowlist صریح مجازند."""
+def dispatch_event(
+    event: OutboxEvent, endpoint: WebhookEndpoint, delivery=None
+) -> bool:
+    """ارسال یک رخداد به یک مقصد و ثبت مستقل وضعیت همان تحویل."""
+    from .models import OutboxDelivery
+
+    if delivery is None:
+        delivery, _ = OutboxDelivery.objects.get_or_create(event=event, endpoint=endpoint)
+    if delivery.status == OutboxEvent.STATUS_SENT:
+        return True
+    if delivery.status == OutboxEvent.STATUS_DEAD:
+        return False
+
     envelope = build_envelope(event)
     body = json.dumps(envelope, ensure_ascii=False).encode("utf-8")
-
     headers = {
         "Content-Type": "application/json; charset=utf-8",
         "User-Agent": USER_AGENT,
@@ -125,6 +135,7 @@ def dispatch_event(event: OutboxEvent, endpoint: WebhookEndpoint) -> bool:
         headers[SIGNATURE_HEADER] = sign_payload(body, endpoint.secret)
     elif endpoint.auth_type == WebhookEndpoint.AUTH_TOKEN and endpoint.token:
         headers["Authorization"] = f"Bearer {endpoint.token}"
+
     header_validation_error = ""
     for key, value in (endpoint.extra_headers or {}).items():
         key, value = str(key), str(value)
@@ -184,6 +195,7 @@ def dispatch_event(event: OutboxEvent, endpoint: WebhookEndpoint) -> bool:
         if connection is not None:
             connection.close()
 
+    now = timezone.now()
     duration_ms = int((time.monotonic() - started) * 1000)
     ApiCallLog.objects.create(
         endpoint=endpoint,
@@ -196,24 +208,39 @@ def dispatch_event(event: OutboxEvent, endpoint: WebhookEndpoint) -> bool:
         duration_ms=duration_ms,
         ok=ok,
     )
-
+    delivery.attempts += 1
+    delivery.last_attempt_at = now
     if ok:
-        endpoint.last_success_at = timezone.now()
+        delivery.status = OutboxEvent.STATUS_SENT
+        delivery.dispatched_at = now
+        delivery.last_error = ""
+        endpoint.last_success_at = now
         endpoint.failure_count = 0
         endpoint.save(update_fields=["last_success_at", "failure_count"])
-        event.mark_sent(endpoint)
-        return True
-
-    endpoint.last_failure_at = timezone.now()
-    endpoint.failure_count += 1
-    endpoint.save(update_fields=["last_failure_at", "failure_count"])
-    event.mark_failed(error or "خطای ارسال", max_attempts=endpoint.max_attempts, endpoint=endpoint)
-    logger.warning("ارسال رخداد %s ناموفق بود: %s", event.pk, error)
-    return False
+    else:
+        delivery.status = (
+            OutboxEvent.STATUS_DEAD
+            if delivery.attempts >= endpoint.max_attempts
+            else OutboxEvent.STATUS_FAILED
+        )
+        delivery.last_error = (error or "خطای ارسال")[:2000]
+        endpoint.last_failure_at = now
+        endpoint.failure_count += 1
+        endpoint.save(update_fields=["last_failure_at", "failure_count"])
+        logger.warning(
+            "ارسال رخداد %s به مقصد %s ناموفق بود: %s",
+            event.pk, endpoint.pk, delivery.last_error,
+        )
+    delivery.save(update_fields=[
+        "status", "attempts", "last_attempt_at", "dispatched_at", "last_error"
+    ])
+    return ok
 
 
 def dispatch_pending(limit: int = 100, user=None) -> dict:
-    """ارسال رخدادهای در انتظار به مقصدهای فعال."""
+    """ارسال هر رخداد به تمام مقصدهای واجد شرایط با retry مستقل."""
+    from .models import OutboxDelivery
+
     endpoints = list(WebhookEndpoint.objects.filter(is_active=True))
     summary = {
         "endpoints": len(endpoints),
@@ -236,10 +263,43 @@ def dispatch_pending(limit: int = 100, user=None) -> dict:
             continue
         summary["processed"] += 1
         for endpoint in targets:
-            if dispatch_event(event, endpoint):
+            delivery, _ = OutboxDelivery.objects.get_or_create(
+                event=event, endpoint=endpoint
+            )
+            if delivery.status in (OutboxEvent.STATUS_SENT, OutboxEvent.STATUS_DEAD):
+                continue
+            if dispatch_event(event, endpoint, delivery):
                 summary["sent"] += 1
-                break
-            summary["failed"] += 1
+            else:
+                summary["failed"] += 1
+
+        deliveries = list(event.deliveries.select_related("endpoint"))
+        if deliveries and all(d.status == OutboxEvent.STATUS_SENT for d in deliveries):
+            event.status = OutboxEvent.STATUS_SENT
+            event.dispatched_at = timezone.now()
+            event.last_error = ""
+        elif deliveries and all(
+            d.status in (OutboxEvent.STATUS_SENT, OutboxEvent.STATUS_DEAD)
+            for d in deliveries
+        ) and any(d.status == OutboxEvent.STATUS_DEAD for d in deliveries):
+            event.status = OutboxEvent.STATUS_DEAD
+            event.last_error = "؛ ".join(
+                f"{d.endpoint.name}: {d.last_error}"
+                for d in deliveries if d.status != OutboxEvent.STATUS_SENT
+            )[:2000]
+        else:
+            event.status = OutboxEvent.STATUS_FAILED
+            event.last_error = "؛ ".join(
+                f"{d.endpoint.name}: {d.last_error}"
+                for d in deliveries if d.status != OutboxEvent.STATUS_SENT
+            )[:2000]
+        event.last_attempt_at = timezone.now()
+        event.attempts = max((d.attempts for d in deliveries), default=event.attempts)
+        event.endpoint = None
+        event.save(update_fields=[
+            "status", "dispatched_at", "last_error", "last_attempt_at",
+            "attempts", "endpoint",
+        ])
 
     if summary["processed"]:
         log_action(
@@ -247,7 +307,7 @@ def dispatch_pending(limit: int = 100, user=None) -> dict:
             None,
             model_name="OutboxEvent",
             object_label="ارسال رخدادها به مدیریت",
-            note=f"ارسال‌شده: {summary['sent']} — ناموفق: {summary['failed']}",
+            note=f"تحویل‌های موفق: {summary['sent']} — ناموفق: {summary['failed']}",
             user=user,
         )
     return summary
@@ -258,6 +318,10 @@ def requeue_dead_events(user=None) -> int:
     queryset = OutboxEvent.objects.filter(status=OutboxEvent.STATUS_DEAD)
     count = queryset.count()
     for event in queryset:
+        event.deliveries.filter(status=OutboxEvent.STATUS_DEAD).update(
+            status=OutboxEvent.STATUS_PENDING, attempts=0,
+            last_error="", last_attempt_at=None, dispatched_at=None,
+        )
         event.requeue()
     if count:
         log_action(
