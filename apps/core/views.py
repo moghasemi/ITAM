@@ -2,12 +2,17 @@
 from __future__ import annotations
 
 import datetime as dt
+import mimetypes
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, SuspiciousFileOperation
 from django.db.models import Count, Q
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils._os import safe_join
 from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import ListView, UpdateView
@@ -288,6 +293,91 @@ def holiday_delete(request, pk: int):
         messages.success(request, "تعطیلی حذف شد.")
     return redirect("core:holiday_list")
 
+
+
+
+@login_required
+def private_media(request, path: str):
+    """Serve uploaded files only after checking the owning record's authorization."""
+    from apps.accounts.models import User
+    from apps.assets.models import AssetAttachment, HardwareSnapshot, SnapshotItem
+    from apps.maintenance.models import VisitAssetCheck
+    from apps.maintenance.services import visible_visits
+    from apps.tickets.models import TicketAttachment
+    from apps.tickets.services import visible_tickets
+
+    user = request.user
+    allowed = False
+
+    if path.startswith("settings/"):
+        allowed = SystemSetting.objects.filter(logo=path).exists()
+    elif path.startswith("signatures/"):
+        owner = User.objects.filter(signature=path).first()
+        if owner:
+            allowed = (
+                owner.pk == user.pk
+                or user.is_admin_province
+                or (
+                    user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER)
+                    and user.get_scoped_centers().filter(pk=owner.center_id).exists()
+                )
+            )
+    elif path.startswith("visits/"):
+        check = VisitAssetCheck.objects.select_related("visit", "asset").filter(photo=path).first()
+        if check:
+            allowed = visible_visits(user).filter(pk=check.visit_id).exists() and (
+                user.is_admin_province
+                or user.get_scoped_centers().filter(pk=check.asset.center_id).exists()
+            )
+    elif path.startswith("hardware/"):
+        snapshot = HardwareSnapshot.objects.select_related("asset").filter(
+            Q(case_photo=path) | Q(seal_photo=path)
+        ).first()
+        if snapshot is None:
+            item = SnapshotItem.objects.select_related("snapshot", "snapshot__asset").filter(
+                photo=path
+            ).first()
+            snapshot = item.snapshot if item else None
+        if snapshot:
+            allowed = user.is_admin_province or user.get_scoped_centers().filter(
+                pk=snapshot.asset.center_id
+            ).exists()
+    elif path.startswith("assets/"):
+        attachment = AssetAttachment.objects.select_related("asset").filter(file=path).first()
+        if attachment:
+            from apps.assets.services import visible_assets
+            allowed = visible_assets(user).filter(pk=attachment.asset_id).exists()
+    elif path.startswith("tickets/"):
+        attachment = TicketAttachment.objects.select_related("ticket", "ticket__asset").filter(
+            file=path
+        ).first()
+        if attachment:
+            allowed = visible_tickets(user).filter(pk=attachment.ticket_id).exists()
+
+    if not allowed:
+        raise Http404
+
+    try:
+        media_root = Path(settings.MEDIA_ROOT).resolve()
+        file_path = Path(safe_join(str(media_root), path)).resolve(strict=True)
+    except (FileNotFoundError, OSError, SuspiciousFileOperation, ValueError):
+        raise Http404
+    if not file_path.is_relative_to(media_root) or not file_path.is_file():
+        raise Http404
+
+    content_type, _ = mimetypes.guess_type(str(file_path))
+    safe_inline = content_type in {
+        "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp"
+    }
+    response = FileResponse(
+        file_path.open("rb"),
+        content_type=content_type or "application/octet-stream",
+        as_attachment=not safe_inline,
+        filename=file_path.name,
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 # ---------------------------------------------------------------------------
 # لاگ ممیزی
