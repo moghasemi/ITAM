@@ -324,6 +324,44 @@ class TicketWorkflowTests(TestCase):
         self.assertTrue(steps[0]["active"])
         self.assertFalse(steps[0]["done"])
 
+    def test_provincial_ticket_scope_is_limited_to_own_province(self):
+        from .services import visible_tickets
+
+        national = self.center.parent_unit.parent.parent
+        other_province = OrganizationalUnit.objects.create(
+            name="استان دوم", code="TEST-PROV-2",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national,
+        )
+        other_county = OrganizationalUnit.objects.create(
+            name="شهرستان استان دوم", code="TEST-COUNTY-2",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=other_province,
+        )
+        other_center = Center.objects.create(
+            name="مرکز استان دوم", code="TEST-CENTER-2", parent_unit=other_county,
+        )
+        other_asset = Asset.objects.create(
+            asset_tag="A-OTHER", category=self.category, center=other_center, status="active"
+        )
+        self._create()
+        self._create(asset=other_asset)
+        provincial_admin = User.objects.create_user(
+            username="provincial-admin", password="pass12345",
+            role=User.ROLE_ADMIN_PROVINCE,
+            org_unit=self.center.parent_unit.parent,
+        )
+        visible_centers = set(
+            visible_tickets(provincial_admin).values_list("asset__center_id", flat=True)
+        )
+        self.assertEqual(visible_centers, {self.center.pk})
+
+    def test_center_admin_without_center_sees_no_tickets(self):
+        from .services import visible_tickets
+
+        self._create()
+        unscoped_admin = User.objects.create_user(
+            username="unscoped-it", password="pass12345", role=User.ROLE_ADMIN_IT
+        )
+        self.assertFalse(visible_tickets(unscoped_admin).exists())
     def test_requester_scope(self):
         from .services import visible_tickets
 
