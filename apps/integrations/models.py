@@ -254,6 +254,8 @@ class OutboxDelivery(TimeStampedModel):
     last_attempt_at = models.DateTimeField("آخرین تلاش", null=True, blank=True)
     dispatched_at = models.DateTimeField("زمان ارسال موفق", null=True, blank=True)
     last_error = models.TextField("آخرین خطا", blank=True)
+    lock_token = models.UUIDField("شناسه قفل", null=True, blank=True, editable=False)
+    locked_until = models.DateTimeField("انقضای قفل", null=True, blank=True, db_index=True)
 
     class Meta:
         verbose_name = "تحویل رخداد"

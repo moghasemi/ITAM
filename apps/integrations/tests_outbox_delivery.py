@@ -23,12 +23,14 @@ class OutboxMultiDestinationTests(TestCase):
         )
 
     @staticmethod
-    def _successful_delivery(event, endpoint, delivery):
+    def _successful_delivery(event, endpoint, delivery, lock_token=None):
         delivery.status = OutboxEvent.STATUS_SENT
         delivery.attempts += 1
         delivery.last_attempt_at = timezone.now()
         delivery.dispatched_at = delivery.last_attempt_at
         delivery.last_error = ""
+        delivery.lock_token = None
+        delivery.locked_until = None
         delivery.save()
         return True
 
@@ -160,7 +162,7 @@ class OutboxInactiveEndpointTests(TestCase):
         )
 
     @staticmethod
-    def successful_delivery(event, endpoint, delivery):
+    def successful_delivery(event, endpoint, delivery, lock_token=None):
         delivery.status = OutboxEvent.STATUS_SENT
         delivery.attempts += 1
         delivery.last_attempt_at = timezone.now()
@@ -219,3 +221,95 @@ class OutboxInactiveEndpointTests(TestCase):
 
         self.event.refresh_from_db()
         self.assertEqual(self.event.status, OutboxEvent.STATUS_SENT)
+
+
+
+class OutboxLeaseLockTests(TestCase):
+    def setUp(self):
+        self.event = OutboxEvent.objects.create(
+            event_type="ticket.reported",
+            aggregate_type="Ticket",
+            aggregate_id="T-LEASE",
+            payload={"ticket": "T-LEASE"},
+        )
+        self.endpoint = WebhookEndpoint.objects.create(
+            name="lease-endpoint",
+            url="https://lease.example/events",
+        )
+        self.delivery = OutboxDelivery.objects.create(
+            event=self.event,
+            endpoint=self.endpoint,
+            status=OutboxEvent.STATUS_PENDING,
+        )
+
+    def test_only_one_dispatcher_can_claim_a_delivery(self):
+        from apps.integrations.services import _claim_delivery
+
+        first_token = _claim_delivery(self.delivery, self.endpoint)
+        self.assertIsNotNone(first_token)
+
+        self.delivery.refresh_from_db()
+        second_token = _claim_delivery(self.delivery, self.endpoint)
+
+        self.assertIsNone(second_token)
+        self.delivery.refresh_from_db()
+        self.assertEqual(self.delivery.lock_token, first_token)
+        self.assertIsNotNone(self.delivery.locked_until)
+
+    def test_expired_lease_can_be_reclaimed_with_new_fencing_token(self):
+        from datetime import timedelta
+        from apps.integrations.services import _claim_delivery
+
+        first_token = _claim_delivery(self.delivery, self.endpoint)
+        self.assertIsNotNone(first_token)
+
+        OutboxDelivery.objects.filter(pk=self.delivery.pk).update(
+            locked_until=timezone.now() - timedelta(seconds=1)
+        )
+        self.delivery.refresh_from_db()
+
+        second_token = _claim_delivery(self.delivery, self.endpoint)
+
+        self.assertIsNotNone(second_token)
+        self.assertNotEqual(first_token, second_token)
+        self.delivery.refresh_from_db()
+        self.assertEqual(self.delivery.lock_token, second_token)
+
+    @patch("apps.integrations.services.dispatch_event")
+    def test_dispatch_pending_skips_delivery_owned_by_another_worker(self, dispatch):
+        from apps.integrations.services import _claim_delivery
+
+        token = _claim_delivery(self.delivery, self.endpoint)
+        self.assertIsNotNone(token)
+
+        summary = dispatch_pending()
+
+        dispatch.assert_not_called()
+        self.assertEqual(summary["skipped"], 1)
+        self.delivery.refresh_from_db()
+        self.assertEqual(self.delivery.lock_token, token)
+        self.event.refresh_from_db()
+        self.assertEqual(self.event.status, OutboxEvent.STATUS_PENDING)
+
+    def test_stale_worker_cannot_overwrite_new_owner_result(self):
+        import uuid
+        from datetime import timedelta
+        from apps.integrations.services import dispatch_event
+
+        stale_token = uuid.uuid4()
+        current_token = uuid.uuid4()
+        OutboxDelivery.objects.filter(pk=self.delivery.pk).update(
+            lock_token=current_token,
+            locked_until=timezone.now() + timedelta(minutes=2),
+        )
+
+        with patch("apps.integrations.services._resolve_webhook_target") as resolver:
+            resolver.side_effect = AssertionError("stale worker must not send")
+            result = dispatch_event(
+                self.event, self.endpoint, self.delivery, lock_token=stale_token
+            )
+
+        self.assertFalse(result)
+        self.delivery.refresh_from_db()
+        self.assertEqual(self.delivery.lock_token, current_token)
+        self.assertEqual(self.delivery.status, OutboxEvent.STATUS_PENDING)

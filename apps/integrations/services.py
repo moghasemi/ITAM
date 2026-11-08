@@ -17,8 +17,11 @@ import re
 import socket
 import ssl
 import time
+import uuid
+from datetime import timedelta
 from urllib.parse import urlsplit
 
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.models import SystemSetting
@@ -199,8 +202,29 @@ def _resolve_webhook_target(raw_url: str):
     return parsed, addresses[0], port
 
 
+def _claim_delivery(delivery, endpoint):
+    """Atomically claim a delivery; return its fencing token or None."""
+    from .models import OutboxDelivery
+
+    now = timezone.now()
+    token = uuid.uuid4()
+    timeout = max(int(endpoint.timeout_seconds or 10), 10)
+    lease_until = now + timedelta(seconds=timeout + 60)
+
+    claimed = OutboxDelivery.objects.filter(
+        pk=delivery.pk,
+        status__in=[OutboxEvent.STATUS_PENDING, OutboxEvent.STATUS_FAILED],
+    ).filter(
+        Q(lock_token__isnull=True) | Q(locked_until__lte=now)
+    ).update(
+        lock_token=token,
+        locked_until=lease_until,
+    )
+    return token if claimed == 1 else None
+
+
 def dispatch_event(
-    event: OutboxEvent, endpoint: WebhookEndpoint, delivery=None
+    event: OutboxEvent, endpoint: WebhookEndpoint, delivery=None, lock_token=None
 ) -> bool:
     """ارسال یک رخداد به یک مقصد و ثبت مستقل وضعیت همان تحویل."""
     from .models import OutboxDelivery
@@ -210,6 +234,10 @@ def dispatch_event(
     if delivery.status == OutboxEvent.STATUS_SENT:
         return True
     if delivery.status == OutboxEvent.STATUS_DEAD:
+        return False
+    if lock_token is not None and not OutboxDelivery.objects.filter(
+        pk=delivery.pk, lock_token=lock_token, locked_until__gt=timezone.now()
+    ).exists():
         return False
 
     envelope = build_envelope(event)
@@ -339,32 +367,56 @@ def dispatch_event(
     duration_ms=duration_ms,
     ok=ok,
     )
-    delivery.attempts += 1
-    delivery.last_attempt_at = now
+    next_attempt = delivery.attempts + 1
     if ok:
-        delivery.status = OutboxEvent.STATUS_SENT
-        delivery.dispatched_at = now
-        delivery.last_error = ""
+        next_status = OutboxEvent.STATUS_SENT
+        next_dispatched_at = now
+        next_error = ""
+    else:
+        next_status = (
+            OutboxEvent.STATUS_DEAD
+            if next_attempt >= endpoint.max_attempts
+            else OutboxEvent.STATUS_FAILED
+        )
+        next_dispatched_at = delivery.dispatched_at
+        next_error = (error or "خطای ارسال")[:2000]
+
+    update_values = {
+        "status": next_status,
+        "attempts": next_attempt,
+        "last_attempt_at": now,
+        "dispatched_at": next_dispatched_at,
+        "last_error": next_error,
+    }
+    if lock_token is not None:
+        # Fencing token: a worker whose lease was replaced cannot overwrite
+        # the result recorded by the newer owner.
+        saved = OutboxDelivery.objects.filter(
+            pk=delivery.pk, lock_token=lock_token
+        ).update(**update_values, lock_token=None, locked_until=None)
+        if saved != 1:
+            logger.warning(
+                "نتیجه ارسال رخداد %s توسط worker بدون مالکیت قفل نادیده گرفته شد.",
+                event.pk,
+            )
+            return False
+    else:
+        for field, value in update_values.items():
+            setattr(delivery, field, value)
+        delivery.save(update_fields=list(update_values))
+
+    if ok:
         endpoint.last_success_at = now
         endpoint.failure_count = 0
         endpoint.save(update_fields=["last_success_at", "failure_count"])
     else:
-        delivery.status = (
-            OutboxEvent.STATUS_DEAD
-            if delivery.attempts >= endpoint.max_attempts
-            else OutboxEvent.STATUS_FAILED
-        )
-        delivery.last_error = (error or "خطای ارسال")[:2000]
         endpoint.last_failure_at = now
         endpoint.failure_count += 1
         endpoint.save(update_fields=["last_failure_at", "failure_count"])
         logger.warning(
             "ارسال رخداد %s به مقصد %s ناموفق بود: %s",
-            event.pk, endpoint.pk, delivery.last_error,
+            event.pk, endpoint.pk, next_error,
         )
-    delivery.save(update_fields=[
-        "status", "attempts", "last_attempt_at", "dispatched_at", "last_error"
-    ])
     return ok
 
 
@@ -399,7 +451,12 @@ def dispatch_pending(limit: int = 100, user=None) -> dict:
             )
             if delivery.status in (OutboxEvent.STATUS_SENT, OutboxEvent.STATUS_DEAD):
                 continue
-            if dispatch_event(event, endpoint, delivery):
+            lock_token = _claim_delivery(delivery, endpoint)
+            if lock_token is None:
+                summary["skipped"] += 1
+                continue
+            delivery.refresh_from_db()
+            if dispatch_event(event, endpoint, delivery, lock_token=lock_token):
                 summary["sent"] += 1
             else:
                 summary["failed"] += 1
@@ -408,6 +465,11 @@ def dispatch_pending(limit: int = 100, user=None) -> dict:
         if deliveries and all(d.status == OutboxEvent.STATUS_SENT for d in deliveries):
             event.status = OutboxEvent.STATUS_SENT
             event.dispatched_at = timezone.now()
+            event.last_error = ""
+        elif deliveries and any(d.status == OutboxEvent.STATUS_PENDING for d in deliveries):
+            # A pending delivery may be owned by another live dispatcher.
+            # Do not turn an in-flight event into FAILED during this run.
+            event.status = OutboxEvent.STATUS_PENDING
             event.last_error = ""
         elif deliveries and all(
             d.status in (OutboxEvent.STATUS_SENT, OutboxEvent.STATUS_DEAD)
