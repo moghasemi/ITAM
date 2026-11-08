@@ -10,6 +10,7 @@ from apps.accounts.models import User
 from apps.assets.models import Asset, AssetCategory
 from apps.org.models import Center, Contract, Contractor, OrganizationalUnit
 
+from .forms import VisitForm
 from .models import MaintenanceVisit, VisitAssetCheck
 from .services import save_check, visible_checks
 from .views import VisitCreateView
@@ -85,9 +86,7 @@ class ProvincialMaintenanceScopeTests(TestCase):
         )
         foreign_contract.centers.add(self.other_center)
 
-        form = __import__(
-            "apps.maintenance.forms", fromlist=["VisitForm"]
-        ).VisitForm(user=self.provincial_admin)
+        form = VisitForm(user=self.provincial_admin)
         self.assertFalse(form.fields["contract"].queryset.filter(
             pk=foreign_contract.pk
         ).exists())
