@@ -33,16 +33,15 @@ class VisitFilterForm(StyledForm):
             self.fields["contract"].queryset = Contract.objects.none()
             self.fields["contractor"].queryset = Contractor.objects.none()
             return
-        if user.is_admin_province:
+        if user.is_admin_country:
             contracts = Contract.objects.all()
-            self.fields["contractor"].queryset = Contractor.objects.all()
         else:
             contracts = Contract.objects.filter(
                 centers__in=user.get_scoped_centers()
             ).distinct()
-            self.fields["contractor"].queryset = Contractor.objects.filter(
-                pk__in=contracts.values("contractor_id")
-            )
+        self.fields["contractor"].queryset = Contractor.objects.filter(
+            pk__in=contracts.values("contractor_id")
+        )
         self.fields["contract"].queryset = contracts
 
 
@@ -65,7 +64,7 @@ class VisitForm(StyledModelForm):
             self.fields["contract"].queryset = Contract.objects.none()
             self.fields["technician"].queryset = User.objects.none()
             return
-        if user.is_admin_province:
+        if user.is_admin_country:
             contracts = Contract.objects.all()
         else:
             contracts = Contract.objects.filter(
