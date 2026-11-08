@@ -97,7 +97,7 @@ def can_manage_ticket(user, ticket: Ticket) -> bool:
     """کارشناس IT یا کارشناس پیمانکار مسئول این درخواست در مرکز مجاز."""
     if not getattr(user, "is_authenticated", False):
         return False
-    if not user.is_admin_province and not user.get_scoped_centers().filter(
+    if not user.get_scoped_centers().filter(
         pk=ticket.asset.center_id
     ).exists():
         return False
@@ -136,8 +136,10 @@ def can_confirm_as_it(user, ticket: Ticket) -> bool:
     """تایید نهایی فقط در دامنه سازمانی کاربر مجاز است."""
     if not getattr(user, "is_authenticated", False):
         return False
-    if user.is_admin_province:
+    if user.is_superuser or user.role == User.ROLE_ADMIN_COUNTRY:
         return True
+    if not user.get_scoped_centers().filter(pk=ticket.asset.center_id).exists():
+        return False
     if ticket.center_id and ticket.center_id != ticket.asset.center_id:
         return False
     return bool(
