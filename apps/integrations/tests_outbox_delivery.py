@@ -168,6 +168,8 @@ class OutboxInactiveEndpointTests(TestCase):
         delivery.last_attempt_at = timezone.now()
         delivery.dispatched_at = delivery.last_attempt_at
         delivery.last_error = ""
+        delivery.lock_token = None
+        delivery.locked_until = None
         delivery.save()
         return True
 

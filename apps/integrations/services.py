@@ -235,7 +235,14 @@ def dispatch_event(
         return True
     if delivery.status == OutboxEvent.STATUS_DEAD:
         return False
-    if lock_token is not None and not OutboxDelivery.objects.filter(
+    if lock_token is None:
+        # Keep direct/internal callers safe too; no dispatch path may bypass
+        # the atomic claim protocol.
+        lock_token = _claim_delivery(delivery, endpoint)
+        if lock_token is None:
+            return False
+        delivery.refresh_from_db()
+    if not OutboxDelivery.objects.filter(
         pk=delivery.pk, lock_token=lock_token, locked_until__gt=timezone.now()
     ).exists():
         return False
