@@ -286,6 +286,8 @@ def check_edit(request, pk: int):
     check = get_object_or_404(
         VisitAssetCheck.objects.select_related("visit", "visit__contract", "asset"), pk=pk
     )
+    # The write endpoint must enforce the same asset-level scope as the detail view.
+    get_object_or_404(visible_checks(request.user, check.visit), pk=check.pk)
     if not can_manage_visit(request.user, check.visit):
         raise PermissionDenied("اجازه ثبت این برگه بازدید را ندارید.")
 
