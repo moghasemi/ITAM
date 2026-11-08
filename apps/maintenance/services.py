@@ -39,8 +39,13 @@ def visible_visits(user):
     )
     if not getattr(user, "is_authenticated", False):
         return queryset.none()
-    if user.is_admin_province:
+    if user.is_superuser or user.role == User.ROLE_ADMIN_COUNTRY:
         return queryset
+    if user.role in (User.ROLE_ADMIN_PROVINCE, User.ROLE_ADMIN_COUNTY):
+        centers = user.get_scoped_centers()
+        return queryset.filter(
+            Q(center__in=centers) | Q(contract__centers__in=centers)
+        ).distinct()
     if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
         centers = user.get_scoped_centers()
         if not centers.exists():
