@@ -64,7 +64,7 @@ def visible_checks(user, visit: MaintenanceVisit):
     if not visible_visits(user).filter(pk=visit.pk).exists():
         return visit.checks.none()
     checks = visit.checks.select_related("asset", "asset__category", "asset__location")
-    if user.is_admin_province:
+    if user.is_superuser or user.role == User.ROLE_ADMIN_COUNTRY:
         return checks
     return checks.filter(asset__center__in=user.get_scoped_centers())
 
@@ -73,7 +73,10 @@ def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
     if not visible_visits(user).filter(pk=visit.pk).exists():
         return False
     if user.is_admin_province:
-        return True
+        centers = user.get_scoped_centers()
+        if visit.center_id:
+            return centers.filter(pk=visit.center_id).exists()
+        return visit.contract.centers.filter(pk__in=centers).exists()
     if user.has_role(User.ROLE_ADMIN_IT):
         return user.get_scoped_centers().filter(pk=visit.center_id).exists()
     if user.has_role(User.ROLE_TECHNICIAN):
