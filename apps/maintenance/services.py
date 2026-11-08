@@ -309,7 +309,7 @@ def save_check(check: VisitAssetCheck, user, *, condition=None, actions_taken=No
     """ثبت نتیجه بازدید یک تجهیز."""
     if not can_manage_visit(user, check.visit):
         raise PermissionDenied("اجازه ثبت نتیجه این برگه بازدید را ندارید.")
-    if not user.is_admin_province and not user.get_scoped_centers().filter(pk=check.asset.center_id).exists():
+    if not user.get_scoped_centers().filter(pk=check.asset.center_id).exists():
         raise PermissionDenied("این تجهیز خارج از دامنه مراکز مجاز شماست.")
     if condition:
         check.condition = condition
