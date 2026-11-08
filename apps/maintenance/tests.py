@@ -12,6 +12,7 @@ from apps.org.models import Center, Contract, Contractor, OrganizationalUnit
 
 from .models import MaintenanceVisit, VisitAssetCheck
 from .services import save_check, visible_checks
+from .views import VisitCreateView
 
 
 class ProvincialMaintenanceScopeTests(TestCase):
@@ -71,6 +72,35 @@ class ProvincialMaintenanceScopeTests(TestCase):
             username="maintenance-provincial-admin", password="TestPass!9382",
             role=User.ROLE_ADMIN_PROVINCE, org_unit=cls.province,
         )
+
+    def test_provincial_admin_cannot_select_or_schedule_foreign_contract(self):
+        foreign_contract = Contract.objects.create(
+            contractor=self.contractor,
+            number="MNT-CONTRACT-FOREIGN",
+            title="Foreign contract",
+            is_provincial=False,
+            start_date=timezone.localdate() - dt.timedelta(days=10),
+            end_date=timezone.localdate() + dt.timedelta(days=100),
+            visit_interval_days=30,
+        )
+        foreign_contract.centers.add(self.other_center)
+
+        form = __import__(
+            "apps.maintenance.forms", fromlist=["VisitForm"]
+        ).VisitForm(user=self.provincial_admin)
+        self.assertFalse(form.fields["contract"].queryset.filter(
+            pk=foreign_contract.pk
+        ).exists())
+
+        view = VisitCreateView()
+        view.request = type("Request", (), {"user": self.provincial_admin})()
+        visit = MaintenanceVisit(
+            contract=foreign_contract,
+            contractor=self.contractor,
+            scheduled_date=timezone.localdate(),
+        )
+        with self.assertRaises(PermissionDenied):
+            view._bind_visit_center(visit)
 
     def test_provincial_admin_only_sees_checks_for_scoped_assets(self):
         checks = visible_checks(self.provincial_admin, self.visit)
