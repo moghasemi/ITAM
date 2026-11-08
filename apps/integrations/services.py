@@ -13,6 +13,7 @@ import ipaddress
 import json
 import logging
 import os
+import re
 import socket
 import ssl
 import time
@@ -31,7 +32,95 @@ USER_AGENT = "ITAM-EventDispatcher/1.0"
 SIGNATURE_HEADER = "X-ITAM-Signature"
 EVENT_HEADER = "X-ITAM-Event"
 IDEMPOTENCY_HEADER = "X-ITAM-Idempotency-Key"
+SENSITIVE_LOG_KEYS = {
+    "password",
+    "passwd",
+    "secret",
+    "clientsecret",
+    "token",
+    "accesstoken",
+    "refreshtoken",
+    "authorization",
+    "apikey",
+    "privatekey",
+    "cookie",
+    "setcookie",
+    "nationalid",
+    "nationalcode",
+    "phone",
+    "mobile",
+    "email",
+    "birthdate",
+}
 
+LOG_REDACTED_VALUE = "[REDACTED]"
+
+
+def _safe_log_url(raw_url: str) -> str:
+    """Remove credentials, query parameters and fragments before logging."""
+    try:
+        parsed = urlsplit(str(raw_url))
+
+        hostname = parsed.hostname
+        if not hostname:
+            return "[invalid URL]"
+
+        if ":" in hostname:
+            hostname = f"[{hostname}]"
+
+        port = parsed.port
+        netloc = f"{hostname}:{port}" if port else hostname
+
+        return parsed._replace(
+            netloc=netloc,
+            query="",
+            fragment="",
+        ).geturl()[:400]
+
+    except (TypeError, ValueError):
+        return "[invalid URL]"
+
+def _redact_log_data(value):
+    """Recursively redact sensitive fields in JSON-compatible data."""
+    if isinstance(value, dict):
+        result = {}
+
+        for key, item in value.items():
+            normalized_key = re.sub(
+                r"[^a-z0-9]",
+                "",
+                str(key).lower(),
+            )
+
+            if any(
+                sensitive in normalized_key
+                for sensitive in SENSITIVE_LOG_KEYS
+            ):
+                result[key] = LOG_REDACTED_VALUE
+            else:
+                result[key] = _redact_log_data(item)
+
+        return result
+
+    if isinstance(value, list):
+        return [_redact_log_data(item) for item in value]
+
+    return value
+
+
+def _safe_log_request_body(body: bytes) -> str:
+    """Store only JSON request data with sensitive fields redacted."""
+    try:
+        data = json.loads(body.decode("utf-8"))
+        safe_data = _redact_log_data(data)
+
+        return json.dumps(
+            safe_data,
+            ensure_ascii=False,
+        )[:8000]
+
+    except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
+        return "[request body omitted: invalid or non-JSON content]"
 
 # ---------------------------------------------------------------------------
 # بسته‌بندی رخداد
@@ -137,14 +226,52 @@ def dispatch_event(
         headers["Authorization"] = f"Bearer {endpoint.token}"
 
     header_validation_error = ""
+
+    reserved_headers = {
+        "host",
+        "content-length",
+        "transfer-encoding",
+        "connection",
+        "authorization",
+        "content-type",
+        "user-agent",
+        SIGNATURE_HEADER.lower(),
+        EVENT_HEADER.lower(),
+        IDEMPOTENCY_HEADER.lower(),
+    }
+
+    used_headers = {key.lower() for key in headers}
+
     for key, value in (endpoint.extra_headers or {}).items():
         key, value = str(key), str(value)
-        if key.lower() in {"host", "content-length", "transfer-encoding", "connection", "authorization"}:
-            header_validation_error = f"سرآیند رزروشده قابل بازنویسی نیست: {key}"
+
+        normalized_key = key.lower()
+
+        if not key or not re.fullmatch(
+            r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+", key
+        ):
+            header_validation_error = "نام سرآیند سفارشی نامعتبر است."
             break
-        if any(char in key + value for char in "\r\n"):
-            header_validation_error = "سرآیند سفارشی دارای CR/LF غیرمجاز است."
+
+        if normalized_key in reserved_headers:
+            header_validation_error = (
+                f"بازنویسی سرآیند رزروشده مجاز نیست: {key}"
+            )
             break
+
+        if normalized_key in used_headers:
+            header_validation_error = (
+                f"سرآیند تکراری مجاز نیست: {key}"
+            )
+            break
+
+        if any(char in value for char in "\r\n"):
+            header_validation_error = (
+                "سرآیند سفارشی دارای CR/LF غیرمجاز است."
+            )
+            break
+
+        used_headers.add(normalized_key)
         headers[key] = value
 
     started = time.monotonic()
@@ -198,15 +325,19 @@ def dispatch_event(
     now = timezone.now()
     duration_ms = int((time.monotonic() - started) * 1000)
     ApiCallLog.objects.create(
-        endpoint=endpoint,
-        event=event,
-        method=endpoint.method or "POST",
-        url=endpoint.url,
-        request_body=body.decode("utf-8", errors="replace")[:8000],
-        response_status=status_code,
-        response_body=response_text[:4000],
-        duration_ms=duration_ms,
-        ok=ok,
+    endpoint=endpoint,
+    event=event,
+    method=endpoint.method or "POST",
+    url=_safe_log_url(endpoint.url),
+    request_body=_safe_log_request_body(body),
+    response_status=status_code,
+    response_body=(
+        "[response body omitted for security]"
+        if response_text
+        else ""
+    ),
+    duration_ms=duration_ms,
+    ok=ok,
     )
     delivery.attempts += 1
     delivery.last_attempt_at = now
