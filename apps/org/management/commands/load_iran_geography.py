@@ -98,6 +98,10 @@ class Command(BaseCommand):
         if root:
             if root.unit_type != OrganizationalUnit.UNIT_NATIONAL or root.parent_id:
                 raise CommandError(f"کد {NATIONAL_CODE} قبلاً برای واحد کشوری معتبر استفاده نشده است.")
+            if root.name != "ایران" or not root.is_active:
+                root.name = "ایران"
+                root.is_active = True
+                root.save(update_fields=["name", "is_active", "updated_at"])
             return root
 
         legacy_root = OrganizationalUnit.objects.filter(
