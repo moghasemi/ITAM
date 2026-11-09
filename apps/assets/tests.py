@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from django.test import TestCase
+from django.urls import reverse
 
 from apps.accounts.models import User
 from apps.assets import qrgen
