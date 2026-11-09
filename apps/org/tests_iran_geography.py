@@ -45,6 +45,50 @@ class IranGeographyLoaderTests(TestCase):
             484,
         )
 
+    def test_loader_reuses_legacy_demo_hierarchy_and_keeps_center_link(self):
+        national = OrganizationalUnit.objects.create(
+            name="ستاد کشوری مدیریت فاوا",
+            code="OU-NAT-MOH",
+            unit_type=OrganizationalUnit.UNIT_NATIONAL,
+        )
+        province = OrganizationalUnit.objects.create(
+            name="دانشگاه علوم پزشکی استان مرکزی",
+            code="OU-PRV-MARKAZI",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE,
+            parent=national,
+        )
+        county = OrganizationalUnit.objects.create(
+            name="شبکه بهداشت و درمان شهرستان اراک",
+            code="OU-CNTY-ARAK",
+            unit_type=OrganizationalUnit.UNIT_COUNTY,
+            parent=province,
+        )
+        from apps.org.models import Center
+
+        center = Center.objects.create(
+            name="مرکز قدیمی اراک",
+            code="LEGACY-ARAK-CENTER",
+            parent_unit=county,
+            city="اراک",
+        )
+
+        call_command("load_iran_geography")
+
+        national.refresh_from_db()
+        province.refresh_from_db()
+        county.refresh_from_db()
+        center.refresh_from_db()
+        self.assertEqual(national.code, "IR-NAT")
+        self.assertEqual(province.code, "IR-PROV-100")
+        self.assertEqual(province.name, "مرکزی")
+        self.assertEqual(county.code, "IR-COUNTY-1000001")
+        self.assertEqual(county.name, "اراک")
+        self.assertEqual(center.parent_unit_id, county.pk)
+        self.assertEqual(
+            OrganizationalUnit.objects.filter(code="IR-COUNTY-1000001").count(),
+            1,
+        )
+
     def test_loader_preserves_unrelated_units(self):
         unrelated = OrganizationalUnit.objects.create(
             name="واحد آزمایشی مستقل",
