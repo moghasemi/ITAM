@@ -26,6 +26,7 @@ from apps.core.constants import (
 from apps.core.models import Notification, SystemSetting
 from apps.core.utils import log_action
 from apps.integrations.models import OutboxEvent
+from apps.org.models import Contract
 
 from .models import Asset, HardwareSnapshot, SnapshotItem
 
