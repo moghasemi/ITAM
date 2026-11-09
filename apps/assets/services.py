@@ -138,10 +138,15 @@ def can_record_snapshot(user, asset: Asset) -> bool:
         if not scoped_centers.filter(pk=asset.center_id).exists():
             return False
 
+        contract = asset.contract
+        covers_center = (
+            contract.is_provincial
+            or contract.centers.filter(pk=asset.center_id).exists()
+        )
         return (
-            asset.contract.contractor_id == user.contractor_id
-            and asset.contract.status == Contract.STATUS_ACTIVE
-            and asset.contract.centers.filter(pk=asset.center_id).exists()
+            contract.contractor_id == user.contractor_id
+            and contract.status == Contract.STATUS_ACTIVE
+            and covers_center
         )
     return False
 
