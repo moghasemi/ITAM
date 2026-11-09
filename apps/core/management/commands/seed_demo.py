@@ -11,7 +11,7 @@ import datetime as dt
 import random
 
 from django.core.management import call_command
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
@@ -77,6 +77,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         password = options["admin_password"]
         asset_count = options["assets"]
+        if asset_count < 1:
+            raise CommandError("--assets باید حداقل ۱ باشد.")
 
         self.stdout.write(self.style.MIGRATE_HEADING("۱) بارگذاری جغرافیای ایران"))
         call_command("load_iran_geography")
@@ -446,7 +448,7 @@ class Command(BaseCommand):
 
     def _demo_tickets(self, assets, admin_it, technician, requester):
         """ساخت درخواست‌های نمونه در وضعیت‌های مختلف."""
-        if Ticket.objects.exists():
+        if Ticket.objects.filter(title__startswith="[ITAM DEMO]").exists():
             return
         now = timezone.now()
 
@@ -454,7 +456,7 @@ class Command(BaseCommand):
         asset = assets[0]
         ticket = create_ticket(
             asset=asset,
-            title="روشن نشدن کیس",
+            title="[ITAM DEMO] روشن نشدن کیس",
             description="کاربر اعلام کرد کیس پس از قطع برق روشن نمی‌شود و چراغ پاور چشمک می‌زند.",
             priority=PRIORITY_HIGH,
             user=requester,
@@ -504,7 +506,7 @@ class Command(BaseCommand):
         asset2 = assets[1] if len(assets) > 1 else assets[0]
         ticket2 = create_ticket(
             asset=asset2,
-            title="کیفیت پایین چاپ و خط افتادن روی کاغذ",
+            title="[ITAM DEMO] کیفیت پایین چاپ و خط افتادن روی کاغذ",
             description="چاپگر خطوط عمودی روی کاغذ ایجاد می‌کند و تونر زود تمام می‌شود.",
             priority=PRIORITY_MEDIUM,
             user=requester,
@@ -523,7 +525,7 @@ class Command(BaseCommand):
         asset3 = assets[2] if len(assets) > 2 else assets[0]
         create_ticket(
             asset=asset3,
-            title="کندی شدید سیستم و ری‌استارت ناگهانی",
+            title="[ITAM DEMO] کندی شدید سیستم و ری‌استارت ناگهانی",
             description="سیستم هنگام کار با نرم‌افزار اداری ری‌استارت می‌شود و صدای فن زیاد است.",
             priority=PRIORITY_LOW,
             user=requester,
