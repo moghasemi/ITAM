@@ -107,6 +107,31 @@ class DiffEngineTests(TestCase):
 class SnapshotWorkflowTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        from apps.org.models import Center, OrganizationalUnit
+
+        national = OrganizationalUnit.objects.create(
+            name="کشور گردش‌کار اسنپ‌شات",
+            code="SNAP-WORKFLOW-NAT",
+            unit_type=OrganizationalUnit.UNIT_NATIONAL,
+        )
+        province = OrganizationalUnit.objects.create(
+            name="استان گردش‌کار اسنپ‌شات",
+            code="SNAP-WORKFLOW-PRV",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE,
+            parent=national,
+        )
+        county = OrganizationalUnit.objects.create(
+            name="شهرستان گردش‌کار اسنپ‌شات",
+            code="SNAP-WORKFLOW-CNT",
+            unit_type=OrganizationalUnit.UNIT_COUNTY,
+            parent=province,
+        )
+        cls.center = Center.objects.create(
+            name="مرکز گردش‌کار اسنپ‌شات",
+            code="SNAP-WORKFLOW-CENTER",
+            parent_unit=county,
+        )
+
         cls.contractor = Contractor.objects.create(name="پیمانکار آزمون")
         cls.contract = Contract.objects.create(
             contractor=cls.contractor,
@@ -120,7 +145,8 @@ class SnapshotWorkflowTests(TestCase):
         )
         cls.cpu = ComponentType.objects.create(name="پردازنده", code="CPU", is_key_item=True)
         cls.asset = Asset.objects.create(
-            asset_tag="A-1", category=cls.category, contract=cls.contract, brand="DELL"
+            asset_tag="A-1", category=cls.category, contract=cls.contract,
+            center=cls.center, brand="DELL"
         )
         cls.technician = User.objects.create_user(
             username="tech", password="pass12345", role=User.ROLE_TECHNICIAN, contractor=cls.contractor
