@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
@@ -402,11 +403,14 @@ def snapshot_submit(request, pk: int):
     return redirect("assets:snapshot_detail", pk=pk)
 
 
+@login_required
 def snapshot_approve(request, pk: int):
-    """تایید و قفل اسنپ‌شات توسط کارشناس IT."""
+    """تایید و قفل اسنپ‌شات توسط کارشناس IT همان مرکز."""
     snapshot = get_object_or_404(HardwareSnapshot.objects.select_related("asset"), pk=pk)
-    if not request.user.has_role("admin_it"):
+    if not request.user.has_role("admin_it") or not request.user.center_id:
         raise PermissionDenied("تایید اسنپ‌شات فقط توسط کارشناس فناوری اطلاعات مرکز انجام می‌شود.")
+    if snapshot.asset.center_id != request.user.center_id:
+        raise PermissionDenied("این اسنپ‌شات متعلق به مرکز شما نیست.")
     if request.method == "POST":
         from .services import approve_snapshot
 
@@ -418,11 +422,14 @@ def snapshot_approve(request, pk: int):
     return redirect("assets:snapshot_detail", pk=pk)
 
 
+@login_required
 def snapshot_reject(request, pk: int):
-    """برگشت اسنپ‌شات به ثبت‌کننده."""
+    """برگشت اسنپ‌شات به ثبت‌کننده توسط کارشناس IT همان مرکز."""
     snapshot = get_object_or_404(HardwareSnapshot.objects.select_related("asset"), pk=pk)
-    if not request.user.has_role("admin_it"):
+    if not request.user.has_role("admin_it") or not request.user.center_id:
         raise PermissionDenied("این اقدام فقط برای کارشناس فناوری اطلاعات مرکز است.")
+    if snapshot.asset.center_id != request.user.center_id:
+        raise PermissionDenied("این اسنپ‌شات متعلق به مرکز شما نیست.")
     if request.method == "POST":
         from .services import reject_snapshot
 
@@ -431,11 +438,15 @@ def snapshot_reject(request, pk: int):
     return redirect("assets:snapshot_detail", pk=pk)
 
 
+@login_required
 def snapshot_pending_list(request):
-    """کارتابل اسنپ‌شات‌های در انتظار تایید."""
-    if not request.user.has_role("admin_it"):
+    """کارتابل اسنپ‌شات‌های در انتظار تایید، محدود به مرکز کاربر."""
+    if not request.user.has_role("admin_it") or not request.user.center_id:
         raise PermissionDenied("دسترسی ندارید.")
-    snapshots = HardwareSnapshot.objects.filter(status="pending").select_related("asset", "recorded_by")
+    snapshots = HardwareSnapshot.objects.filter(
+        status="pending",
+        asset__center_id=request.user.center_id,
+    ).select_related("asset", "recorded_by")
     return render(
         request,
         "assets/snapshot_pending.html",
