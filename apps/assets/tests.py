@@ -621,3 +621,189 @@ class OrganizationFormScopeTests(TestCase):
         form = AssetFilterForm(user=user)
         self.assertEqual(list(form.fields["center"].queryset), [center_a])
         self.assertEqual(list(form.fields["department"].queryset), [department_a])
+
+
+class SnapshotAccessBoundaryTests(TestCase):
+    """HTTP-level regression tests for snapshot center and role boundaries."""
+
+    def setUp(self):
+        from django.test import Client
+        from apps.org.models import Center, OrganizationalUnit
+
+        national = OrganizationalUnit.objects.create(
+            name="کشور آزمون دسترسی",
+            code="SNAP-ACCESS-NAT",
+            unit_type=OrganizationalUnit.UNIT_NATIONAL,
+        )
+        province = OrganizationalUnit.objects.create(
+            name="استان آزمون دسترسی",
+            code="SNAP-ACCESS-PRV",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE,
+            parent=national,
+        )
+        county = OrganizationalUnit.objects.create(
+            name="شهرستان آزمون دسترسی",
+            code="SNAP-ACCESS-CNT",
+            unit_type=OrganizationalUnit.UNIT_COUNTY,
+            parent=province,
+        )
+        self.center_a = Center.objects.create(
+            name="مرکز آزمون دسترسی الف",
+            code="SNAP-ACCESS-A",
+            parent_unit=county,
+        )
+        self.center_b = Center.objects.create(
+            name="مرکز آزمون دسترسی ب",
+            code="SNAP-ACCESS-B",
+            parent_unit=county,
+        )
+
+        self.contractor = Contractor.objects.create(name="پیمانکار آزمون دسترسی")
+        self.contract = Contract.objects.create(
+            contractor=self.contractor,
+            number="SNAP-ACCESS-001",
+            title="قرارداد محدود به مرکز الف",
+            is_provincial=False,
+            start_date="2026-01-01",
+            end_date="2027-01-01",
+            status=Contract.STATUS_ACTIVE,
+        )
+        self.contract.centers.add(self.center_a)
+
+        self.technician = User.objects.create_user(
+            username="snapshot_access_tech",
+            password="test-password",
+            role=User.ROLE_TECHNICIAN,
+            contractor=self.contractor,
+        )
+        self.it_a = User.objects.create_user(
+            username="snapshot_access_it_a",
+            password="test-password",
+            role=User.ROLE_ADMIN_IT,
+            center=self.center_a,
+        )
+
+        self.category = AssetCategory.objects.create(
+            name="گونه آزمون دسترسی Snapshot",
+            code="SNAP-ACCESS-PC",
+            requires_component_tracking=True,
+        )
+        self.cpu = ComponentType.objects.create(
+            name="پردازنده آزمون دسترسی Snapshot",
+            code="SNAP-ACCESS-CPU",
+            is_key_item=True,
+        )
+
+        self.asset_a = Asset.objects.create(
+            asset_tag="SNAP-ACCESS-ASSET-A",
+            category=self.category,
+            center=self.center_a,
+            contract=self.contract,
+        )
+        # Deliberately inconsistent legacy assignment: this asset is at B,
+        # although the non-provincial contract covers only center A. It
+        # exercises the contract-match authorization shortcut in the service.
+        self.asset_b = Asset.objects.create(
+            asset_tag="SNAP-ACCESS-ASSET-B",
+            category=self.category,
+            center=self.center_b,
+            contract=self.contract,
+        )
+
+        self.client = Client()
+        self.client.force_login(self.it_a)
+
+    def _make_snapshot(self, asset, status, version=1):
+        snapshot = HardwareSnapshot.objects.create(
+            asset=asset,
+            version=version,
+            status=status,
+            is_baseline=(version == 1),
+            recorded_by=self.technician,
+        )
+        SnapshotItem.objects.create(
+            snapshot=snapshot,
+            component_type=self.cpu,
+            brand="Intel",
+            model_name="Core i5",
+            serial_number=f"{asset.asset_tag}-CPU-{version}",
+            slot="سوکت",
+        )
+        return snapshot
+
+    def test_pending_list_is_limited_to_the_it_users_center(self):
+        own = self._make_snapshot(self.asset_a, "pending")
+        foreign = self._make_snapshot(self.asset_b, "pending")
+
+        response = self.client.get(reverse("assets:snapshot_pending"))
+
+        self.assertEqual(response.status_code, 200)
+        visible_ids = {snapshot.pk for snapshot in response.context["snapshots"]}
+        self.assertIn(own.pk, visible_ids)
+        self.assertNotIn(foreign.pk, visible_ids)
+
+    def test_it_user_cannot_approve_foreign_center_snapshot(self):
+        snapshot = self._make_snapshot(self.asset_b, "pending")
+
+        response = self.client.post(reverse("assets:snapshot_approve", args=[snapshot.pk]))
+
+        self.assertEqual(response.status_code, 403)
+        snapshot.refresh_from_db()
+        self.assertEqual(snapshot.status, "pending")
+        self.assertIsNone(snapshot.locked_at)
+        self.assertIsNone(snapshot.it_confirmed_by_id)
+
+    def test_it_user_cannot_reject_foreign_center_snapshot(self):
+        snapshot = self._make_snapshot(self.asset_b, "pending")
+
+        response = self.client.post(
+            reverse("assets:snapshot_reject", args=[snapshot.pk]),
+            {"note": "نباید از مرکز دیگر رد شود"},
+        )
+
+        self.assertEqual(response.status_code, 403)
+        snapshot.refresh_from_db()
+        self.assertEqual(snapshot.status, "pending")
+        self.assertEqual(snapshot.review_note, "")
+
+    def test_technician_cannot_edit_snapshot_outside_contract_centers(self):
+        snapshot = self._make_snapshot(self.asset_b, "draft")
+        self.client.force_login(self.technician)
+
+        response = self.client.get(reverse("assets:snapshot_edit", args=[snapshot.pk]))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_technician_cannot_submit_snapshot_outside_contract_centers(self):
+        snapshot = self._make_snapshot(self.asset_b, "draft")
+        self.client.force_login(self.technician)
+
+        response = self.client.post(reverse("assets:snapshot_submit", args=[snapshot.pk]))
+
+        self.assertEqual(response.status_code, 403)
+        snapshot.refresh_from_db()
+        self.assertEqual(snapshot.status, "draft")
+        self.assertIsNone(snapshot.technician_confirmed_at)
+
+    def test_it_user_can_open_own_center_snapshot(self):
+        snapshot = self._make_snapshot(self.asset_a, "pending")
+
+        response = self.client.get(reverse("assets:snapshot_detail", args=[snapshot.pk]))
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_it_user_gets_not_found_for_foreign_center_snapshot_detail(self):
+        snapshot = self._make_snapshot(self.asset_b, "pending")
+
+        response = self.client.get(reverse("assets:snapshot_detail", args=[snapshot.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_anonymous_user_is_denied_pending_snapshot_list(self):
+        from django.test import Client
+
+        anonymous_client = Client(raise_request_exception=False)
+
+        response = anonymous_client.get(reverse("assets:snapshot_pending"))
+
+        self.assertIn(response.status_code, (302, 401, 403))
