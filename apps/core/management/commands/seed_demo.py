@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import random
 
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
@@ -78,7 +79,10 @@ class Command(BaseCommand):
         password = options["admin_password"]
         asset_count = options["assets"]
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۱) تنظیمات سامانه"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۱) بارگذاری جغرافیای ایران"))
+        call_command("load_iran_geography")
+
+        self.stdout.write(self.style.MIGRATE_HEADING("۲) تنظیمات سامانه"))
         setting = SystemSetting.load()
         setting.org_name = setting.org_name or "اداره کل"
         setting.site_name = setting.site_name or "سامانه مدیریت دارایی و نگهداری فناوری اطلاعات"
@@ -101,27 +105,12 @@ class Command(BaseCommand):
                 defaults={"title": title, "is_recurring_annual": True},
             )
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۳) ساختار سازمانی چهارسطحی و مراکز استان"))
-        ou_national, _ = OrganizationalUnit.objects.get_or_create(
-            code="OU-NAT-MOH",
-            defaults={"name": "ستاد کشوری مدیریت فاوا", "unit_type": OrganizationalUnit.UNIT_NATIONAL},
-        )
-        ou_markazi, _ = OrganizationalUnit.objects.get_or_create(
-            code="OU-PRV-MARKAZI",
-            defaults={"name": "دانشگاه علوم پزشکی استان مرکزی", "unit_type": OrganizationalUnit.UNIT_PROVINCE, "parent": ou_national},
-        )
-        ou_arak, _ = OrganizationalUnit.objects.get_or_create(
-            code="OU-CNTY-ARAK",
-            defaults={"name": "شبکه بهداشت و درمان شهرستان اراک", "unit_type": OrganizationalUnit.UNIT_COUNTY, "parent": ou_markazi},
-        )
-        ou_saveh, _ = OrganizationalUnit.objects.get_or_create(
-            code="OU-CNTY-SAVEH",
-            defaults={"name": "شبکه بهداشت و درمان شهرستان ساوه", "unit_type": OrganizationalUnit.UNIT_COUNTY, "parent": ou_markazi},
-        )
-        ou_khomein, _ = OrganizationalUnit.objects.get_or_create(
-            code="OU-CNTY-KHOMEIN",
-            defaults={"name": "شبکه بهداشت و درمان شهرستان خمین", "unit_type": OrganizationalUnit.UNIT_COUNTY, "parent": ou_markazi},
-        )
+        self.stdout.write(self.style.MIGRATE_HEADING("۳) اتصال مراکز نمونه به جغرافیای رسمی"))
+        ou_national = OrganizationalUnit.objects.get(code="IR-NAT")
+        ou_markazi = OrganizationalUnit.objects.get(code="IR-PROV-100")
+        ou_arak = OrganizationalUnit.objects.get(code="IR-COUNTY-1000001")
+        ou_saveh = OrganizationalUnit.objects.get(code="IR-COUNTY-1000006")
+        ou_khomein = OrganizationalUnit.objects.get(code="IR-COUNTY-1000004")
         center_hq, _ = Center.objects.get_or_create(
             code="HQ-01",
             defaults={
