@@ -79,7 +79,7 @@ class Command(BaseCommand):
         password = options["admin_password"]
         asset_count = options["assets"]
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۱) بارگذاری جغرافیای ایران"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۰) بارگذاری جغرافیای ایران"))
         call_command("load_iran_geography")
 
         self.stdout.write(self.style.MIGRATE_HEADING("۲) تنظیمات سامانه"))
@@ -106,7 +106,6 @@ class Command(BaseCommand):
             )
 
         self.stdout.write(self.style.MIGRATE_HEADING("۳) اتصال مراکز نمونه به جغرافیای رسمی"))
-        ou_national = OrganizationalUnit.objects.get(code="IR-NAT")
         ou_markazi = OrganizationalUnit.objects.get(code="IR-PROV-100")
         ou_arak = OrganizationalUnit.objects.get(code="IR-COUNTY-1000001")
         ou_saveh = OrganizationalUnit.objects.get(code="IR-COUNTY-1000006")
