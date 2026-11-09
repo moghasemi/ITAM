@@ -381,6 +381,7 @@ class SnapshotDetailView(AnyRoleRequiredMixin, BaseDetailView):
         return context
 
 
+@login_required
 def snapshot_submit(request, pk: int):
     """ارسال اسنپ‌شات برای تایید کارشناس IT."""
     snapshot = get_object_or_404(HardwareSnapshot.objects.select_related("asset"), pk=pk)
