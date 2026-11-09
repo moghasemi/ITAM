@@ -111,21 +111,8 @@ class Command(BaseCommand):
             legacy_root.save(update_fields=["code", "name", "updated_at"])
             return legacy_root
 
-        roots = OrganizationalUnit.objects.filter(
-            unit_type=OrganizationalUnit.UNIT_NATIONAL,
-            parent__isnull=True,
-        )
-        if roots.count() > 1:
-            raise CommandError(
-                "بیش از یک واحد کشوری ریشه وجود دارد؛ برای جلوگیری از ساخت سلسله‌مراتب موازی، ابتدا باید تعارض رفع شود."
-            )
-        if roots.exists():
-            root = roots.first()
-            root.code = NATIONAL_CODE
-            root.name = "ایران"
-            root.save(update_fields=["code", "name", "updated_at"])
-            return root
-
+        # Do not repurpose an unrelated national unit. The importer owns only
+        # its stable IR-* namespace and the explicitly known legacy demo code.
         return OrganizationalUnit.objects.create(
             code=NATIONAL_CODE,
             name="ایران",
