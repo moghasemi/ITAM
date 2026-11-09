@@ -128,12 +128,21 @@ def can_record_snapshot(user, asset: Asset) -> bool:
             return True
         return False
     if user.has_role(User.ROLE_TECHNICIAN):
-        if not user.contractor_id:
+        if not user.contractor_id or not asset.center_id:
             return False
-        if asset.contract_id and asset.contract.contractor_id == user.contractor_id:
-            return True
+
+        # تطبیق پیمانکار به‌تنهایی کافی نیست؛ مرکز دارایی نیز باید
+        # صراحتاً در دامنه مراکز قرارداد/کاربر قرار داشته باشد.
         scoped_centers = user.get_scoped_centers()
-        return bool(asset.center and scoped_centers.filter(pk=asset.center_id).exists())
+        if not scoped_centers.filter(pk=asset.center_id).exists():
+            return False
+
+        if asset.contract_id:
+            return (
+                asset.contract.contractor_id == user.contractor_id
+                and asset.contract.centers.filter(pk=asset.center_id).exists()
+            )
+        return True
     return False
 
 # ---------------------------------------------------------------------------
