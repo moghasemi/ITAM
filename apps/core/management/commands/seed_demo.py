@@ -11,7 +11,7 @@ import datetime as dt
 import random
 
 from django.core.management import call_command
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
@@ -72,14 +72,13 @@ class Command(BaseCommand):
         parser.add_argument("--admin-password", required=True, help="گذرواژه یکتای کاربران نمونه")
         parser.add_argument("--assets", type=int, default=12, help="تعداد دارایی نمونه")
         parser.add_argument("--no-demo-tickets", action="store_true", help="بدون ساخت درخواست نمونه")
-        parser.add_argument("--reset", action="store_true", help="پاک‌کردن داده‌های نمونه قبلی")
 
     @transaction.atomic
     def handle(self, *args, **options):
         password = options["admin_password"]
         asset_count = options["assets"]
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۰) بارگذاری جغرافیای ایران"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۱) بارگذاری جغرافیای ایران"))
         call_command("load_iran_geography")
 
         self.stdout.write(self.style.MIGRATE_HEADING("۲) تنظیمات سامانه"))
@@ -91,7 +90,7 @@ class Command(BaseCommand):
         setting.save()
         self.stdout.write(f"   سازمان: {setting.org_name}")
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۲) تعطیلات نمونه"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۳) تعطیلات نمونه"))
         for title, month, day in [
             ("نوروز", 1, 1), ("نوروز", 1, 2), ("نوروز", 1, 3), ("نوروز", 1, 4),
             ("روز جمهوری اسلامی", 1, 12), ("سیزده‌بدر", 1, 13),
@@ -105,7 +104,7 @@ class Command(BaseCommand):
                 defaults={"title": title, "is_recurring_annual": True},
             )
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۳) اتصال مراکز نمونه به جغرافیای رسمی"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۴) اتصال مراکز نمونه به جغرافیای رسمی"))
         ou_markazi = OrganizationalUnit.objects.get(code="IR-PROV-100")
         ou_arak = OrganizationalUnit.objects.get(code="IR-COUNTY-1000001")
         ou_saveh = OrganizationalUnit.objects.get(code="IR-COUNTY-1000006")
@@ -180,7 +179,7 @@ class Command(BaseCommand):
             )
             locations[(building, room)] = location
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۴) پیمانکار و قرارداد"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۵) پیمانکار و قرارداد"))
         contractor, _ = Contractor.objects.get_or_create(
             name="شرکت پشتیبان فناوری پارس",
             defaults={
@@ -223,7 +222,7 @@ class Command(BaseCommand):
                 defaults={"response_minutes": response, "resolve_minutes": resolve},
             )
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۵) کاربران و سطوح دسترسی استانی"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۶) کاربران و سطوح دسترسی استانی"))
         admin_province, _ = User.objects.get_or_create(
             username="admin.province",
             defaults={
@@ -303,7 +302,7 @@ class Command(BaseCommand):
 
         self.stdout.write(f"   کاربران ساخته شد (گذرواژه: {password})")
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۶) گونه‌ها و قطعات"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۷) گونه‌ها و قطعات"))
         categories = {}
         for name, code, icon, tracking in CATEGORIES:
             category, _ = AssetCategory.objects.get_or_create(
@@ -329,7 +328,7 @@ class Command(BaseCommand):
             )
             components[code] = component_type
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۷) دارایی‌ها"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۸) دارایی‌ها"))
         random.seed(1403)
         brands = ["DELL", "HP", "ASUS", "Lenovo", "Acer"]
         created_assets = []
@@ -374,12 +373,12 @@ class Command(BaseCommand):
 
         self.stdout.write(f"   {len(created_assets)} دارایی ثبت شد")
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۸) بازدیدهای دوره‌ای"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۹) بازدیدهای دوره‌ای"))
         result = generate_visits(contract, user=admin_it)
         self.stdout.write(f"   {result['created']} نوبت بازدید ساخته شد")
 
         if not options["no_demo_tickets"]:
-            self.stdout.write(self.style.MIGRATE_HEADING("۹) اسنپ‌شات سخت‌افزار و درخواست‌های نمونه"))
+            self.stdout.write(self.style.MIGRATE_HEADING("۱۰) اسنپ‌شات سخت‌افزار و درخواست‌های نمونه"))
             self._demo_hardware(created_assets, admin_it, technician, components)
             self._demo_tickets(created_assets, admin_it, technician, requester)
 
