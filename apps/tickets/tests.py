@@ -143,6 +143,37 @@ class TicketWorkflowTests(TestCase):
             OutboxEvent.objects.filter(event_type="ticket.reported", aggregate_id=ticket.pk).exists()
         )
 
+
+    def test_ticket_sla_start_cannot_be_backdated_by_service_caller(self):
+        requested_past = timezone.now() - dt.timedelta(days=365)
+        before_create = timezone.now()
+        ticket = self._create(reported_at=requested_past)
+        self.assertGreaterEqual(ticket.reported_at, before_create)
+        self.assertNotEqual(ticket.reported_at, requested_past)
+
+    def test_requester_cannot_spoof_reporter_identity_in_create_form(self):
+        from apps.tickets.forms import TicketCreateForm
+
+        form = TicketCreateForm(
+            data={
+                "asset": str(self.asset.pk),
+                "title": "خرابی ثبت‌شده",
+                "description": "شرح کامل خرابی برای آزمون",
+                "priority": PRIORITY_HIGH,
+                "failure_type": "power",
+                "reporter_name": "کاربر جعلی",
+                "reporter_phone": "09120000000",
+                "reported_at": "1400/01/01 00:00",
+            },
+            user=self.requester,
+            assets=Asset.objects.filter(pk=self.asset.pk),
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        ticket = form.save(commit=False)
+        self.assertEqual(ticket.reporter_name, self.requester.display_name)
+        self.assertEqual(ticket.reporter_phone, self.requester.phone)
+        self.assertEqual(ticket.reported_by_id, self.requester.pk)
+
     def test_technician_cannot_manage_ticket_when_asset_is_bound_to_foreign_contract_province(self):
         national = self.center.parent_unit.parent.parent
         province_b = OrganizationalUnit.objects.create(
