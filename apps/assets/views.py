@@ -381,6 +381,7 @@ class SnapshotDetailView(AnyRoleRequiredMixin, BaseDetailView):
         return context
 
 
+@login_required
 def snapshot_submit(request, pk: int):
     """ارسال اسنپ‌شات برای تایید کارشناس IT."""
     snapshot = get_object_or_404(HardwareSnapshot.objects.select_related("asset"), pk=pk)
@@ -403,6 +404,7 @@ def snapshot_submit(request, pk: int):
     return redirect("assets:snapshot_detail", pk=pk)
 
 
+@login_required
 def snapshot_approve(request, pk: int):
     """تایید و قفل اسنپ‌شات توسط کارشناس IT."""
     snapshot = get_object_or_404(HardwareSnapshot.objects.select_related("asset"), pk=pk)
@@ -421,6 +423,7 @@ def snapshot_approve(request, pk: int):
     return redirect("assets:snapshot_detail", pk=pk)
 
 
+@login_required
 def snapshot_reject(request, pk: int):
     """برگشت اسنپ‌شات به ثبت‌کننده."""
     snapshot = get_object_or_404(HardwareSnapshot.objects.select_related("asset"), pk=pk)
@@ -436,6 +439,7 @@ def snapshot_reject(request, pk: int):
     return redirect("assets:snapshot_detail", pk=pk)
 
 
+@login_required
 def snapshot_pending_list(request):
     """کارتابل اسنپ‌شات‌های در انتظار تایید."""
     if not request.user.has_role("admin_it"):
