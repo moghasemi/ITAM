@@ -5,7 +5,7 @@ import datetime as dt
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -50,14 +50,22 @@ def visible_visits(user):
     if user.role == User.ROLE_ADMIN_COUNTY:
         centers = user.get_scoped_centers()
         return queryset.filter(
-            Q(center__in=centers) | Q(checks__asset__center__in=centers)
+            Q(center__in=centers)
+            | Q(
+                checks__asset__center__in=centers,
+                checks__asset__center__parent_unit__parent_id=F("contract__province_id"),
+            )
         ).distinct()
     if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
         centers = user.get_scoped_centers()
         if not centers.exists():
             return queryset.none()
         return queryset.filter(
-            Q(center__in=centers) | Q(checks__asset__center__in=centers)
+            Q(center__in=centers)
+            | Q(
+                checks__asset__center__in=centers,
+                checks__asset__center__parent_unit__parent_id=F("contract__province_id"),
+            )
         ).distinct()
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id:
