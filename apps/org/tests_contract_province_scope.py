@@ -26,6 +26,7 @@ class TechnicianProvinceContractScopeTests(TestCase):
             name="شهرستان الف", code="CO-A-TEST",
             unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province_a,
         )
+        self.county_a = county_a
         county_b = OrganizationalUnit.objects.create(
             name="شهرستان ب", code="CO-B-TEST",
             unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province_b,
@@ -112,6 +113,25 @@ class TechnicianProvinceContractScopeTests(TestCase):
     def test_unassigned_legacy_contract_grants_no_access(self):
         self.make_contract("CON-LEGACY", None)
         self.assertEqual(self.scoped_ids(), set())
+
+
+    def test_inactive_province_grants_no_access_even_with_active_contract(self):
+        self.province_a.is_active = False
+        self.province_a.save(update_fields=["is_active"])
+        self.make_contract("CON-INACTIVE-PROV", self.province_a)
+        self.assertEqual(self.scoped_ids(), set())
+
+    def test_inactive_county_centers_are_excluded(self):
+        self.county_a.is_active = False
+        self.county_a.save(update_fields=["is_active"])
+        self.make_contract("CON-INACTIVE-COUNTY", self.province_a)
+        self.assertEqual(self.scoped_ids(), set())
+
+    def test_inactive_center_is_excluded_from_scope(self):
+        self.center_a1.is_active = False
+        self.center_a1.save(update_fields=["is_active"])
+        self.make_contract("CON-INACTIVE-CENTER", self.province_a)
+        self.assertEqual(self.scoped_ids(), {self.center_a2.pk})
 
     def test_contract_cannot_cover_a_center_in_another_province(self):
         contract = self.make_contract("CON-COVER", self.province_a)
