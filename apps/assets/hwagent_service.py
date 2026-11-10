@@ -51,8 +51,16 @@ def parse_hwagent_json(raw_json: Any) -> Dict[str, Any]:
     else:
         raise ValueError("داده‌های ارسالی باید به فرمت JSON باشند.")
 
+    # HWAgent desktop emits "motherboard"; older exports may use "baseboard".
+    # Normalize both names at the API boundary so matching, summaries and
+    # snapshot creation all consume one canonical schema.
+    if "baseboard" not in data and isinstance(data.get("motherboard"), dict):
+        data["baseboard"] = data["motherboard"]
+    elif "motherboard" not in data and isinstance(data.get("baseboard"), dict):
+        data["motherboard"] = data["baseboard"]
+
     # بررسی فیلدهای حداقلی یک اسنپ‌شات معتبر HWAgent
-    has_hw_fields = any(k in data for k in ("cpu", "baseboard", "ram", "disks", "computerName"))
+    has_hw_fields = any(k in data for k in ("cpu", "baseboard", "motherboard", "ram", "disks", "computerName"))
     if not has_hw_fields:
         raise ValueError("ساختار فایل ارسالی با قالب استاندارد HWAgent مطابقت ندارد.")
 
