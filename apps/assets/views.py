@@ -504,12 +504,14 @@ def attachment_download(request, pk: int):
         raise Http404("فایل پیوست موجود نیست.")
     filename = attachment.file.name.rsplit("/", 1)[-1]
     content_type, _ = mimetypes.guess_type(filename)
-    return FileResponse(
+    response = FileResponse(
         attachment.file.open("rb"),
         as_attachment=True,
         filename=filename,
         content_type=content_type or "application/octet-stream",
     )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @login_required
