@@ -349,7 +349,9 @@ class Contract(TimeStampedModel):
     def clean(self):
         super().clean()
         errors = {}
-        if self.province_id and self.province.unit_type != OrganizationalUnit.UNIT_PROVINCE:
+        if not self.province_id:
+            errors["province"] = "تعیین استان برای هر قرارداد الزامی است."
+        elif self.province.unit_type != OrganizationalUnit.UNIT_PROVINCE:
             errors["province"] = "واحد انتخاب‌شده باید از نوع استان باشد."
         if self.start_date and self.end_date and self.end_date < self.start_date:
             errors["end_date"] = "تاریخ پایان نمی‌تواند قبل از تاریخ شروع باشد."
