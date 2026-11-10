@@ -354,7 +354,7 @@ def complete_visit(visit: MaintenanceVisit, user, *, report_text="", recommendat
         actor=user,
     )
     Notification.push_many(
-        list(User.objects.filter(role=User.ROLE_ADMIN_IT, is_active=True)),
+        list(_it_experts_for_center(visit.center_id)),
         f"پایان بازدید {visit.number}",
         f"بازدید دوره‌ای قرارداد {visit.contract.number} تکمیل شد و در انتظار تایید است.",
         visit.get_absolute_url(),
