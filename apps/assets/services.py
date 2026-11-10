@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -79,6 +79,7 @@ def visible_assets(user, center=None):
         qs = queryset.filter(
             contract__in=active_contracts,
             center__in=scoped_centers,
+            contract__province_id=F("center__parent_unit__parent_id"),
         )
         if center:
             qs = qs.filter(center=center)
