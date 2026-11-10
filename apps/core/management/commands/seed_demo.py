@@ -162,6 +162,7 @@ class Command(BaseCommand):
                 "manager_name": "سعید مرادی",
                 "it_lead_name": "پیمان خسروی",
                 "is_headquarters": False,
+                "is_demo": True,
                 "phone": "054-46667788",
                 "address": "ایرانشهر، مرکز فناوری اطلاعات شهرستان",
             },
