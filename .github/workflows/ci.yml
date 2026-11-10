@@ -49,7 +49,7 @@ jobs:
       - name: Validate PowerShell deployment scripts
         shell: pwsh
         run: |
-          $paths = @("deploy/install_service.ps1", "deploy/backup.ps1")
+          $paths = @("deploy/install_service.ps1", "deploy/backup.ps1", "HWAgent/agent.ps1")
           foreach ($path in $paths) {
             $tokens = $null
             $errors = $null
