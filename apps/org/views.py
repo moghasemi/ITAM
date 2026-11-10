@@ -40,7 +40,7 @@ def _visible_contracts_for_user(user):
         return Contract.objects.all()
     if user.has_role("technician"):
         return user.get_active_contractor_contracts()
-    province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
+    province_ids = user.get_scoped_centers().values("treatment_management__province_id")
     return Contract.objects.filter(province_id__in=province_ids).distinct()
 
 
