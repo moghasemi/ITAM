@@ -462,6 +462,9 @@ class MultiCenterAndHWAgentTests(TestCase):
         self.admin_sub = User.objects.create_user(
             username="admin_sub", password="password123", role=User.ROLE_ADMIN_IT, center=self.center_sub
         )
+        self.admin_hq_it = User.objects.create_user(
+            username="admin_hq_it", password="password123", role=User.ROLE_ADMIN_IT, center=self.center_hq
+        )
 
         self.cat_pc = AssetCategory.objects.create(name="کیس", code="PC", requires_component_tracking=True)
         self.asset_hq = Asset.objects.create(asset_tag="TAG-HQ", title="PC HQ", category=self.cat_pc, center=self.center_hq, hostname="PC-HQ-01")
@@ -507,12 +510,17 @@ class MultiCenterAndHWAgentTests(TestCase):
         # اسنپ‌شات اول (پایه)
         snap1, diff1 = apply_hwagent_snapshot(self.asset_hq, sample_json, user=self.admin_prov)
         self.assertTrue(snap1.is_baseline)
-        self.assertTrue(snap1.is_locked)
+        self.assertEqual(snap1.status, "pending")
         self.assertEqual(snap1.items.count(), 8)
         self.asset_hq.refresh_from_db()
         self.assertEqual(self.asset_hq.os_name, "Windows 11 Pro")
         self.assertEqual(self.asset_hq.mac_address, "00:1B:44:11:3A:B7")
         self.assertIn("11th Gen Intel", self.asset_hq.spec_summary)
+
+        from apps.assets.services import approve_snapshot
+        approve_snapshot(snap1, self.admin_hq_it)
+        snap1.refresh_from_db()
+        self.assertTrue(snap1.is_locked)
 
         # اسنپ‌شات دوم با تعویض رم (کشف سرقت / تغییر قطعه)
         sample_json_altered = dict(sample_json)
