@@ -63,8 +63,8 @@ class TreatmentManagementAdmin(admin.ModelAdmin):
 
 @admin.register(Center)
 class CenterAdmin(admin.ModelAdmin):
-    list_display = ("name", "code", "treatment_management", "parent_unit", "city", "is_headquarters", "is_active")
-    list_filter = ("is_headquarters", "is_active")
+    list_display = ("name", "code", "treatment_management", "parent_unit", "city", "is_demo", "is_headquarters", "is_active")
+    list_filter = ("is_demo", "is_headquarters", "is_active")
     search_fields = ("name", "code", "city")
 
     @admin.display(description="استان (سلسله‌مراتب سازمانی)")
