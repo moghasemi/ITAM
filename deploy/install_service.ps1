@@ -4,7 +4,7 @@
 #
 #  اجرا در PowerShell با دسترسی Administrator:
 #      .\install_service.ps1
- #      .\install_service.ps1 -ProjectPath "D:\itam"
+      .\install_service.ps1 -ProjectPath "D:\itam"
 # ==========================================================================
 [CmdletBinding()]
 param(
@@ -61,7 +61,6 @@ $allowedHosts = [string]$envSettings["ITAM_ALLOWED_HOSTS"]
 $hostEntries = @($allowedHosts.Split(",") | ForEach-Object { $_.Trim() })
 if ([string]::IsNullOrWhiteSpace($allowedHosts) -or $hostEntries -contains "*") {
     throw "ITAM_ALLOWED_HOSTS باید میزبان‌های واقعی و بدون wildcard داشته باشد."
-}
 }
 if ($envSettings["ITAM_SECURE_COOKIES"] -notin @("1", "true", "True", "yes", "Yes")) {
     throw "ITAM_SECURE_COOKIES باید فعال باشد."
