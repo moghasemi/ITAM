@@ -114,8 +114,16 @@ class Command(BaseCommand):
         ou_zahedan = OrganizationalUnit.objects.get(code="IR-COUNTY-1110005", is_active=True)
         ou_zabol = OrganizationalUnit.objects.get(code="IR-COUNTY-1110004", is_active=True)
         ou_iranshahr = OrganizationalUnit.objects.get(code="IR-COUNTY-1110001", is_active=True)
+        # Upgrade the exact legacy demo codes without touching real centers.
+        for old_code, demo_code in [
+            ("HQ-01", "DEMO-HQ-01"),
+            ("C-02", "DEMO-C-02"),
+            ("C-03", "DEMO-C-03"),
+        ]:
+            Center.objects.filter(code=old_code).update(code=demo_code, is_demo=True)
+
         center_hq, _ = Center.objects.get_or_create(
-            code="HQ-01",
+            code="DEMO-HQ-01",
             defaults={
                 "name": "مرکز ستاد مدیریت فناوری اطلاعات استان",
                 "province": "سیستان و بلوچستان",
@@ -124,12 +132,13 @@ class Command(BaseCommand):
                 "manager_name": "مهندس صادقی (مدیر فناوری اطلاعات استان)",
                 "it_lead_name": "علی محمدی",
                 "is_headquarters": True,
+                "is_demo": True,
                 "phone": "054-33445566",
                 "address": "زاهدان، ساختمان ستاد مدیریت فناوری اطلاعات",
             },
         )
         center_saveh, _ = Center.objects.get_or_create(
-            code="C-02",
+            code="DEMO-C-02",
             defaults={
                 "name": "مرکز فناوری اطلاعات زابل",
                 "province": "سیستان و بلوچستان",
@@ -138,12 +147,13 @@ class Command(BaseCommand):
                 "manager_name": "حسین اکبری",
                 "it_lead_name": "مهرداد کاظمی",
                 "is_headquarters": False,
+                "is_demo": True,
                 "phone": "054-42223344",
                 "address": "زابل، مرکز فناوری اطلاعات شهرستان",
             },
         )
         center_khomein, _ = Center.objects.get_or_create(
-            code="C-03",
+            code="DEMO-C-03",
             defaults={
                 "name": "مرکز فناوری اطلاعات ایرانشهر",
                 "province": "سیستان و بلوچستان",
@@ -152,6 +162,7 @@ class Command(BaseCommand):
                 "manager_name": "سعید مرادی",
                 "it_lead_name": "پیمان خسروی",
                 "is_headquarters": False,
+                "is_demo": True,
                 "phone": "054-46667788",
                 "address": "ایرانشهر، مرکز فناوری اطلاعات شهرستان",
             },
@@ -166,6 +177,7 @@ class Command(BaseCommand):
             center.province = "سیستان و بلوچستان"
             center.city = city
             center.is_active = True
+            center.is_demo = True
             center.save()
 
         centers_list = [center_hq, center_saveh, center_khomein]

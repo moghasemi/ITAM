@@ -981,6 +981,7 @@ def api_hwagent_sync(request):
                     asset=asset,
                     raw_data=body,
                     user=None,
+                    agent_credential=agent,
                     note=f"همگام‌سازی از کلاینت {agent.name} با توکن اختصاصی",
                 )
                 agent.last_sync_at = timezone.now()

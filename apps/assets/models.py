@@ -24,7 +24,7 @@ from apps.core.constants import (
     SNAPSHOT_STATUS_CHOICES,
 )
 from apps.core.models import TimeStampedModel
-from apps.core.validators import validate_image_file
+from apps.core.validators import validate_document_file, validate_image_file
 
 
 class AssetCategory(TimeStampedModel):
@@ -467,24 +467,40 @@ class HardwareSnapshot(TimeStampedModel):
 
     # -- گردش کار تایید -----------------------------------------------------
     def confirm_by_technician(self, user):
+        if self.status not in (SNAPSHOT_DRAFT, SNAPSHOT_REJECTED):
+            raise ValidationError("فقط اسنپ‌شات پیش‌نویس یا برگشت‌خورده قابل تایید و ارسال است.")
         self.technician_confirmed_by = user
         self.technician_confirmed_at = timezone.now()
         self.save(update_fields=["technician_confirmed_by", "technician_confirmed_at", "updated_at"])
 
     def submit_for_review(self, user):
+        if self.status not in (SNAPSHOT_DRAFT, SNAPSHOT_REJECTED):
+            raise ValidationError("این اسنپ‌شات قبلاً ارسال شده یا وضعیت نهایی دارد.")
         self.status = SNAPSHOT_PENDING
         if not self.recorded_at:
             self.recorded_at = timezone.now()
         if not self.recorded_by_id:
             self.recorded_by = user
+        self.review_note = ""
         self.save(
-            update_fields=["status", "recorded_at", "recorded_by", "updated_at"]
+            update_fields=["status", "recorded_at", "recorded_by", "review_note", "updated_at"]
         )
 
     def lock(self, user):
         from apps.core.models import SystemSetting
 
         setting = SystemSetting.load()
+        if self.status != SNAPSHOT_PENDING:
+            raise ValidationError("فقط اسنپ‌شات در انتظار بررسی قابل قفل‌شدن است.")
+        if not getattr(user, "is_authenticated", False) or (
+            setting.baseline_requires_it_confirm and not user.has_role("admin_it")
+        ):
+            raise ValidationError("قفل اسنپ‌شات فقط توسط کارشناس IT مجاز است؛ مگر اینکه تایید مستقل صریحاً غیرفعال شده باشد.")
+        if setting.baseline_requires_it_confirm:
+            if not self.technician_confirmed_by_id:
+                raise ValidationError("اسنپ‌شات باید ابتدا توسط ثبت‌کننده تایید و ارسال شود.")
+            if self.technician_confirmed_by_id == user.pk:
+                raise ValidationError("ثبت‌کننده و تاییدکننده اسنپ‌شات باید دو کاربر متفاوت باشند.")
         self.status = SNAPSHOT_LOCKED
         self.locked_at = timezone.now()
         if setting.baseline_requires_it_confirm:
@@ -506,6 +522,15 @@ class HardwareSnapshot(TimeStampedModel):
         )
 
     def reject(self, user, note=""):
+        from apps.core.models import SystemSetting
+
+        if self.status != SNAPSHOT_PENDING:
+            raise ValidationError("فقط اسنپ‌شات در انتظار بررسی قابل رد است.")
+        if not getattr(user, "is_authenticated", False) or not user.has_role("admin_it"):
+            raise ValidationError("رد اسنپ‌شات فقط توسط کارشناس IT مجاز است.")
+        if SystemSetting.load().baseline_requires_it_confirm:
+            if not self.technician_confirmed_by_id or self.technician_confirmed_by_id == user.pk:
+                raise ValidationError("ثبت‌کننده و بررسی‌کننده اسنپ‌شات باید دو کاربر متفاوت باشند.")
         self.status = SNAPSHOT_REJECTED
         self.review_note = note[:300]
         self.save(update_fields=["status", "review_note", "updated_at"])
@@ -602,7 +627,7 @@ class AssetAttachment(TimeStampedModel):
     )
     kind = models.CharField("نوع", max_length=20, choices=KIND_CHOICES, default=KIND_PHOTO)
     title = models.CharField("عنوان", max_length=150, blank=True)
-    file = models.FileField("فایل", upload_to="assets/%Y/%m/")
+    file = models.FileField("فایل", upload_to="assets/%Y/%m/", validators=[validate_document_file])
     description = models.CharField("توضیحات", max_length=250, blank=True)
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

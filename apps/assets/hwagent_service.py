@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
@@ -19,8 +20,8 @@ from apps.core.constants import (
 )
 from apps.integrations.models import OutboxEvent
 
-from .models import Asset, AssetCategory, ComponentType, HardwareSnapshot, SnapshotItem
-from .services import compute_diff, reference_snapshot
+from .models import AgentCredential, Asset, AssetCategory, ComponentType, HardwareSnapshot, SnapshotItem
+from .services import can_record_snapshot, compute_diff, reference_snapshot
 
 
 def get_or_create_component_type(name: str, code: str, is_key: bool = True, sort_order: int = 100) -> ComponentType:
@@ -51,8 +52,16 @@ def parse_hwagent_json(raw_json: Any) -> Dict[str, Any]:
     else:
         raise ValueError("داده‌های ارسالی باید به فرمت JSON باشند.")
 
+    # HWAgent desktop emits "motherboard"; older exports may use "baseboard".
+    # Normalize both names at the API boundary so matching, summaries and
+    # snapshot creation all consume one canonical schema.
+    if "baseboard" not in data and isinstance(data.get("motherboard"), dict):
+        data["baseboard"] = data["motherboard"]
+    elif "motherboard" not in data and isinstance(data.get("baseboard"), dict):
+        data["motherboard"] = data["baseboard"]
+
     # بررسی فیلدهای حداقلی یک اسنپ‌شات معتبر HWAgent
-    has_hw_fields = any(k in data for k in ("cpu", "baseboard", "ram", "disks", "computerName"))
+    has_hw_fields = any(k in data for k in ("cpu", "baseboard", "motherboard", "ram", "disks", "computerName"))
     if not has_hw_fields:
         raise ValueError("ساختار فایل ارسالی با قالب استاندارد HWAgent مطابقت ندارد.")
 
@@ -181,12 +190,42 @@ def apply_hwagent_snapshot(
     user=None,
     note: str = "",
     seal_number: str = "",
-    auto_approve_baseline: bool = True,
+    auto_approve_baseline: bool = False,
+    agent_credential=None,
 ) -> Tuple[HardwareSnapshot, Dict[str, Any]]:
     """پردازش و ذخیره اسنپ‌شات استخراج‌شده از HWAgent برای یک دارایی مشخص.
 
     خروجی: تاپل شامل نمونه اسنپ‌شات و دیکشنری مغایرت‌ها (Diff)
     """
+    if user is not None:
+        if not can_record_snapshot(user, asset):
+            raise PermissionDenied("اجازه ثبت اسنپ‌شات HWAgent برای این تجهیز را ندارید.")
+    else:
+        # مسیر API فقط با اعتبارنامه معتبر و محدود به همان مرکز مجاز است.
+        if not agent_credential or agent_credential.status != AgentCredential.STATUS_ACTIVE:
+            raise PermissionDenied("اعتبارنامه ایجنت برای ثبت اسنپ‌شات معتبر نیست.")
+        if agent_credential.expires_at and timezone.now() > agent_credential.expires_at:
+            raise PermissionDenied("اعتبارنامه ایجنت منقضی شده است.")
+        center = agent_credential.center
+        county = center.parent_unit if center else None
+        province = county.parent if county else None
+        management = getattr(center, "treatment_management", None) if center else None
+        if (
+            not center
+            or center.pk != asset.center_id
+            or not center.is_active
+            or not county
+            or not county.is_active
+            or not province
+            or not province.is_active
+            or not management
+            or not management.is_active
+            or management.province_id != province.pk
+        ):
+            raise PermissionDenied("مرکز یا زنجیره سازمانی ایجنت غیرفعال یا خارج از حوزه دارایی است.")
+    if asset.snapshots.filter(is_baseline=True, status=SNAPSHOT_PENDING).exists():
+        raise ValidationError("اسنپ‌شات پایه این تجهیز هنوز تایید نشده است؛ تا تعیین تکلیف آن، ثبت نسخه جدید مجاز نیست.")
+
     data = parse_hwagent_json(raw_data)
 
     # به‌روزرسانی اطلاعات سیستم در جدول دارایی
@@ -247,6 +286,8 @@ def apply_hwagent_snapshot(
         previous=reference,
         recorded_by=user,
         recorded_at=timezone.now(),
+        technician_confirmed_by=user,
+        technician_confirmed_at=timezone.now(),
         note=snapshot_note,
         seal_number=seal_number,
         is_from_hwagent=True,
@@ -389,8 +430,19 @@ def apply_hwagent_snapshot(
     snapshot.diff_data = diff
     snapshot.diff_count = diff.get("total_changes", 0)
 
-    # تعیین وضعیت اسنپ‌شات
-    if is_baseline and auto_approve_baseline and user and (user.is_superuser or getattr(user, 'is_admin_it', False)):
+    # HWAgent فقط داده را ثبت می‌کند؛ قفل پایه تنها با تنظیم صریحِ عدم نیاز به تایید IT مجاز است.
+    snapshot.status = SNAPSHOT_PENDING
+    snapshot.save(update_fields=["status", "diff_data", "diff_count", "updated_at"])
+    from apps.core.models import SystemSetting
+    setting = SystemSetting.load()
+
+    if (
+        is_baseline
+        and auto_approve_baseline
+        and not setting.baseline_requires_it_confirm
+        and user
+        and (user.is_superuser or getattr(user, "is_admin_it", False))
+    ):
         snapshot.lock(user)
         asset.current_snapshot = snapshot
         asset.baseline_locked_at = snapshot.locked_at
@@ -403,9 +455,6 @@ def apply_hwagent_snapshot(
             actor=user,
         )
     else:
-        snapshot.status = SNAPSHOT_PENDING
-        snapshot.save(update_fields=["status", "diff_data", "diff_count", "updated_at"])
-
         if diff.get("has_alarm"):
             OutboxEvent.emit(
                 EVENT_HARDWARE_DIFF_DETECTED,

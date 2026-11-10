@@ -239,3 +239,90 @@ class ProvincialMaintenanceScopeTests(TestCase):
         )
         self.assertFalse(visible_visits(other_it).filter(pk=self.visit.pk).exists())
         self.assertFalse(can_confirm_visit(other_it, self.visit))
+
+
+
+    def test_missed_visit_notifications_are_center_scoped(self):
+        from .services import mark_missed_visits
+
+        second_center = Center.objects.create(
+            name="Maintenance Center One-B",
+            code="MNT-CENTER1-B",
+            parent_unit=self.center.parent_unit,
+        )
+        self.contract.centers.add(second_center)
+        it_a = User.objects.create_user(
+            username="maintenance-it-a", password="pass12345",
+            role=User.ROLE_ADMIN_IT, center=self.center,
+        )
+        it_b = User.objects.create_user(
+            username="maintenance-it-b", password="pass12345",
+            role=User.ROLE_ADMIN_IT, center=second_center,
+        )
+        yesterday = timezone.localdate() - dt.timedelta(days=1)
+        visit_a = MaintenanceVisit.objects.create(
+            number="MNT-MISSED-A", contract=self.contract, contractor=self.contractor,
+            center=self.center, sequence_number=10,
+            scheduled_date=yesterday - dt.timedelta(days=5),
+            scheduled_end_date=yesterday,
+        )
+        visit_b = MaintenanceVisit.objects.create(
+            number="MNT-MISSED-B", contract=self.contract, contractor=self.contractor,
+            center=second_center, sequence_number=11,
+            scheduled_date=yesterday - dt.timedelta(days=5),
+            scheduled_end_date=yesterday,
+        )
+
+        mark_missed_visits()
+
+        self.assertTrue(it_a.notifications.filter(
+            title=f"بازدید {visit_a.number} انجام نشد"
+        ).exists())
+        self.assertFalse(it_b.notifications.filter(
+            title=f"بازدید {visit_a.number} انجام نشد"
+        ).exists())
+        self.assertTrue(it_b.notifications.filter(
+            title=f"بازدید {visit_b.number} انجام نشد"
+        ).exists())
+        self.assertFalse(it_a.notifications.filter(
+            title=f"بازدید {visit_b.number} انجام نشد"
+        ).exists())
+
+
+
+    def test_inactive_center_assets_do_not_block_visit_completion(self):
+        from .services import complete_visit, populate_checks
+
+        inactive_center = Center.objects.create(
+            name="Inactive Maintenance Center",
+            code="MNT-CENTER-INACTIVE",
+            parent_unit=self.center.parent_unit,
+            is_active=False,
+        )
+        inactive_asset = Asset.objects.create(
+            asset_tag="MNT-ASSET-INACTIVE",
+            category=self.asset.category,
+            contract=self.contract,
+            center=inactive_center,
+            status="active",
+        )
+        visit = MaintenanceVisit.objects.create(
+            number="MNT-VISIT-ACTIVE-SCOPE",
+            contract=self.contract,
+            contractor=self.contractor,
+            center=None,
+            sequence_number=20,
+            scheduled_date=timezone.localdate(),
+        )
+
+        populate_checks(visit)
+        self.assertFalse(visit.checks.filter(asset=inactive_asset).exists())
+
+        # A legacy check may remain after its center is deactivated; it must
+        # not become an invisible blocker for the operational completion flow.
+        VisitAssetCheck.objects.create(visit=visit, asset=inactive_asset, checked=False)
+        visit.checks.filter(asset__center__is_active=True).update(checked=True)
+
+        complete_visit(visit, self.provincial_admin)
+        visit.refresh_from_db()
+        self.assertEqual(visit.status, "done")

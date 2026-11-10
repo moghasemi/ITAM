@@ -22,6 +22,7 @@ from apps.core.constants import (
     SNAPSHOT_DRAFT,
     SNAPSHOT_LOCKED,
     SNAPSHOT_PENDING,
+    SNAPSHOT_REJECTED,
 )
 from apps.core.models import Notification, SystemSetting
 from apps.core.utils import log_action
@@ -79,7 +80,7 @@ def visible_assets(user, center=None):
         qs = queryset.filter(
             contract__in=active_contracts,
             center__in=scoped_centers,
-            contract__province_id=F("center__parent_unit__parent_id"),
+            contract__province_id=F("center__treatment_management__province_id"),
         )
         if center:
             qs = qs.filter(center=center)
@@ -104,11 +105,8 @@ def can_edit_asset(user, asset: Asset) -> bool:
         scoped = user.get_scoped_centers()
         return bool(asset.center and scoped.filter(pk=asset.center_id).exists())
     if user.has_role(User.ROLE_ADMIN_IT):
-        if user.center_id and asset.center_id:
-            return user.center_id == asset.center_id
-        if not user.center_id and not asset.center_id:
-            return True
-        return False
+        # کارشناس IT بدون مرکز مشخص، یا دارایی فاقد مرکز، هرگز مجوز ضمنی نمی‌گیرد.
+        return bool(user.center_id and asset.center_id and user.center_id == asset.center_id)
     return False
 
 
@@ -125,11 +123,8 @@ def can_record_snapshot(user, asset: Asset) -> bool:
         scoped = user.get_scoped_centers()
         return bool(asset.center and scoped.filter(pk=asset.center_id).exists())
     if user.has_role(User.ROLE_ADMIN_IT):
-        if user.center_id and asset.center_id:
-            return user.center_id == asset.center_id
-        if not user.center_id and not asset.center_id:
-            return True
-        return False
+        # نبود مرکز در هر یک از دو طرف باید به رد دسترسی منجر شود.
+        return bool(user.center_id and asset.center_id and user.center_id == asset.center_id)
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id or not asset.center_id or not asset.contract_id:
             return False
@@ -392,9 +387,11 @@ def recompute_diff(snapshot: HardwareSnapshot, save: bool = True) -> dict:
     return result
 
 
-def notify_it_experts(title: str, message: str, url: str = "", level: str = "info"):
-    """ارسال اعلان به کارشناسان فناوری اطلاعات مرکز."""
-    experts = User.objects.filter(role=User.ROLE_ADMIN_IT, is_active=True)
+def notify_it_experts(title: str, message: str, url: str = "", level: str = "info", center=None):
+    """ارسال اعلان فقط به کارشناسان IT همان مرکز؛ نبود مرکز یعنی عدم ارسال."""
+    experts = User.objects.filter(
+        role=User.ROLE_ADMIN_IT, is_active=True, center_id=center.pk
+    ) if center is not None else User.objects.none()
     Notification.push_many(experts, title, message, url, level)
 
 
@@ -421,6 +418,7 @@ def _notify_diff_alarm(snapshot: HardwareSnapshot, result: dict):
         message,
         url=f"/assets/{snapshot.asset_id}/",
         level="danger",
+        center=snapshot.asset.center,
     )
     OutboxEvent.emit(
         EVENT_HARDWARE_DIFF_DETECTED,
@@ -451,9 +449,12 @@ def _notify_diff_alarm(snapshot: HardwareSnapshot, result: dict):
 
 @transaction.atomic
 def submit_snapshot(snapshot: HardwareSnapshot, user) -> dict:
-    """ارسال اسنپ‌شات برای تایید کارشناس IT."""
-    if not snapshot.is_editable and snapshot.status != SNAPSHOT_PENDING:
-        raise ValidationError("این اسنپ‌شات قفل شده و قابل تغییر نیست.")
+    """ارسال یک پیش‌نویس/نسخه برگشتی برای تایید مستقل کارشناس IT."""
+    snapshot = HardwareSnapshot.objects.select_for_update().select_related("asset").get(pk=snapshot.pk)
+    if not can_record_snapshot(user, snapshot.asset):
+        raise PermissionDenied("اجازه ثبت یا ارسال اسنپ‌شات این تجهیز را ندارید.")
+    if snapshot.status not in (SNAPSHOT_DRAFT, SNAPSHOT_REJECTED):
+        raise ValidationError("فقط اسنپ‌شات پیش‌نویس یا برگشت‌خورده قابل ارسال است.")
     if not snapshot.items.exists():
         raise ValidationError("حداقل یک قلم سخت‌افزاری باید ثبت شود.")
 
@@ -469,15 +470,33 @@ def submit_snapshot(snapshot: HardwareSnapshot, user) -> dict:
             f"اسنپ‌شات نسخه {snapshot.version} تجهیز {snapshot.asset.asset_tag} در انتظار تایید شماست.",
             url=f"/assets/snapshots/{snapshot.pk}/",
             level="warning",
+            center=snapshot.asset.center,
         )
     else:
+        # تنها در صورت غیرفعال‌بودن صریح الزام تایید مستقل، ثبت‌کننده می‌تواند قفل کند.
         approve_snapshot(snapshot, user)
     return result
 
 
 @transaction.atomic
 def approve_snapshot(snapshot: HardwareSnapshot, user):
-    """تایید و قفل اسنپ‌شات و به‌روزرسانی وضعیت جاری دارایی."""
+    """تایید و قفل اسنپ‌شات؛ فقط توسط IT مجاز و مستقل از ثبت‌کننده."""
+    snapshot = HardwareSnapshot.objects.select_for_update().select_related("asset").get(pk=snapshot.pk)
+    if snapshot.status != SNAPSHOT_PENDING:
+        raise ValidationError("فقط اسنپ‌شات در انتظار بررسی قابل تایید است.")
+    setting = SystemSetting.load()
+    can_self_finalize = (
+        not setting.baseline_requires_it_confirm
+        and can_record_snapshot(user, snapshot.asset)
+    )
+    if not getattr(user, "is_authenticated", False) or (
+        not user.has_role(User.ROLE_ADMIN_IT) and not can_self_finalize
+    ):
+        raise PermissionDenied("تایید اسنپ‌شات فقط برای کارشناس IT مجاز است؛ مگر اینکه تایید مستقل صریحاً غیرفعال شده باشد.")
+    if not visible_assets(user).filter(pk=snapshot.asset_id).exists():
+        raise PermissionDenied("این اسنپ‌شات خارج از حوزه دسترسی کاربر است.")
+    if setting.baseline_requires_it_confirm and snapshot.technician_confirmed_by_id == user.pk:
+        raise ValidationError("ثبت‌کننده و تاییدکننده اسنپ‌شات باید دو کاربر متفاوت باشند.")
     reference = snapshot.previous or reference_snapshot(snapshot.asset, exclude=snapshot)
     snapshot.previous = reference
     result = compute_diff(
@@ -526,6 +545,15 @@ def approve_snapshot(snapshot: HardwareSnapshot, user):
 
 @transaction.atomic
 def reject_snapshot(snapshot: HardwareSnapshot, user, note: str = ""):
+    snapshot = HardwareSnapshot.objects.select_for_update().select_related("asset").get(pk=snapshot.pk)
+    if snapshot.status != SNAPSHOT_PENDING:
+        raise ValidationError("فقط اسنپ‌شات در انتظار بررسی قابل رد است.")
+    if not getattr(user, "is_authenticated", False) or not user.has_role(User.ROLE_ADMIN_IT):
+        raise PermissionDenied("رد اسنپ‌شات فقط برای کارشناس IT مجاز است.")
+    if not visible_assets(user).filter(pk=snapshot.asset_id).exists():
+        raise PermissionDenied("این اسنپ‌شات خارج از حوزه دسترسی کارشناس IT است.")
+    if SystemSetting.load().baseline_requires_it_confirm and snapshot.technician_confirmed_by_id == user.pk:
+        raise ValidationError("ثبت‌کننده و بررسی‌کننده اسنپ‌شات باید دو کاربر متفاوت باشند.")
     snapshot.reject(user, note)
     log_action("reject", snapshot, object_label=str(snapshot), note=note, user=user)
     if snapshot.recorded_by_id:

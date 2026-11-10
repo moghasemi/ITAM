@@ -166,7 +166,7 @@ class User(AbstractUser):
         ):
             return Contract.objects.none()
         today = timezone.localdate()
-        return self.contractor.contracts.filter(
+        contracts = self.contractor.contracts.filter(
             status=Contract.STATUS_ACTIVE,
             start_date__lte=today,
             end_date__gte=today,
@@ -174,12 +174,32 @@ class User(AbstractUser):
             province__is_active=True,
         )
 
+        # A technician is province-bound. Prefer the explicit province assigned
+        # by the creating province administrator; retain legacy single-province
+        # accounts only when their contractor has exactly one active province.
+        province_id = None
+        if self.org_unit_id:
+            if self.org_unit.unit_type == OrganizationalUnit.UNIT_PROVINCE:
+                province_id = self.org_unit_id
+            elif self.org_unit.unit_type == OrganizationalUnit.UNIT_COUNTY:
+                province_id = self.org_unit.parent_id
+        if not province_id and self.center_id and self.center.treatment_management_id:
+            province_id = self.center.treatment_management.province_id
+        if province_id:
+            return contracts.filter(province_id=province_id)
+
+        # Preserve the established multi-province contractor model for legacy
+        # technicians without an explicit organizational assignment. New
+        # technicians created by a province administrator are bound in UserForm.
+        return contracts
+
     def _active_center_scope(self, queryset):
         """Exclude centers beneath inactive counties/provinces from operational access."""
         return queryset.filter(
             is_active=True,
             parent_unit__is_active=True,
             parent_unit__parent__is_active=True,
+            treatment_management__is_active=True,
         )
 
     def get_scoped_centers(self):
@@ -194,13 +214,13 @@ class User(AbstractUser):
                 if not self.org_unit.is_active:
                     return Center.objects.none()
                 return self._active_center_scope(
-                    Center.objects.filter(parent_unit__parent=self.org_unit)
+                    Center.objects.filter(treatment_management__province=self.org_unit)
                 )
             if self.center:
-                province = (self.center.parent_unit.parent if self.center.parent_unit_id and self.center.parent_unit.parent_id else None)
+                province = (self.center.treatment_management.province if self.center.treatment_management_id else None)
                 if province and province.is_active:
                     return self._active_center_scope(
-                        Center.objects.filter(parent_unit__parent=province)
+                        Center.objects.filter(treatment_management__province=province)
                     )
                 return Center.objects.none()
             return Center.objects.none()
@@ -221,7 +241,7 @@ class User(AbstractUser):
                 "province_id", flat=True
             )
             return self._active_center_scope(
-                Center.objects.filter(parent_unit__parent_id__in=province_ids)
+                Center.objects.filter(treatment_management__province_id__in=province_ids)
             ).distinct()
         return Center.objects.none()
 

@@ -23,11 +23,14 @@ class DemoSeedProvinceTests(TestCase):
         self.assertEqual(contract.province_id, province.pk)
         self.assertTrue(contract.is_provincial)
 
-        demo_centers = Center.objects.filter(code__in=["HQ-01", "C-02", "C-03"])
+        demo_centers = Center.objects.filter(code__in=["DEMO-HQ-01", "DEMO-C-02", "DEMO-C-03"])
         self.assertEqual(demo_centers.count(), 3)
+        self.assertTrue(demo_centers.filter(is_demo=True).count() == 3)
         self.assertFalse(
             demo_centers.exclude(parent_unit__parent=province).exists()
         )
+        self.assertFalse(Center.objects.filter(is_demo=True).exclude(parent_unit__parent=province).exists())
+        self.assertFalse(Center.objects.filter(is_demo=False, code__startswith="DEMO-").exists())
 
         province_admin = User.objects.get(username="admin.province")
         self.assertEqual(province_admin.org_unit_id, province.pk)

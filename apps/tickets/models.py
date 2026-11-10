@@ -24,6 +24,7 @@ from apps.core.constants import (
     TICKET_STATUS_SEQUENCE,
 )
 from apps.core.models import TimeStampedModel
+from apps.core.validators import validate_document_file
 from apps.core import jalali
 
 
@@ -450,7 +451,7 @@ class TicketAttachment(TimeStampedModel):
     )
     kind = models.CharField("نوع", max_length=20, choices=KIND_CHOICES, default=KIND_EVIDENCE)
     title = models.CharField("عنوان", max_length=150, blank=True)
-    file = models.FileField("فایل", upload_to="tickets/%Y/%m/")
+    file = models.FileField("فایل", upload_to="tickets/%Y/%m/", validators=[validate_document_file])
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name="بارگذارنده",

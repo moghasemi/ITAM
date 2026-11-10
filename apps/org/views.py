@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -40,7 +41,7 @@ def _visible_contracts_for_user(user):
         return Contract.objects.all()
     if user.has_role("technician"):
         return user.get_active_contractor_contracts()
-    province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
+    province_ids = user.get_scoped_centers().values("treatment_management__province_id")
     return Contract.objects.filter(province_id__in=province_ids).distinct()
 
 
@@ -342,6 +343,7 @@ class ContractFormMixin:
             context["sla_formset"] = SlaPolicyFormSet(instance=self.object)
         return context
 
+    @transaction.atomic
     def form_valid(self, form):
         context = self.get_context_data()
         formset = context["sla_formset"]

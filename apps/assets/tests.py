@@ -148,7 +148,7 @@ class SnapshotWorkflowTests(TestCase):
             username="tech", password="pass12345", role=User.ROLE_TECHNICIAN, contractor=cls.contractor
         )
         cls.it_expert = User.objects.create_user(
-            username="expert", password="pass12345", role=User.ROLE_ADMIN_IT
+            username="expert", password="pass12345", role=User.ROLE_ADMIN_IT, center=cls.center
         )
 
     def _make_snapshot(self, serial, user=None):
@@ -236,6 +236,85 @@ class SnapshotWorkflowTests(TestCase):
         )
         with self.assertRaises(PermissionDenied):
             create_snapshot(self.asset, other)
+
+
+    def test_it_user_without_center_fails_closed(self):
+        from apps.assets.services import can_edit_asset
+
+        unscoped_it = User.objects.create_user(
+            username="unscoped-it",
+            password="pass12345",
+            role=User.ROLE_ADMIN_IT,
+        )
+        self.assertFalse(can_edit_asset(unscoped_it, self.asset))
+        self.assertFalse(can_record_snapshot(unscoped_it, self.asset))
+
+
+    def test_pending_snapshot_cannot_be_submitted_twice(self):
+        from django.core.exceptions import ValidationError
+        from apps.assets.services import submit_snapshot
+
+        snapshot = self._make_snapshot("CPU-REPEAT")
+        submit_snapshot(snapshot, self.technician)
+        snapshot.refresh_from_db()
+        first_confirmation = snapshot.technician_confirmed_at
+        with self.assertRaises(ValidationError):
+            submit_snapshot(snapshot, self.technician)
+        snapshot.refresh_from_db()
+        self.assertEqual(snapshot.status, "pending")
+        self.assertEqual(snapshot.technician_confirmed_at, first_confirmation)
+
+    def test_snapshot_requires_a_distinct_it_reviewer(self):
+        from django.core.exceptions import ValidationError
+        from apps.assets.services import approve_snapshot, submit_snapshot
+
+        snapshot = self._make_snapshot("CPU-SELF", user=self.it_expert)
+        submit_snapshot(snapshot, self.it_expert)
+        with self.assertRaises(ValidationError):
+            approve_snapshot(snapshot, self.it_expert)
+
+        second_expert = User.objects.create_user(
+            username="expert-second",
+            password="pass12345",
+            role=User.ROLE_ADMIN_IT,
+            center=self.center,
+        )
+        approve_snapshot(snapshot, second_expert)
+        snapshot.refresh_from_db()
+        self.assertEqual(snapshot.status, "locked")
+        self.assertEqual(snapshot.technician_confirmed_by_id, self.it_expert.pk)
+        self.assertEqual(snapshot.it_confirmed_by_id, second_expert.pk)
+
+    def test_locked_snapshot_cannot_be_rejected(self):
+        from django.core.exceptions import ValidationError
+        from apps.assets.services import approve_snapshot, reject_snapshot, submit_snapshot
+
+        snapshot = self._make_snapshot("CPU-LOCKED")
+        submit_snapshot(snapshot, self.technician)
+        approve_snapshot(snapshot, self.it_expert)
+        with self.assertRaises(ValidationError):
+            reject_snapshot(snapshot, self.it_expert, "late rejection")
+        snapshot.refresh_from_db()
+        self.assertEqual(snapshot.status, "locked")
+
+
+    def test_hardware_notifications_are_center_scoped(self):
+        from apps.assets.services import notify_it_experts
+
+        other_center = Center.objects.create(
+            name="مرکز دیگر اعلان اسنپ‌شات",
+            code="SNAP-NOTIFY-OTHER",
+            parent_unit=self.center.parent_unit,
+        )
+        other_expert = User.objects.create_user(
+            username="snapshot-other-it",
+            password="pass12345",
+            role=User.ROLE_ADMIN_IT,
+            center=other_center,
+        )
+        notify_it_experts("هشدار آزمون", "متن آزمون", center=self.center)
+        self.assertEqual(self.it_expert.notifications.count(), 1)
+        self.assertEqual(other_expert.notifications.count(), 0)
 
 
 class QrGeneratorTests(TestCase):
@@ -414,6 +493,9 @@ class MultiCenterAndHWAgentTests(TestCase):
         self.admin_sub = User.objects.create_user(
             username="admin_sub", password="password123", role=User.ROLE_ADMIN_IT, center=self.center_sub
         )
+        self.admin_hq_it = User.objects.create_user(
+            username="admin_hq_it", password="password123", role=User.ROLE_ADMIN_IT, center=self.center_hq
+        )
 
         self.cat_pc = AssetCategory.objects.create(name="کیس", code="PC", requires_component_tracking=True)
         self.asset_hq = Asset.objects.create(asset_tag="TAG-HQ", title="PC HQ", category=self.cat_pc, center=self.center_hq, hostname="PC-HQ-01")
@@ -459,12 +541,17 @@ class MultiCenterAndHWAgentTests(TestCase):
         # اسنپ‌شات اول (پایه)
         snap1, diff1 = apply_hwagent_snapshot(self.asset_hq, sample_json, user=self.admin_prov)
         self.assertTrue(snap1.is_baseline)
-        self.assertTrue(snap1.is_locked)
+        self.assertEqual(snap1.status, "pending")
         self.assertEqual(snap1.items.count(), 8)
         self.asset_hq.refresh_from_db()
         self.assertEqual(self.asset_hq.os_name, "Windows 11 Pro")
         self.assertEqual(self.asset_hq.mac_address, "00:1B:44:11:3A:B7")
         self.assertIn("11th Gen Intel", self.asset_hq.spec_summary)
+
+        from apps.assets.services import approve_snapshot
+        approve_snapshot(snap1, self.admin_hq_it)
+        snap1.refresh_from_db()
+        self.assertTrue(snap1.is_locked)
 
         # اسنپ‌شات دوم با تعویض رم (کشف سرقت / تغییر قطعه)
         sample_json_altered = dict(sample_json)

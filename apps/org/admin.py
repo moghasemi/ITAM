@@ -2,7 +2,7 @@
 from django.contrib import admin
 from django.forms import inlineformset_factory
 
-from .models import Center, Contract, Contractor, Department, Location, OrganizationalUnit, SlaPolicy
+from .models import Center, Contract, Contractor, Department, Location, OrganizationalUnit, TreatmentManagement, SlaPolicy
 
 
 class SlaPolicyInline(admin.TabularInline):
@@ -54,10 +54,17 @@ class OrganizationalUnitAdmin(admin.ModelAdmin):
     search_fields = ("name", "code")
 
 
+@admin.register(TreatmentManagement)
+class TreatmentManagementAdmin(admin.ModelAdmin):
+    list_display = ("name", "code", "province", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("name", "code", "province__name")
+
+
 @admin.register(Center)
 class CenterAdmin(admin.ModelAdmin):
-    list_display = ("name", "code", "parent_unit", "get_province_display", "city", "is_headquarters", "is_active")
-    list_filter = ("is_headquarters", "is_active")
+    list_display = ("name", "code", "treatment_management", "parent_unit", "city", "is_demo", "is_headquarters", "is_active")
+    list_filter = ("is_demo", "is_headquarters", "is_active")
     search_fields = ("name", "code", "city")
 
     @admin.display(description="استان (سلسله‌مراتب سازمانی)")

@@ -71,7 +71,7 @@ class ReportsHomeView(StaffRequiredMixin, PageContextMixin, View):
                 if request.user.is_admin_country
                 else Contract.objects.filter(
                     status=Contract.STATUS_ACTIVE,
-                    province_id__in=request.user.get_scoped_centers().values("parent_unit__parent_id"),
+                    province_id__in=request.user.get_scoped_centers().values("treatment_management__province_id"),
                 ).distinct().count()
             ),
             "breached_total": tickets.filter(Q(response_met=False) | Q(resolve_met=False)).count(),

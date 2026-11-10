@@ -26,8 +26,10 @@ class TicketCreateForm(StyledModelForm):
     """اعلام خرابی توسط اداره (شروع ساعت SLA)."""
 
     reported_at = JalaliDateTimeField(
-        label="زمان اعلام خرابی", required=False,
-        help_text="خالی بگذارید تا زمان فعلی ثبت شود",
+        label="زمان اعلام خرابی",
+        required=False,
+        disabled=True,
+        help_text="زمان اعلام به‌صورت خودکار توسط ساعت سرور ثبت می‌شود",
     )
 
     class Meta:
@@ -46,9 +48,13 @@ class TicketCreateForm(StyledModelForm):
         self.fields["asset"].queryset = assets
         self.fields["asset"].label_from_instance = lambda obj: f"{obj.asset_tag} — {obj.display_name}"
         self.fields["asset"].empty_label = "— انتخاب تجهیز —"
+        from django.utils import timezone
+        self.fields["reported_at"].initial = timezone.now()
         if self.user is not None and not self.user.is_admin_it:
             self.fields["reporter_name"].initial = self.user.display_name
             self.fields["reporter_phone"].initial = self.user.phone
+            self.fields["reporter_name"].disabled = True
+            self.fields["reporter_phone"].disabled = True
 
     def clean(self):
         cleaned = super().clean()
@@ -66,12 +72,16 @@ class TicketCreateForm(StyledModelForm):
             from django.utils import timezone
 
             ticket.reported_at = timezone.now()
-        if self.user is not None and self.user.is_authenticated and not ticket.reported_by_id:
+        if self.user is not None and self.user.is_authenticated:
             ticket.reported_by = self.user
-            if not ticket.reporter_name:
+            if not self.user.is_admin_it:
                 ticket.reporter_name = self.user.display_name
-            if not ticket.reporter_phone:
                 ticket.reporter_phone = self.user.phone
+            else:
+                if not ticket.reporter_name:
+                    ticket.reporter_name = self.user.display_name
+                if not ticket.reporter_phone:
+                    ticket.reporter_phone = self.user.phone
         if commit:
             ticket.save()
         return ticket

@@ -29,6 +29,14 @@ from apps.integrations.models import OutboxEvent
 from .models import MaintenanceVisit, VisitAssetCheck
 
 
+def _it_experts_for_center(center_id):
+    if not center_id:
+        return User.objects.none()
+    return User.objects.filter(
+        role=User.ROLE_ADMIN_IT, is_active=True, center_id=center_id
+    )
+
+
 # ---------------------------------------------------------------------------
 # دسترسی
 # ---------------------------------------------------------------------------
@@ -43,11 +51,11 @@ def visible_visits(user):
         return queryset
     if user.role == User.ROLE_ADMIN_PROVINCE:
         centers = user.get_scoped_centers()
-        province_ids = centers.values("parent_unit__parent_id")
+        province_ids = centers.values("treatment_management__province_id")
         return queryset.filter(
             Q(
                 center__in=centers,
-                center__parent_unit__parent_id=F("contract__province_id"),
+                center__treatment_management__province_id=F("contract__province_id"),
             )
             | Q(center__isnull=True, contract__province_id__in=province_ids)
         ).distinct()
@@ -56,11 +64,11 @@ def visible_visits(user):
         return queryset.filter(
             Q(
                 center__in=centers,
-                center__parent_unit__parent_id=F("contract__province_id"),
+                center__treatment_management__province_id=F("contract__province_id"),
             )
             | Q(
                 checks__asset__center__in=centers,
-                checks__asset__center__parent_unit__parent_id=F("contract__province_id"),
+                checks__asset__center__treatment_management__province_id=F("contract__province_id"),
             )
         ).distinct()
     if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
@@ -70,11 +78,11 @@ def visible_visits(user):
         return queryset.filter(
             Q(
                 center__in=centers,
-                center__parent_unit__parent_id=F("contract__province_id"),
+                center__treatment_management__province_id=F("contract__province_id"),
             )
             | Q(
                 checks__asset__center__in=centers,
-                checks__asset__center__parent_unit__parent_id=F("contract__province_id"),
+                checks__asset__center__treatment_management__province_id=F("contract__province_id"),
             )
         ).distinct()
     if user.has_role(User.ROLE_TECHNICIAN):
@@ -88,7 +96,7 @@ def visible_visits(user):
         ).filter(
             Q(
                 center__in=centers,
-                center__parent_unit__parent_id=F("contract__province_id"),
+                center__treatment_management__province_id=F("contract__province_id"),
             )
             | Q(
                 center__isnull=True,
@@ -101,12 +109,17 @@ def visible_visits(user):
 def visible_checks(user, visit: MaintenanceVisit):
     if not visible_visits(user).filter(pk=visit.pk).exists():
         return visit.checks.none()
-    checks = visit.checks.select_related("asset", "asset__category", "asset__location")
+    checks = visit.checks.select_related("asset", "asset__category", "asset__location").filter(
+        asset__center__is_active=True,
+        asset__center__parent_unit__is_active=True,
+        asset__center__parent_unit__parent__is_active=True,
+        asset__center__treatment_management__is_active=True,
+    )
     if user.is_superuser or user.role == User.ROLE_ADMIN_COUNTRY:
         return checks
     return checks.filter(
         asset__center__in=user.get_scoped_centers(),
-        asset__center__parent_unit__parent_id=F("visit__contract__province_id"),
+        asset__center__treatment_management__province_id=F("visit__contract__province_id"),
     )
 
 
@@ -138,7 +151,7 @@ def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
         return bool(
             visit.contract_id
             and visit.contract.province_id
-            and centers.filter(parent_unit__parent_id=visit.contract.province_id).exists()
+            and centers.filter(treatment_management__province_id=visit.contract.province_id).exists()
         )
     if user.has_role(User.ROLE_ADMIN_IT):
         return user.get_scoped_centers().filter(pk=visit.center_id).exists()
@@ -151,7 +164,7 @@ def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
         return bool(
             visit.contract.is_current
             and visit.contract.province_id
-            and centers.filter(parent_unit__parent_id=visit.contract.province_id).exists()
+            and centers.filter(treatment_management__province_id=visit.contract.province_id).exists()
         )
     return False
 
@@ -234,8 +247,14 @@ def populate_checks(visit: MaintenanceVisit, only_missing: bool = True) -> int:
     """ساخت برگه بازدید برای دارایی‌های قرارداد."""
     assets = Asset.objects.filter(
         contract=visit.contract,
-        center__parent_unit__parent_id=visit.contract.province_id,
+        center__is_active=True,
+        center__parent_unit__is_active=True,
+        center__parent_unit__parent__is_active=True,
+        center__treatment_management__is_active=True,
+        center__treatment_management__province_id=visit.contract.province_id,
     ).exclude(status="retired")
+    if visit.center_id:
+        assets = assets.filter(center_id=visit.center_id)
     existing_ids = set()
     if only_missing:
         existing_ids = set(visit.checks.values_list("asset_id", flat=True))
@@ -276,7 +295,7 @@ def mark_missed_visits(user=None) -> int:
             actor=user,
         )
         Notification.push_many(
-            list(User.objects.filter(role=User.ROLE_ADMIN_IT, is_active=True)),
+            list(_it_experts_for_center(visit.center_id)),
             f"بازدید {visit.number} انجام نشد",
             f"مهلت بازدید دوره‌ای قرارداد {visit.contract.number} به پایان رسید.",
             visit.get_absolute_url(),
@@ -314,7 +333,7 @@ def complete_visit(visit: MaintenanceVisit, user, *, report_text="", recommendat
     if visit.status == VISIT_DONE:
         raise ValidationError("این بازدید پیش‌تر پایان یافته است.")
 
-    pending = visit.checks.filter(checked=False).count()
+    pending = visible_checks(user, visit).filter(checked=False).count()
     if pending and not force:
         raise ValidationError(
             f"{pending} برگه بازدید تکمیل نشده است. برای پایان اجباری گزینه «پایان با ناقص» را انتخاب کنید."
@@ -346,7 +365,7 @@ def complete_visit(visit: MaintenanceVisit, user, *, report_text="", recommendat
         actor=user,
     )
     Notification.push_many(
-        list(User.objects.filter(role=User.ROLE_ADMIN_IT, is_active=True)),
+        list(_it_experts_for_center(visit.center_id)),
         f"پایان بازدید {visit.number}",
         f"بازدید دوره‌ای قرارداد {visit.contract.number} تکمیل شد و در انتظار تایید است.",
         visit.get_absolute_url(),

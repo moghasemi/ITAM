@@ -3,17 +3,55 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.db.models import Q
+from django.db.models import CharField, Q, Subquery
+from django.db.models.functions import Cast
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import DetailView
 
 from apps.accounts.permissions import AdminItRequiredMixin, StaffRequiredMixin
 from apps.core.mixins import BaseCreateView, BaseListView, BaseUpdateView, PageContextMixin
+from apps.assets.models import Asset, HardwareSnapshot
+from apps.maintenance.models import MaintenanceVisit
+from apps.tickets.models import Ticket
 
 from .forms import EventFilterForm, WebhookEndpointForm
 from .models import ApiCallLog, OutboxEvent, WebhookEndpoint
 from .services import build_envelope, dispatch_pending, outbox_statistics, requeue_dead_events
+
+
+
+def visible_outbox_events(user):
+    """Outbox events limited to the user's organizational center scope."""
+    queryset = OutboxEvent.objects.all()
+    if not getattr(user, "is_authenticated", False):
+        return queryset.none()
+    if user.is_superuser or getattr(user, "is_admin_country", False):
+        return queryset
+
+    centers = user.get_scoped_centers()
+    if not centers.exists():
+        return queryset.none()
+
+    asset_ids = Asset.objects.filter(center__in=centers).annotate(
+        scope_id=Cast("pk", output_field=CharField())
+    ).values("scope_id")
+    snapshot_ids = HardwareSnapshot.objects.filter(asset__center__in=centers).annotate(
+        scope_id=Cast("pk", output_field=CharField())
+    ).values("scope_id")
+    ticket_ids = Ticket.objects.filter(asset__center__in=centers).annotate(
+        scope_id=Cast("pk", output_field=CharField())
+    ).values("scope_id")
+    visit_ids = MaintenanceVisit.objects.filter(center__in=centers).annotate(
+        scope_id=Cast("pk", output_field=CharField())
+    ).values("scope_id")
+
+    return queryset.filter(
+        Q(aggregate_type="Asset", aggregate_id__in=Subquery(asset_ids))
+        | Q(aggregate_type="HardwareSnapshot", aggregate_id__in=Subquery(snapshot_ids))
+        | Q(aggregate_type="Ticket", aggregate_id__in=Subquery(ticket_ids))
+        | Q(aggregate_type="MaintenanceVisit", aggregate_id__in=Subquery(visit_ids))
+    )
 
 
 class OutboxListView(StaffRequiredMixin, BaseListView):
@@ -25,7 +63,7 @@ class OutboxListView(StaffRequiredMixin, BaseListView):
     filter_form_class = EventFilterForm
 
     def get_queryset(self):
-        queryset = OutboxEvent.objects.select_related("actor", "endpoint").order_by("-created_at")
+        queryset = visible_outbox_events(self.request.user).select_related("actor", "endpoint").order_by("-created_at")
         form = self.get_filter_form()
         if form is not None and form.is_valid():
             data = form.cleaned_data
@@ -50,9 +88,10 @@ class OutboxListView(StaffRequiredMixin, BaseListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["stats"] = outbox_statistics()
-        context["endpoints"] = WebhookEndpoint.objects.all()
+        scoped_events = visible_outbox_events(self.request.user)
+        context["stats"] = outbox_statistics(scoped_events)
         context["can_manage"] = self.request.user.has_role("admin_it")
+        context["endpoints"] = WebhookEndpoint.objects.all() if context["can_manage"] else WebhookEndpoint.objects.none()
         return context
 
 
@@ -61,6 +100,9 @@ class OutboxDetailView(StaffRequiredMixin, PageContextMixin, DetailView):
     template_name = "integrations/outbox_detail.html"
     page_title = "جزئیات رخداد"
     active_menu = "integrations"
+
+    def get_queryset(self):
+        return visible_outbox_events(self.request.user).select_related("actor", "endpoint")
 
     def get_context_data(self, **kwargs):
         import json
@@ -80,7 +122,9 @@ def dispatch_now(request):
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("دسترسی ندارید.")
     if request.method == "POST":
-        summary = dispatch_pending(limit=200, user=request.user)
+        summary = dispatch_pending(
+            limit=200, user=request.user, events=visible_outbox_events(request.user)
+        )
         if not summary["endpoints"]:
             messages.warning(
                 request,
@@ -97,7 +141,7 @@ def dispatch_now(request):
 def requeue_event(request, pk: int):
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("دسترسی ندارید.")
-    event = get_object_or_404(OutboxEvent, pk=pk)
+    event = get_object_or_404(visible_outbox_events(request.user), pk=pk)
     if request.method == "POST":
         event.requeue()
         messages.success(request, "رخداد به صف ارسال بازگشت.")
@@ -108,7 +152,9 @@ def requeue_all(request):
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("دسترسی ندارید.")
     if request.method == "POST":
-        count = requeue_dead_events(user=request.user)
+        count = requeue_dead_events(
+            user=request.user, events=visible_outbox_events(request.user)
+        )
         messages.success(request, f"{count} رخداد متوقف‌شده به صف بازگشت.")
     return redirect("integrations:outbox_list")
 
@@ -148,4 +194,9 @@ class ApiCallListView(StaffRequiredMixin, BaseListView):
     paginate_by = 40
 
     def get_queryset(self):
-        return ApiCallLog.objects.select_related("endpoint", "event")
+        if self.request.user.is_superuser or getattr(self.request.user, "is_admin_country", False):
+            return ApiCallLog.objects.select_related("endpoint", "event")
+        scoped_events = visible_outbox_events(self.request.user)
+        return ApiCallLog.objects.select_related("endpoint", "event").filter(
+            event__in=Subquery(scoped_events.values("pk"))
+        )
