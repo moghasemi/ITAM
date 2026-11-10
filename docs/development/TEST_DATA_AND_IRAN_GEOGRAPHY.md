@@ -26,7 +26,7 @@ python manage.py load_iran_geography --dry-run
 python manage.py load_iran_geography
 ```
 
-فرمان بارگذاری تکرارپذیر است؛ اجرای مجدد رکورد تکراری ایجاد نمی‌کند.
+فرمان بارگذاری تکرارپذیر است؛ اجرای مجدد رکورد تکراری ایجاد نمی‌کند. در پیکربندی پایلوت اولیه، فقط استان سیستان و بلوچستان و شهرستان‌های زیرمجموعه آن فعال می‌شوند؛ سایر استان‌ها و شهرستان‌ها غیرفعال می‌مانند. فعال‌سازی استان دیگر باید تصمیم جداگانه و آگاهانه باشد.
 
 ## ایجاد داده‌های نمونه عملیاتی
 
@@ -36,7 +36,7 @@ python manage.py load_iran_geography
 python manage.py seed_demo --admin-password "USE-A-UNIQUE-LOCAL-PASSWORD" --assets 30
 ```
 
-این داده‌ها شامل کاربران نمونه با نقش‌های مختلف، مراکز نمونه استان مرکزی، واحدها، مکان‌ها، پیمانکار و قرارداد، دارایی‌ها، بازدیدها، اسنپ‌شات‌ها و درخواست‌های نمونه است.
+این فرمان فقط در محیط توسعه با `DEBUG=True` و SQLite اجرا می‌شود. داده‌های نمونه شامل مراکز زاهدان، زابل و ایرانشهر در استان سیستان و بلوچستان، کاربران نمونه با نقش‌های مختلف، واحدها، مکان‌ها، پیمانکار و قرارداد استانی فعال، دارایی‌ها و بازدیدهاست. کاربران نمونه در مرکز/استان درست قرار می‌گیرند و این فرمان گذرواژه پیش‌فرض یا superuser نمونه ایجاد نمی‌کند.
 
 برای بازسازی کامل پایگاه داده محلی (با حذف همه رکوردهای فعلی)، از فرمان زیر استفاده می‌شود. این فرمان فقط با `DEBUG=True`، پایگاه SQLite فایل‌محور در ریشه پروژه و آرگومان صریح `--confirm-reset` اجرا می‌شود. قبل از پاک‌سازی، نسخه پشتیبان SQLite در پوشه‌ای خارج از مخزن می‌سازد و اگر seed شکست بخورد، تلاش می‌کند پایگاه قبلی را از همان نسخه بازیابی کند:
 
@@ -50,7 +50,7 @@ python manage.py rebuild_demo_database --confirm-reset --admin-password "USE-A-U
 
 ```powershell
 python manage.py check
-python manage.py test apps.org.tests_iran_geography
+python manage.py test apps.org.tests_iran_geography apps.core.tests_seed_demo
 python manage.py test apps.org apps.assets apps.accounts apps.tickets apps.maintenance
 ```
 
