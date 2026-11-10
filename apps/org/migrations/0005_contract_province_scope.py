@@ -10,6 +10,10 @@ def assign_unambiguous_provinces(apps, schema_editor):
     OrganizationalUnit = apps.get_model("org", "OrganizationalUnit")
     db = schema_editor.connection.alias
     for contract in Contract.objects.using(db).filter(province__isnull=True).iterator():
+        # A legacy center-selected contract is not equivalent to a province-wide
+        # contract. Only infer from contracts explicitly marked provincial.
+        if not contract.is_provincial:
+            continue
         center_ids = list(
             contract.centers.using(db).values_list("pk", flat=True)
         )
