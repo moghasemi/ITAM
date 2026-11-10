@@ -21,7 +21,7 @@ function Get-MasterHash($snap) {
     $clone = [ordered]@{
         system = $snap.system; motherboard = $snap.motherboard
         cpu = $snap.cpu; bios = $snap.bios; ram = $snap.ram
-        disks = $snap.disks; gpu = $snap.gpu; network = $snap.network
+        disks = $snap.disks; gpu = $snap.gpu; network = $snap.network; os = $snap.os
     }
     return Get-Sha256 ($clone | ConvertTo-Json -Depth 10 -Compress)
 }
@@ -45,6 +45,7 @@ function Get-ComponentHashes($snap) {
         disks       = $snap.disks
         gpu         = $snap.gpu
         network     = $snap.network
+        os          = $snap.os
     }
     $result = [ordered]@{}
     foreach ($k in $parts.Keys) {
@@ -60,6 +61,16 @@ function Get-HardwareSnapshot {
     $mb   = Get-CimInstance Win32_BaseBoard
     $cpu  = Get-CimInstance Win32_Processor
     $bios = Get-CimInstance Win32_BIOS
+    $osInfo = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+
+    # Get-PhysicalDisk is unavailable on some Windows editions/storage providers.
+    # Fall back to the broadly available Win32_DiskDrive WMI class.
+    $physicalDisks = @()
+    try {
+        $physicalDisks = @(Get-PhysicalDisk -ErrorAction Stop)
+    } catch {
+        $physicalDisks = @(Get-CimInstance Win32_DiskDrive -ErrorAction SilentlyContinue)
+    }
 
     $snap = [ordered]@{
         computerName = $env:COMPUTERNAME
@@ -85,6 +96,7 @@ function Get-HardwareSnapshot {
             version      = "$($bios.SMBIOSBIOSVersion)"
             serial       = "$($bios.SerialNumber)"
         }
+        os = if ($osInfo) { "$($osInfo.Caption)".Trim() } else { "" }
         ram = @(Get-CimInstance Win32_PhysicalMemory | ForEach-Object {
             [ordered]@{
                 slot         = "$($_.DeviceLocator)"
@@ -95,12 +107,20 @@ function Get-HardwareSnapshot {
                 serial       = "$($_.SerialNumber)"
             }
         })
-        disks = @(Get-PhysicalDisk | ForEach-Object {
+        disks = @($physicalDisks | ForEach-Object {
+            $diskName = if ($_.PSObject.Properties.Name -contains "FriendlyName" -and $_.FriendlyName) {
+                "$($_.FriendlyName)"
+            } elseif ($_.PSObject.Properties.Name -contains "Model") {
+                "$($_.Model)"
+            } else { "Unknown disk" }
+            $mediaType = if ($_.PSObject.Properties.Name -contains "MediaType") {
+                "$($_.MediaType)"
+            } else { "Unknown" }
             [ordered]@{
-                name      = "$($_.FriendlyName)"
-                mediaType = "$($_.MediaType)"
+                name      = $diskName.Trim()
+                mediaType = $mediaType
                 sizeGB    = [math]::Round($_.Size / 1GB, 0)
-                serial    = "$($_.SerialNumber)"
+                serial    = "$($_.SerialNumber)".Trim()
             }
         })
         gpu = @(Get-CimInstance Win32_VideoController | ForEach-Object {
@@ -210,7 +230,15 @@ function Compare-Snapshots($old, $new) {
 # ---------- HTTP server ----------
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$Port/")
-$listener.Start()
+try {
+    $listener.Start()
+} catch {
+    Write-Host "Could not start HWAgent on http://localhost:$Port" -ForegroundColor Red
+    Write-Host "The port may already be in use, or Windows denied the local HTTP listener." -ForegroundColor Yellow
+    Write-Host $_.Exception.Message -ForegroundColor DarkRed
+    Write-Host "Close the older HWAgent window or check the URL reservation, then retry."
+    exit 1
+}
 Write-Host "Agent running: http://localhost:$Port" -ForegroundColor Green
 Write-Host "Snapshots dir: $SnapshotDir"
 Write-Host "Press Ctrl+C to stop."
@@ -329,11 +357,28 @@ try {
                         Write-Json $res $resp
                     } catch {
                         $code = 500
+                        $serverMessage = $_.Exception.Message
                         if ($_.Exception.Response) {
                             $code = [int]$_.Exception.Response.StatusCode
+                            try {
+                                $responseStream = $_.Exception.Response.GetResponseStream()
+                                if ($responseStream) {
+                                    $reader = [System.IO.StreamReader]::new($responseStream)
+                                    $responseText = $reader.ReadToEnd()
+                                    $reader.Dispose()
+                                    if ($responseText) {
+                                        try {
+                                            $errorPayload = $responseText | ConvertFrom-Json
+                                            if ($errorPayload.error) { $serverMessage = "$($errorPayload.error)" }
+                                        } catch {
+                                            $serverMessage = $responseText
+                                        }
+                                    }
+                                }
+                            } catch {}
                         }
                         $res.StatusCode = $code
-                        Write-Json $res @{ status = "error"; error = "خطا در اتصال به سرور ITAM (کد وضعیت $code)" }
+                        Write-Json $res @{ status = "error"; error = "ارسال به سرور ITAM ناموفق بود (HTTP $code): $serverMessage" }
                     }
                 }
                 "^/api/compare$" {
