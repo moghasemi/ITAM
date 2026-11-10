@@ -391,7 +391,7 @@ class Command(BaseCommand):
                     "contract": contract,
                     "department": department_ref,
                     "location": location_ref,
-                    "custodian": requester if index % 3 == 0 else None,
+                    "custodian": requester if center_ref.pk == center_hq.pk and index % 3 == 0 else None,
                     "status": "active",
                     "hostname": f"PC-{index:03d}" if is_case else "",
                     "ip_address": f"10.10.20.{100 + index}" if is_case else None,
