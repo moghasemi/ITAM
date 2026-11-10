@@ -166,13 +166,34 @@ class User(AbstractUser):
         ):
             return Contract.objects.none()
         today = timezone.localdate()
-        return self.contractor.contracts.filter(
+        contracts = self.contractor.contracts.filter(
             status=Contract.STATUS_ACTIVE,
             start_date__lte=today,
             end_date__gte=today,
             province__unit_type=OrganizationalUnit.UNIT_PROVINCE,
             province__is_active=True,
         )
+
+        # A technician is province-bound. Prefer the explicit province assigned
+        # by the creating province administrator; retain legacy single-province
+        # accounts only when their contractor has exactly one active province.
+        province_id = None
+        if self.org_unit_id:
+            if self.org_unit.unit_type == OrganizationalUnit.UNIT_PROVINCE:
+                province_id = self.org_unit_id
+            elif self.org_unit.unit_type == OrganizationalUnit.UNIT_COUNTY:
+                province_id = self.org_unit.parent_id
+        if not province_id and self.center_id and self.center.treatment_management_id:
+            province_id = self.center.treatment_management.province_id
+        if province_id:
+            return contracts.filter(province_id=province_id)
+
+        active_provinces = list(
+            contracts.order_by().values_list("province_id", flat=True).distinct()[:2]
+        )
+        if len(active_provinces) != 1:
+            return Contract.objects.none()
+        return contracts.filter(province_id=active_provinces[0])
 
     def _active_center_scope(self, queryset):
         """Exclude centers beneath inactive counties/provinces from operational access."""
