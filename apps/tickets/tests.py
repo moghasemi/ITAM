@@ -5,7 +5,7 @@ import datetime as dt
 
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -27,7 +27,7 @@ from apps.org.models import (
     Center, Contract, Contractor, OrganizationalUnit, SlaPolicy,
 )
 
-from .models import Ticket, TicketEvent, TicketPause
+from .models import Ticket, TicketAttachment, TicketEvent, TicketPause
 from .services import (
     acknowledge,
     can_confirm_as_it,
@@ -374,3 +374,58 @@ class TicketWorkflowTests(TestCase):
         self.assertEqual(visible_tickets(self.requester).count(), 1)
         self.assertEqual(visible_tickets(self.it_expert).count(), 1)
         self.assertEqual(visible_tickets(self.technician).count(), 1)
+
+
+    def test_ticket_attachment_download_respects_ticket_visibility(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.urls import reverse
+
+        own_ticket = self._create()
+        own_attachment = TicketAttachment.objects.create(
+            ticket=own_ticket,
+            file=SimpleUploadedFile("own-ticket.txt", b"own ticket"),
+            uploaded_by=self.requester,
+        )
+        other_center = Center.objects.create(
+            name="مرکز دیگر آزمون",
+            code="TEST-CENTER-2",
+            parent_unit=self.center.parent_unit,
+        )
+        other_asset = Asset.objects.create(
+            asset_tag="A-2000",
+            category=self.category,
+            contract=self.contract,
+            center=other_center,
+            status="active",
+        )
+        other_requester = User.objects.create_user(
+            username="other-requester",
+            password="pass12345",
+            role=User.ROLE_REQUESTER,
+            center=other_center,
+        )
+        other_ticket = create_ticket(
+            asset=other_asset,
+            title="درخواست مرکز دیگر",
+            description="آزمون دسترسی پیوست",
+            priority=PRIORITY_HIGH,
+            user=other_requester,
+            failure_type="power",
+        )
+        foreign_attachment = TicketAttachment.objects.create(
+            ticket=other_ticket,
+            file=SimpleUploadedFile("foreign-ticket.txt", b"foreign ticket"),
+            uploaded_by=other_requester,
+        )
+
+        client = Client()
+        client.force_login(self.it_expert)
+        own_response = client.get(
+            reverse("tickets:attachment_download", args=[own_attachment.pk])
+        )
+        foreign_response = client.get(
+            reverse("tickets:attachment_download", args=[foreign_attachment.pk])
+        )
+        self.assertEqual(own_response.status_code, 200)
+        self.assertEqual(foreign_response.status_code, 403)
+
