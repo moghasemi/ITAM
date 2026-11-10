@@ -127,7 +127,7 @@ Copy-Item deploy\.env.example .env
 
 ```powershell
 cd D:\itam\deploy
-.\install_service.ps1 -ProjectPath "D:\itam"
+.\install_service.ps1 -ProjectPath "D:\itam" -BackupRoot "\\backup-server\itam"
 ```
 
 اسکریپت، تنظیمات Django را بررسی می‌کند، فایل‌های ایستا را جمع‌آوری و وظیفه اجرای Waitress و وظایف دوره‌ای را ثبت می‌کند. مسیر `-BackupRoot` باید روی دیسک مستقل یا Share شبکه باشد؛ مسیر داخل پوشه پروژه یا همان Volume پذیرفته نمی‌شود. اگر از Share شبکه استفاده می‌کنید، حساب اجرای Task Scheduler (به‌طور پیش‌فرض SYSTEM/حساب رایانه) باید مجوز نوشتن در Share داشته باشد. **این اسکریپت Migration اجرا نمی‌کند و پورت برنامه را در فایروال باز نمی‌کند.** Migration باید جداگانه و پس از پشتیبان‌گیری انجام شود.
