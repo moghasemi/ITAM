@@ -288,7 +288,7 @@
             <tr>
               <td>{{ attachment.get_kind_display }}</td>
               <td>{{ attachment.title|default:"—" }}</td>
-              <td><a href="{{ attachment.file.url }}" target="_blank">{{ attachment.file.name|truncatechars:40 }}</a></td>
+              <td><a href="{% url 'assets:attachment_download' attachment.pk %}" target="_blank">{{ attachment.file.name|truncatechars:40 }}</a></td>
               <td>{{ attachment.uploaded_by.display_name|default:"—" }}</td>
               <td class="nowrap">{{ attachment.created_at|jdatetime }}</td>
               <td>
