@@ -75,10 +75,11 @@ def visible_assets(user, center=None):
         if not user.contractor_id:
             return queryset.none()
         scoped_centers = user.get_scoped_centers()
+        active_contracts = user.get_active_contractor_contracts()
         qs = queryset.filter(
-            Q(contract__contractor_id=user.contractor_id) |
-            Q(contract__is_provincial=True, contract__contractor_id=user.contractor_id)
-        ).filter(center__in=scoped_centers)
+            contract__in=active_contracts,
+            center__in=scoped_centers,
+        )
         if center:
             qs = qs.filter(center=center)
         return qs
@@ -139,14 +140,10 @@ def can_record_snapshot(user, asset: Asset) -> bool:
             return False
 
         contract = asset.contract
-        covers_center = (
-            contract.is_provincial
-            or contract.centers.filter(pk=asset.center_id).exists()
-        )
+        active_contracts = user.get_active_contractor_contracts()
         return (
-            contract.contractor_id == user.contractor_id
-            and contract.status == Contract.STATUS_ACTIVE
-            and covers_center
+            active_contracts.filter(pk=contract.pk).exists()
+            and contract.covers_center(asset.center)
         )
     return False
 
