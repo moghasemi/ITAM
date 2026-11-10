@@ -26,6 +26,7 @@ from apps.core.constants import (
 from apps.core.models import Notification, SystemSetting
 from apps.core.utils import log_action
 from apps.integrations.models import OutboxEvent
+from apps.org.models import Contract
 
 from .models import Asset, HardwareSnapshot, SnapshotItem
 
@@ -74,10 +75,11 @@ def visible_assets(user, center=None):
         if not user.contractor_id:
             return queryset.none()
         scoped_centers = user.get_scoped_centers()
+        active_contracts = user.get_active_contractor_contracts()
         qs = queryset.filter(
-            Q(contract__contractor_id=user.contractor_id) |
-            Q(contract__is_provincial=True, contract__contractor_id=user.contractor_id)
-        ).filter(center__in=scoped_centers)
+            contract__in=active_contracts,
+            center__in=scoped_centers,
+        )
         if center:
             qs = qs.filter(center=center)
         return qs
@@ -128,12 +130,21 @@ def can_record_snapshot(user, asset: Asset) -> bool:
             return True
         return False
     if user.has_role(User.ROLE_TECHNICIAN):
-        if not user.contractor_id:
+        if not user.contractor_id or not asset.center_id or not asset.contract_id:
             return False
-        if asset.contract_id and asset.contract.contractor_id == user.contractor_id:
-            return True
+
+        # تکنسین فقط از طریق قرارداد فعالِ متعلق به پیمانکار خود مجاز است؛
+        # قرارداد باید همان مرکز دارایی را صراحتاً پوشش دهد.
         scoped_centers = user.get_scoped_centers()
-        return bool(asset.center and scoped_centers.filter(pk=asset.center_id).exists())
+        if not scoped_centers.filter(pk=asset.center_id).exists():
+            return False
+
+        contract = asset.contract
+        active_contracts = user.get_active_contractor_contracts()
+        return (
+            active_contracts.filter(pk=contract.pk).exists()
+            and contract.covers_center(asset.center)
+        )
     return False
 
 # ---------------------------------------------------------------------------
