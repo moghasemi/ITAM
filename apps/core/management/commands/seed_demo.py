@@ -317,6 +317,8 @@ class Command(BaseCommand):
         technician.role = User.ROLE_TECHNICIAN
         technician.contractor = contractor
         technician.is_active = True
+        technician.is_staff = False
+        technician.is_superuser = False
         technician.set_password(password)
         technician.save()
 
@@ -334,6 +336,8 @@ class Command(BaseCommand):
         manager.role = User.ROLE_MANAGER
         manager.center = center_hq
         manager.is_active = True
+        manager.is_staff = False
+        manager.is_superuser = False
         manager.set_password(password)
         manager.save()
 
@@ -352,6 +356,8 @@ class Command(BaseCommand):
         requester.role = User.ROLE_REQUESTER
         requester.center = center_hq
         requester.is_active = True
+        requester.is_staff = False
+        requester.is_superuser = False
         requester.set_password(password)
         requester.save()
 
