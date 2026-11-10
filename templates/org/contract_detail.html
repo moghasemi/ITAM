@@ -48,6 +48,7 @@
         <div class="k">شماره قرارداد</div><div>{{ object.number }}</div>
         <div class="k">عنوان</div><div>{{ object.title }}</div>
         <div class="k">پیمانکار</div><div><a href="{% url 'org:contractor_detail' object.contractor.pk %}">{{ object.contractor.name }}</a></div>
+        <div class="k">استان تحت پوشش</div><div>{{ object.province.name }}</div>
         <div class="k">بازه قرارداد</div><div>{{ object.jalali_range }}</div>
         <div class="k">مدت قرارداد</div><div>{{ object.duration_days|fa }} روز</div>
         <div class="k">تعداد بازدید پیش‌بینی‌شده</div><div>{{ planned_visits|fa }} نوبت</div>

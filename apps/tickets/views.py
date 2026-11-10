@@ -68,6 +68,11 @@ class TicketListView(AnyRoleRequiredMixin, BaseListView):
     paginate_by = 25
     filter_form_class = TicketFilterForm
 
+    def get_filter_form(self):
+        return self.filter_form_class(
+            self.request.GET or None, user=self.request.user
+        )
+
     def get_queryset(self):
         queryset = visible_tickets(self.request.user)
         form = self.get_filter_form()

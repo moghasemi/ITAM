@@ -36,11 +36,12 @@ from .models import Center, Contract, Contractor, Department, Location
 
 
 def _visible_contracts_for_user(user):
-    if user.is_admin_province:
+    if user.is_admin_country:
         return Contract.objects.all()
-    return Contract.objects.filter(
-        centers__in=user.get_scoped_centers()
-    ).distinct()
+    if user.has_role("technician"):
+        return user.get_active_contractor_contracts()
+    province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
+    return Contract.objects.filter(province_id__in=province_ids).distinct()
 
 
 # ---------------------------------------------------------------------------
@@ -292,7 +293,7 @@ class ContractListView(AdminItRequiredMixin, BaseListView):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = _visible_contracts_for_user(user).select_related("contractor")
+        queryset = _visible_contracts_for_user(user).select_related("contractor", "province")
         if user.is_admin_province:
             queryset = queryset.annotate(
                 assets_total=Count("assets", distinct=True),
@@ -323,6 +324,11 @@ class ContractListView(AdminItRequiredMixin, BaseListView):
 
 class ContractFormMixin:
     """ذخیره هم‌زمان قرارداد و سیاست‌های SLA."""
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -416,7 +422,7 @@ def contract_generate_visits(request, pk: int):
     if (
         request.user.has_role("admin_it")
         and not request.user.is_admin_province
-        and contract.is_provincial
+        and contract.province_id
     ):
         from django.core.exceptions import PermissionDenied
         raise PermissionDenied(

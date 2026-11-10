@@ -303,6 +303,16 @@ class Contract(TimeStampedModel):
         on_delete=models.PROTECT,
         related_name="contracts",
     )
+    province = models.ForeignKey(
+        OrganizationalUnit,
+        verbose_name="استان محل اجرای قرارداد",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="contracts",
+        limit_choices_to={"unit_type": OrganizationalUnit.UNIT_PROVINCE},
+        help_text="قرارداد به دقیقاً یک استان تعلق دارد؛ قراردادهای قدیمیِ تعیین‌تکلیف‌نشده دسترسی عملیاتی نمی‌دهند.",
+    )
     number = models.CharField("شماره قرارداد", max_length=60, unique=True)
     title = models.CharField("عنوان قرارداد", max_length=200)
     is_provincial = models.BooleanField(
@@ -333,17 +343,37 @@ class Contract(TimeStampedModel):
         ordering = ("-start_date",)
 
     def __str__(self) -> str:
-        scope = "[سراسری استان]" if self.is_provincial else "[مراکز منتخب]"
-        return f"{self.number} — {self.contractor.name} {scope}"
+        province_name = self.province.name if self.province_id else "استان تعیین‌نشده"
+        return f"{self.number} — {self.contractor.name} — {province_name}"
 
     def clean(self):
+        super().clean()
+        errors = {}
+        if self.province_id:
+            self.is_provincial = True
+        if not self.province_id:
+            errors["province"] = "تعیین استان برای هر قرارداد الزامی است."
+        elif self.province.unit_type != OrganizationalUnit.UNIT_PROVINCE:
+            errors["province"] = "واحد انتخاب‌شده باید از نوع استان باشد."
         if self.start_date and self.end_date and self.end_date < self.start_date:
-            raise ValidationError({"end_date": "تاریخ پایان نمی‌تواند قبل از تاریخ شروع باشد."})
+            errors["end_date"] = "تاریخ پایان نمی‌تواند قبل از تاریخ شروع باشد."
+        # Legacy centers M2M is retained for historical data only and is not
+        # authoritative for access scope; the province FK is the sole boundary.
+        if errors:
+            raise ValidationError(errors)
 
     def covers_center(self, center) -> bool:
-        if self.is_provincial or center is None:
-            return True
-        return self.centers.filter(pk=center.pk if hasattr(center, "pk") else center).exists()
+        if not self.province_id or center is None:
+            return False
+        center_obj = center if hasattr(center, "parent_unit_id") else None
+        if center_obj is None:
+            from apps.org.models import Center
+            center_obj = Center.objects.select_related("parent_unit").filter(pk=center).first()
+        return bool(
+            center_obj
+            and center_obj.parent_unit_id
+            and center_obj.parent_unit.parent_id == self.province_id
+        )
 
     @property
     def duration_days(self) -> int:

@@ -78,6 +78,23 @@ class TicketCreateForm(StyledModelForm):
 
 
 class TicketFilterForm(StyledForm):
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not user or not getattr(user, "is_authenticated", False):
+            self.fields["contract"].queryset = Contract.objects.none()
+            self.fields["contractor"].queryset = Contractor.objects.none()
+        elif user.is_admin_country:
+            pass
+        else:
+            from apps.tickets.services import visible_tickets
+            contracts = Contract.objects.filter(
+                pk__in=visible_tickets(user).values("contract_id")
+            ).distinct()
+            self.fields["contract"].queryset = contracts
+            self.fields["contractor"].queryset = Contractor.objects.filter(
+                pk__in=contracts.values("contractor_id")
+            )
+
     q = forms.CharField(label="جستجو", required=False)
     status = forms.ChoiceField(
         label="وضعیت", required=False, choices=[("", "همه")] + list(TICKET_STATUS_CHOICES)

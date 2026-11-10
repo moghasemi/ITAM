@@ -65,6 +65,7 @@ class TicketWorkflowTests(TestCase):
         cls.contractor = Contractor.objects.create(name="پیمانکار آزمون")
         cls.contract = Contract.objects.create(
             contractor=cls.contractor,
+            province=province,
             number="C-100",
             title="قرارداد آزمون",
             start_date=timezone.localdate() - dt.timedelta(days=30),
