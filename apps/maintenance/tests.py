@@ -46,7 +46,8 @@ class ProvincialMaintenanceScopeTests(TestCase):
         )
         cls.contractor = Contractor.objects.create(name="Maintenance Test Contractor")
         cls.contract = Contract.objects.create(
-            contractor=cls.contractor, number="MNT-CONTRACT-1", title="Provincial contract",
+            contractor=cls.contractor, province=cls.province,
+            number="MNT-CONTRACT-1", title="Provincial contract",
             is_provincial=True,
             start_date=timezone.localdate() - dt.timedelta(days=10),
             end_date=timezone.localdate() + dt.timedelta(days=100),
@@ -77,6 +78,7 @@ class ProvincialMaintenanceScopeTests(TestCase):
     def test_provincial_admin_cannot_select_or_schedule_foreign_contract(self):
         foreign_contract = Contract.objects.create(
             contractor=self.contractor,
+            province=self.other_center.parent_unit.parent,
             number="MNT-CONTRACT-FOREIGN",
             title="Foreign contract",
             is_provincial=False,
