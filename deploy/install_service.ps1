@@ -13,8 +13,7 @@ param(
     [int]   $Port        = 8000,
     [string]$TaskUser    = "SYSTEM",
     [switch]$SkipServerTask,
-    [switch]$SkipScheduledJobs,
-    [switch]$SkipFirewall
+    [switch]$SkipScheduledJobs
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,6 +33,10 @@ if (-not (Test-Path (Join-Path $ProjectPath "manage.py"))) {
     throw "پوشه پروژه معتبر نیست: $ProjectPath (فایل manage.py یافت نشد)"
 }
 Write-Ok "پوشه پروژه: $ProjectPath"
+
+if (-not (Test-Path (Join-Path $ProjectPath ".env"))) {
+    throw "فایل .env یافت نشد. ابتدا deploy\\.env.example را به .env کپی و تنظیم کنید."
+}
 
 if (-not $PythonPath) {
     $candidates = @(
@@ -62,14 +65,21 @@ if ($LASTEXITCODE -ne 0) {
     Write-Warn "جنگو نصب نیست. اجرا کنید:  `"$PythonPath`" -m pip install -r requirements.txt"
 }
 
-Write-Step "اعمال مهاجرت‌ها و جمع‌آوری فایل‌های ایستا"
+Write-Step "بررسی تنظیمات و آماده‌سازی فایل‌های ایستا"
 Push-Location $ProjectPath
-$env:PYTHONIOENCODING = "utf-8"
-& $PythonPath manage.py migrate --noinput
-& $PythonPath manage.py collectstatic --noinput | Out-Null
-Pop-Location
-Write-Ok "پایگاه داده آماده است"
-
+try {
+    $env:PYTHONIOENCODING = "utf-8"
+    & $PythonPath -c "import django, waitress"
+    if ($LASTEXITCODE -ne 0) { throw "Django یا Waitress نصب نیست؛ requirements.txt را نصب کنید." }
+    & $PythonPath manage.py check
+    if ($LASTEXITCODE -ne 0) { throw "بررسی تنظیمات Django ناموفق بود." }
+    & $PythonPath manage.py collectstatic --noinput
+    if ($LASTEXITCODE -ne 0) { throw "جمع‌آوری فایل‌های ایستا ناموفق بود." }
+} finally {
+    Pop-Location
+}
+Write-Ok "بررسی برنامه انجام شد؛ هیچ Migrationای اجرا نشد."
+Write-Warn "Migration را جداگانه، پس از پشتیبان‌گیری و طبق راهنمای استقرار اجرا کنید."
 if (-not $SkipServerTask) {
     Write-Step "ایجاد وظیفه اجرای سرور در زمان راه‌اندازی سیستم"
     $taskName = "ITAM-Server"
@@ -103,13 +113,7 @@ if (-not $SkipScheduledJobs) {
     }
 }
 
-if (-not $SkipFirewall) {
-    Write-Step "بازکردن پورت در فایروال ویندوز"
-    $ruleName = "ITAM Web ($Port)"
-    Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
-    New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow | Out-Null
-    Write-Ok "قاعده فایروال برای پورت $Port ایجاد شد"
-}
+Write-Host "پورت برنامه روی Loopback است؛ برای دسترسی شبکه، TLS Reverse Proxy را جداگانه پیکربندی کنید." -ForegroundColor Yellow
 
 $addresses = Get-NetIPAddress -AddressFamily IPv4 |
     Where-Object { $_.IPAddress -notlike "127.*" -and $_.PrefixOrigin -ne "WellKnown" } |
@@ -117,7 +121,6 @@ $addresses = Get-NetIPAddress -AddressFamily IPv4 |
 
 Write-Host "`n================= نصب کامل شد =================" -ForegroundColor Green
 Write-Host "نشانی دسترسی از داخل شبکه اداره:"
-Write-Host "    http://<IP-سرور>:$Port/" -ForegroundColor White
-foreach ($ip in $addresses) { Write-Host "    http://${ip}:$Port/" -ForegroundColor White }
-Write-Host "`nیادآوری: پس از تغییر IP سرور، مقدار «آدرس پایه سامانه» را در بخش تنظیمات به‌روزرسانی کنید"
+Write-Host "    http://127.0.0.1:$Port/  (فقط روی خود سرور)" -ForegroundColor White
+Write-Host "`nبرای دسترسی کاربران شبکه، Reverse Proxy با HTTPS تنظیم کنید و نام میزبان را در ITAM_ALLOWED_HOSTS قرار دهید."
 Write-Host "تا QR برچسب تجهیزات درست ساخته شود.`n"
