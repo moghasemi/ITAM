@@ -89,7 +89,7 @@ class VisitListView(AnyRoleRequiredMixin, BaseListView):
             "done": base.filter(status=VISIT_DONE).count(),
             "missed": base.filter(status=VISIT_MISSED).count(),
         }
-        context["can_create"] = user.has_role("admin_it")
+        context["can_create"] = user.is_admin_province
         return context
 
 
