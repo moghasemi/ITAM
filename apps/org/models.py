@@ -444,11 +444,24 @@ class Contract(TimeStampedModel):
         if center_obj is None:
             from apps.org.models import Center
             center_obj = Center.objects.select_related("treatment_management").filter(pk=center).first()
-        return bool(
-            center_obj
-            and center_obj.treatment_management_id
-            and center_obj.treatment_management.province_id == self.province_id
-        )
+        if not center_obj or not center_obj.treatment_management_id or not center_obj.parent_unit_id:
+            return False
+
+        # Legacy/orphan centers must not become contract-covered merely because
+        # someone populated the organizational owner. Require a valid county →
+        # province geographic chain and ensure it agrees with the owner province.
+        county = center_obj.parent_unit
+        geographic_province = county.parent if county else None
+        if (
+            not county
+            or county.unit_type != OrganizationalUnit.UNIT_COUNTY
+            or not geographic_province
+            or geographic_province.unit_type != OrganizationalUnit.UNIT_PROVINCE
+            or geographic_province.pk != center_obj.treatment_management.province_id
+        ):
+            return False
+
+        return center_obj.treatment_management.province_id == self.province_id
 
     @property
     def duration_days(self) -> int:
