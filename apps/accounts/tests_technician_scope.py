@@ -72,13 +72,19 @@ class TechnicianProvinceScopeTests(TestCase):
             {self.center_a.pk},
         )
 
-    def test_legacy_unbound_technician_with_multi_province_contractor_fails_closed(self):
+    def test_legacy_unbound_technician_keeps_supported_multi_province_scope(self):
         technician = User.objects.create_user(
             username="legacy-technician", password="test-password",
             role=User.ROLE_TECHNICIAN, contractor=self.contractor,
         )
-        self.assertFalse(technician.get_active_contractor_contracts().exists())
-        self.assertFalse(technician.get_scoped_centers().exists())
+        self.assertEqual(
+            set(technician.get_active_contractor_contracts().values_list("pk", flat=True)),
+            {self.contract_a.pk, self.contract_b.pk},
+        )
+        self.assertEqual(
+            set(technician.get_scoped_centers().values_list("pk", flat=True)),
+            {self.center_a.pk, self.center_b.pk},
+        )
 
     def test_province_admin_form_binds_new_technician_to_own_province(self):
         form = UserForm(
