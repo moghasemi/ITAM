@@ -31,6 +31,8 @@ from .models import Ticket, TicketAttachment, TicketEvent, TicketPause
 from .services import (
     acknowledge,
     can_confirm_as_it,
+    can_manage_ticket,
+    visible_tickets,
     confirm_by_it,
     confirm_by_user,
     create_ticket,
@@ -139,6 +141,40 @@ class TicketWorkflowTests(TestCase):
         self.assertTrue(
             OutboxEvent.objects.filter(event_type="ticket.reported", aggregate_id=ticket.pk).exists()
         )
+
+    def test_technician_cannot_manage_ticket_when_asset_is_bound_to_foreign_contract_province(self):
+        national = self.center.parent_unit.parent.parent
+        province_b = OrganizationalUnit.objects.create(
+            name="استان دوم آزمون", code="TEST-PROV-SECOND",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national,
+        )
+        county_b = OrganizationalUnit.objects.create(
+            name="شهرستان دوم استان دوم", code="TEST-COUNTY-SECOND",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=province_b,
+        )
+        center_b = Center.objects.create(
+            name="مرکز استان دوم", code="TEST-CENTER-SECOND", parent_unit=county_b,
+        )
+        Contract.objects.create(
+            contractor=self.contractor,
+            province=province_b,
+            number="C-200",
+            title="قرارداد فعال استان دوم",
+            start_date=timezone.localdate() - dt.timedelta(days=5),
+            end_date=timezone.localdate() + dt.timedelta(days=30),
+            visit_interval_days=90,
+        )
+        # The asset is physically in province B but references province A's contract.
+        foreign_asset = Asset.objects.create(
+            asset_tag="A-FOREIGN-CONTRACT-PROVINCE",
+            category=self.category,
+            contract=self.contract,
+            center=center_b,
+            status="active",
+        )
+        ticket = self._create(asset=foreign_asset)
+        self.assertFalse(visible_tickets(self.technician).filter(pk=ticket.pk).exists())
+        self.assertFalse(can_manage_ticket(self.technician, ticket))
 
     def test_acknowledge_permission(self):
         ticket = self._create()
