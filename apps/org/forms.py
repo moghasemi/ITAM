@@ -115,6 +115,8 @@ class ContractForm(StyledModelForm):
                 self.fields["province"].queryset = self.fields["province"].queryset.filter(
                     pk=user.center.parent_unit.parent_id
                 )
+            else:
+                self.fields["province"].queryset = OrganizationalUnit.objects.none()
 
     def clean(self):
         cleaned = super().clean()
@@ -161,7 +163,7 @@ class ContractFilterForm(forms.Form):
         super().__init__(*args, **kwargs)
         if user is None:
             self.fields["contractor"].queryset = Contractor.objects.none()
-        elif not user.is_admin_province:
+        elif not user.is_admin_country:
             province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
             scoped_contracts = Contract.objects.filter(province_id__in=province_ids).distinct()
             self.fields["contractor"].queryset = Contractor.objects.filter(
