@@ -94,8 +94,6 @@ def can_confirm_visit(user, visit: MaintenanceVisit) -> bool:
     """اجازه تایید نهایی بازدید برای مدیر IT در محدوده مراکز دارای چک‌لیست."""
     if not getattr(user, "is_authenticated", False) or not user.has_role(User.ROLE_ADMIN_IT):
         return False
-    if visit.status != VISIT_DONE:
-        return False
     if not visible_visits(user).filter(pk=visit.pk).exists():
         return False
     if user.is_admin_country:
