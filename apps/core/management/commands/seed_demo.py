@@ -124,7 +124,7 @@ class Command(BaseCommand):
                 "manager_name": "مهندس صادقی (مدیر فناوری اطلاعات استان)",
                 "it_lead_name": "علی محمدی",
                 "is_headquarters": True,
-                "phone": "086-33445566",
+                "phone": "054-33445566",
                 "address": "زاهدان، ساختمان ستاد مدیریت فناوری اطلاعات",
             },
         )
@@ -138,7 +138,7 @@ class Command(BaseCommand):
                 "manager_name": "حسین اکبری",
                 "it_lead_name": "مهرداد کاظمی",
                 "is_headquarters": False,
-                "phone": "086-42223344",
+                "phone": "054-42223344",
                 "address": "زابل، مرکز فناوری اطلاعات شهرستان",
             },
         )
@@ -152,7 +152,7 @@ class Command(BaseCommand):
                 "manager_name": "سعید مرادی",
                 "it_lead_name": "پیمان خسروی",
                 "is_headquarters": False,
-                "phone": "086-46667788",
+                "phone": "054-46667788",
                 "address": "ایرانشهر، مرکز فناوری اطلاعات شهرستان",
             },
         )
