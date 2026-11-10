@@ -33,6 +33,27 @@ class ReportFilterForm(StyledForm):
     date_to = JalaliDateField(label="تا تاریخ", required=False)
     open_only = forms.BooleanField(label="فقط درخواست‌های باز", required=False)
 
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is None:
+            self.fields["contract"].queryset = Contract.objects.none()
+            self.fields["contractor"].queryset = Contractor.objects.none()
+            self.fields["department"].queryset = Department.objects.none()
+            return
+        if user.is_admin_province:
+            return
+        scoped_centers = user.get_scoped_centers()
+        scoped_contracts = Contract.objects.filter(
+            centers__in=scoped_centers
+        ).distinct()
+        self.fields["contract"].queryset = scoped_contracts
+        self.fields["contractor"].queryset = Contractor.objects.filter(
+            pk__in=scoped_contracts.values("contractor_id")
+        )
+        self.fields["department"].queryset = Department.objects.filter(
+            center__in=scoped_centers
+        )
+
 
 def filter_tickets(queryset, data: dict):
     """اعمال فیلتر گزارش روی مجموعه درخواست‌ها."""

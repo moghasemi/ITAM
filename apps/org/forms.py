@@ -57,13 +57,25 @@ class CenterForm(StyledModelForm):
 
 
 
-class DepartmentForm(StyledModelForm):
+class _CenterScopedFormMixin:
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user and getattr(user, "is_authenticated", False):
+            self.fields["center"].queryset = user.get_scoped_centers().filter(is_active=True)
+            if getattr(user, "center_id", None) and user.has_role("admin_it", "manager"):
+                self.fields["center"].initial = user.center
+                self.fields["center"].required = True
+        else:
+            self.fields["center"].queryset = Center.objects.none()
+
+
+class DepartmentForm(_CenterScopedFormMixin, StyledModelForm):
     class Meta:
         model = Department
         fields = ["center", "name", "code", "manager_name", "phone", "is_active", "description"]
 
 
-class LocationForm(StyledModelForm):
+class LocationForm(_CenterScopedFormMixin, StyledModelForm):
     class Meta:
         model = Location
         fields = ["center", "name", "building", "floor", "room", "code", "is_active", "description"]
@@ -126,3 +138,15 @@ class ContractFilterForm(forms.Form):
     contractor = forms.ModelChoiceField(
         label="پیمانکار", required=False, queryset=Contractor.objects.all()
     )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is None:
+            self.fields["contractor"].queryset = Contractor.objects.none()
+        elif not user.is_admin_province:
+            scoped_contracts = Contract.objects.filter(
+                centers__in=user.get_scoped_centers()
+            ).distinct()
+            self.fields["contractor"].queryset = Contractor.objects.filter(
+                pk__in=scoped_contracts.values("contractor_id")
+            )

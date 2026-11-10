@@ -50,6 +50,7 @@ from .models import (
     Asset,
     AssetAttachment,
     AssetCategory,
+    AssetRelationship,
     ComponentType,
     HardwareSnapshot,
     AgentCredential,
@@ -80,6 +81,9 @@ class AssetListView(AnyRoleRequiredMixin, BaseListView):
     active_menu = "assets"
     paginate_by = 25
     filter_form_class = AssetFilterForm
+
+    def get_filter_form(self):
+        return self.filter_form_class(self.request.GET or None, user=self.request.user)
 
     def get_queryset(self):
         queryset = visible_assets(self.request.user).annotate(
@@ -147,11 +151,34 @@ class AssetDetailView(AnyRoleRequiredMixin, BaseDetailView):
         context["tickets"] = asset.tickets.select_related("assigned_technician").order_by("-reported_at")[:15]
         context["visits"] = asset.visit_checks.select_related("visit", "checked_by").order_by("-checked_at")[:10]
         context["attachments"] = asset.attachments.select_related("uploaded_by")
+        context["asset_relationships"] = AssetRelationship.objects.filter(
+            Q(asset=asset) | Q(related_asset=asset), is_active=True
+        ).select_related("asset__category", "related_asset__category")
         context["can_edit"] = user.has_role("admin_it")
         context["can_snapshot"] = can_record_snapshot(user, asset)
         context["tracking_required"] = asset.requires_component_tracking
         context["is_it"] = user.has_role("admin_it")
         return context
+
+
+def _sync_connected_computers(asset, form):
+    """همگام‌سازی ارتباط چاپگر/تجهیز جانبی با رایانه‌های همان مرکز."""
+    relationships = asset.outgoing_relationships.filter(
+        relationship_type=AssetRelationship.RELATION_CONNECTED_TO
+    )
+    if asset.category.is_computing_device:
+        relationships.delete()
+        return
+    selected = form.cleaned_data.get("connected_computers")
+    selected_ids = list(selected.values_list("pk", flat=True)) if selected is not None else []
+    relationships.exclude(related_asset_id__in=selected_ids).delete()
+    connection_type = form.cleaned_data.get("connection_type") or AssetRelationship.CONNECTION_TYPE_OTHER
+    for computer in selected or []:
+        AssetRelationship.objects.update_or_create(
+            asset=asset, related_asset=computer,
+            relationship_type=AssetRelationship.RELATION_CONNECTED_TO,
+            defaults={"connection_type": connection_type, "is_active": True},
+        )
 
 
 class AssetCreateView(AdminItRequiredMixin, BaseCreateView):
@@ -170,6 +197,7 @@ class AssetCreateView(AdminItRequiredMixin, BaseCreateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        _sync_connected_computers(self.object, form)
         log_asset_created(self.object, self.request.user)
         return response
 
@@ -193,6 +221,7 @@ class AssetUpdateView(AdminItRequiredMixin, BaseUpdateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        _sync_connected_computers(self.object, form)
         log_asset_updated(self.object, {"asset_tag": self.object.asset_tag}, self.request.user)
         return response
 

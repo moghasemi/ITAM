@@ -25,6 +25,7 @@ from apps.core.mixins import PageContextMixin
 from apps.core.sla import get_calendar
 from apps.core.utils import duration_fa, log_action
 from apps.maintenance.models import MaintenanceVisit
+from apps.maintenance.services import visible_visits
 from apps.org.models import Contract, Contractor
 from apps.tickets.models import Ticket
 from apps.tickets.services import visible_tickets
@@ -43,7 +44,7 @@ REPORT_MENU = [
 
 
 def _filter_form(request):
-    form = ReportFilterForm(request.GET or None)
+    form = ReportFilterForm(request.GET or None, user=request.user)
     data = form.cleaned_data if form.is_valid() else {}
     return form, data
 
@@ -65,7 +66,14 @@ class ReportsHomeView(StaffRequiredMixin, PageContextMixin, View):
             "reports": REPORT_MENU,
             "tickets_total": tickets.count(),
             "assets_total": assets.count(),
-            "contracts_active": Contract.objects.filter(status=Contract.STATUS_ACTIVE).count(),
+            "contracts_active": (
+                Contract.objects.filter(status=Contract.STATUS_ACTIVE).count()
+                if request.user.is_admin_province
+                else Contract.objects.filter(
+                    status=Contract.STATUS_ACTIVE,
+                    centers__in=request.user.get_scoped_centers(),
+                ).distinct().count()
+            ),
             "breached_total": tickets.filter(Q(response_met=False) | Q(resolve_met=False)).count(),
             "snapshots_total": HardwareSnapshot.objects.filter(asset__in=assets).count(),
             "diff_alarms": HardwareSnapshot.objects.filter(
@@ -192,7 +200,7 @@ class ContractorScorecardView(StaffRequiredMixin, PageContextMixin, View):
     def get(self, request, *args, **kwargs):
         form, data = _filter_form(request)
         tickets = filter_tickets(visible_tickets(request.user), data)
-        visits = MaintenanceVisit.objects.all()
+        visits = visible_visits(request.user)
         if data.get("contractor"):
             visits = visits.filter(contract__contractor=data["contractor"])
         if data.get("date_from"):
@@ -201,7 +209,10 @@ class ContractorScorecardView(StaffRequiredMixin, PageContextMixin, View):
             visits = visits.filter(scheduled_date__lte=data["date_to"])
 
         rows = []
-        for contractor in Contractor.objects.all():
+        visible_contractor_ids = set(tickets.values_list("assigned_contractor_id", flat=True))
+        visible_contractor_ids.update(visits.values_list("contract__contractor_id", flat=True))
+        visible_contractor_ids.discard(None)
+        for contractor in Contractor.objects.filter(pk__in=visible_contractor_ids):
             contractor_tickets = tickets.filter(assigned_contractor=contractor)
             closed = contractor_tickets.filter(status__in=TICKET_CLOSED_STATUSES)
             evaluated = contractor_tickets.filter(response_met__isnull=False).count()
@@ -232,8 +243,10 @@ class ContractorScorecardView(StaffRequiredMixin, PageContextMixin, View):
                     "visits_missed": missed,
                     "visit_compliance": (done * 100 / planned) if planned else None,
                     "hardware_diffs": HardwareSnapshot.objects.filter(
-                        asset__contract__contractor=contractor
-                    ).filter(diff_count__gt=0).count(),
+                        asset__in=visible_assets(request.user),
+                        asset__contract__contractor=contractor,
+                        diff_count__gt=0,
+                    ).count(),
                     "late_done": late_done,
                 }
             )
@@ -374,9 +387,9 @@ class VisitComplianceView(StaffRequiredMixin, PageContextMixin, View):
     active_menu = "reports"
 
     def get(self, request, *args, **kwargs):
-        form = ReportFilterForm(request.GET or None)
+        form = ReportFilterForm(request.GET or None, user=request.user)
         data = form.cleaned_data if form.is_valid() else {}
-        visits = MaintenanceVisit.objects.select_related("contract", "contract__contractor", "technician")
+        visits = visible_visits(request.user)
         if data.get("contract"):
             visits = visits.filter(contract=data["contract"])
         if data.get("contractor"):

@@ -4,7 +4,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.staticfiles.views import serve as staticfiles_serve
 from django.urls import include, path, re_path
-from django.views.static import serve as media_serve
+from apps.core.views import private_media
 
 admin.site.site_header = "مدیریت سامانه ITAM"
 admin.site.site_title = "ITAM"
@@ -29,9 +29,9 @@ if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATICFILES_DIRS[0])
 else:
-    # در شبکه محلی، رسانه‌ها توسط خود جنگو سرو می‌شوند (بار سبک است)
+    # Uploaded media is private: each request is checked against its owning record.
     urlpatterns += [
-        re_path(r"^media/(?P<path>.*)$", media_serve, {"document_root": settings.MEDIA_ROOT}),
+        re_path(r"^media/(?P<path>.*)$", private_media, name="private_media"),
     ]
     if not getattr(settings, "USE_WHITENOISE", False):
         urlpatterns += [

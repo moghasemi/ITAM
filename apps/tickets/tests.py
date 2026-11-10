@@ -23,11 +23,14 @@ from apps.core.constants import (
 )
 from apps.core.models import SystemSetting
 from apps.integrations.models import OutboxEvent
-from apps.org.models import Contract, Contractor, SlaPolicy
+from apps.org.models import (
+    Center, Contract, Contractor, OrganizationalUnit, SlaPolicy,
+)
 
 from .models import Ticket, TicketEvent, TicketPause
 from .services import (
     acknowledge,
+    can_confirm_as_it,
     confirm_by_it,
     confirm_by_user,
     create_ticket,
@@ -45,6 +48,20 @@ from .services import (
 class TicketWorkflowTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        national = OrganizationalUnit.objects.create(
+            name="ستاد کشور", code="TEST-NAT", unit_type=OrganizationalUnit.UNIT_NATIONAL
+        )
+        province = OrganizationalUnit.objects.create(
+            name="استان آزمون", code="TEST-PROV", unit_type=OrganizationalUnit.UNIT_PROVINCE,
+            parent=national,
+        )
+        county = OrganizationalUnit.objects.create(
+            name="شهرستان آزمون", code="TEST-COUNTY", unit_type=OrganizationalUnit.UNIT_COUNTY,
+            parent=province,
+        )
+        cls.center = Center.objects.create(
+            name="مرکز آزمون", code="TEST-CENTER", parent_unit=county
+        )
         cls.contractor = Contractor.objects.create(name="پیمانکار آزمون")
         cls.contract = Contract.objects.create(
             contractor=cls.contractor,
@@ -54,22 +71,26 @@ class TicketWorkflowTests(TestCase):
             end_date=timezone.localdate() + dt.timedelta(days=330),
             visit_interval_days=90,
         )
+        cls.contract.centers.add(cls.center)
         SlaPolicy.objects.create(
             contract=cls.contract, priority=PRIORITY_HIGH,
             response_minutes=60, resolve_minutes=480,
         )
         cls.category = AssetCategory.objects.create(name="کیس", code="PC")
         cls.asset = Asset.objects.create(
-            asset_tag="A-1000", category=cls.category, contract=cls.contract, status="active"
+            asset_tag="A-1000", category=cls.category, contract=cls.contract,
+            center=cls.center, status="active"
         )
         cls.it_expert = User.objects.create_user(
-            username="expert", password="pass12345", role=User.ROLE_ADMIN_IT
+            username="expert", password="pass12345", role=User.ROLE_ADMIN_IT,
+            center=cls.center
         )
         cls.technician = User.objects.create_user(
             username="tech", password="pass12345", role=User.ROLE_TECHNICIAN, contractor=cls.contractor
         )
         cls.requester = User.objects.create_user(
-            username="user", password="pass12345", role=User.ROLE_REQUESTER
+            username="user", password="pass12345", role=User.ROLE_REQUESTER,
+            center=cls.center
         )
 
     def setUp(self):
@@ -130,6 +151,26 @@ class TicketWorkflowTests(TestCase):
         self.assertEqual(ticket.status, STATUS_ACKNOWLEDGED)
         with self.assertRaises(ValidationError):
             acknowledge(ticket, self.technician)
+
+    def test_it_confirmation_is_center_scoped(self):
+        other_county = OrganizationalUnit.objects.create(
+            name="شهرستان دوم", code="TEST-COUNTY-2",
+            unit_type=OrganizationalUnit.UNIT_COUNTY,
+            parent=self.center.parent_unit.parent,
+        )
+        other_center = Center.objects.create(
+            name="مرکز دوم", code="TEST-CENTER-2", parent_unit=other_county
+        )
+        other_it = User.objects.create_user(
+            username="other-expert", password="pass12345",
+            role=User.ROLE_ADMIN_IT, center=other_center,
+        )
+        ticket = self._create()
+        ticket.status = STATUS_USER_CONFIRMED
+        ticket.save(update_fields=["status"])
+        self.assertFalse(can_confirm_as_it(other_it, ticket))
+        with self.assertRaises(PermissionDenied):
+            confirm_by_it(ticket, other_it, "تایید خارج از مرکز")
 
     def test_full_workflow(self):
         ticket = self._create()
@@ -220,6 +261,24 @@ class TicketWorkflowTests(TestCase):
         ticket.refresh_from_db()
         self.assertEqual(ticket.status, STATUS_IN_PROGRESS)
         self.assertIsNone(ticket.resolved_declared_at)
+
+    def test_it_cannot_bypass_required_user_confirmation(self):
+        ticket = self._create()
+        acknowledge(ticket, self.technician)
+        mark_arrived(ticket, self.technician)
+        declare_resolved(ticket, self.technician, root_cause="علت", action_taken="اقدام")
+        with self.assertRaises(PermissionDenied):
+            confirm_by_it(ticket, self.it_expert)
+
+    def test_user_and_it_approvals_must_be_different_actors(self):
+        ticket = self._create()
+        acknowledge(ticket, self.technician)
+        mark_arrived(ticket, self.technician)
+        declare_resolved(ticket, self.technician, root_cause="علت", action_taken="اقدام")
+        confirm_by_user(ticket, self.requester, "تایید")
+        with self.assertRaises(PermissionDenied):
+            confirm_by_it(ticket, self.requester)
+        confirm_by_it(ticket, self.it_expert, "تایید مستقل IT")
 
     def test_only_it_can_confirm_final(self):
         ticket = self._create()

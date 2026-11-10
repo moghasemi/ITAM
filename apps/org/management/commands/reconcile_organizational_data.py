@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 from typing import Any, Dict, List
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
@@ -22,13 +22,14 @@ class Command(BaseCommand):
     help = "موجودی‌برداری و تطبیق ساختار سازمانی داده‌های فاقد مرکز با پشتیبانی از Dry-Run و گزارش CSV."
 
     def add_arguments(self, parser):
-        parser.add_argument(
+        mode = parser.add_mutually_exclusive_group()
+        mode.add_argument(
             "--dry-run",
             action="store_true",
-            default=True,
+            default=False,
             help="اجرای آزمایشی بدون اعمال هرگونه تغییر در پایگاه داده (پیش‌فرض).",
         )
-        parser.add_argument(
+        mode.add_argument(
             "--apply",
             action="store_true",
             default=False,
@@ -43,7 +44,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         is_apply = options.get("apply", False)
-        is_dry_run = not is_apply or options.get("dry_run", True)
+        if is_apply and options.get("dry_run", False):
+            raise CommandError("گزینه‌های --apply و --dry-run قابل استفاده هم‌زمان نیستند.")
+        # پیش‌فرض امن همیشه Dry-Run است؛ --apply به‌تنهایی باید واقعاً اعمال کند.
+        is_dry_run = not is_apply
         output_file = options.get("output") or f"reconciliation_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 
         self.stdout.write(self.style.NOTICE("=" * 70))
@@ -198,7 +202,7 @@ class Command(BaseCommand):
                 matching_counties = OrganizationalUnit.objects.filter(
                     unit_type=OrganizationalUnit.UNIT_COUNTY,
                     is_active=True,
-                    name__icontains=center.city,
+                    name__iexact=center.city,
                 )
                 if matching_counties.count() == 1:
                     suggested_unit = matching_counties.first()
@@ -253,25 +257,30 @@ class Command(BaseCommand):
             with transaction.atomic():
                 for row in report_rows:
                     if row["confidence"] == "HIGH" and row["suggested_center_id"]:
-                        center_obj = Center.objects.get(pk=row["suggested_center_id"])
-                        if row["entity_type"] == "Asset":
-                            Asset.objects.filter(pk=row["object_id"]).update(center=center_obj, is_quarantined=False)
-                            applied_count += 1
-                        elif row["entity_type"] == "User":
-                            User.objects.filter(pk=row["object_id"]).update(center=center_obj)
-                            applied_count += 1
-                        elif row["entity_type"] == "Ticket":
-                            Ticket.objects.filter(pk=row["object_id"]).update(center=center_obj)
-                            applied_count += 1
-                        elif row["entity_type"] == "Center":
-                            unit_obj = OrganizationalUnit.objects.get(pk=row["suggested_center_id"])
-                            prov_name = unit_obj.parent.name if unit_obj.parent else "مرکزی"
-                            Center.objects.filter(pk=row["object_id"]).update(
+                        if row["entity_type"] == "Center":
+                            # این شناسه متعلق به OrganizationalUnit است، نه Center.
+                            unit_obj = OrganizationalUnit.objects.get(
+                                pk=row["suggested_center_id"],
+                                unit_type=OrganizationalUnit.UNIT_COUNTY,
+                                is_active=True,
+                            )
+                            if not unit_obj.parent or not unit_obj.parent.is_active:
+                                raise CommandError(f"واحد شهرستانی {unit_obj.pk} فاقد استان فعال است؛ هیچ تغییری اعمال نشد.")
+                            Center.objects.filter(pk=row["object_id"], parent_unit__isnull=True).update(
                                 parent_unit=unit_obj,
-                                province=prov_name,
+                                province=unit_obj.parent.name,
                             )
                             applied_count += 1
-                    elif row["confidence"] == "UNRESOLVED":
+                        elif row["entity_type"] in {"Asset", "User", "Ticket"}:
+                            center_obj = Center.objects.get(pk=row["suggested_center_id"], is_active=True)
+                            if row["entity_type"] == "Asset":
+                                Asset.objects.filter(pk=row["object_id"], center__isnull=True).update(center=center_obj, is_quarantined=False)
+                            elif row["entity_type"] == "User":
+                                User.objects.filter(pk=row["object_id"], center__isnull=True).update(center=center_obj)
+                            elif row["entity_type"] == "Ticket":
+                                Ticket.objects.filter(pk=row["object_id"], center__isnull=True).update(center=center_obj)
+                            applied_count += 1
+                    elif row["confidence"] != "HIGH":
                         if row["entity_type"] == "Asset":
                             Asset.objects.filter(pk=row["object_id"]).update(
                                 is_quarantined=True,

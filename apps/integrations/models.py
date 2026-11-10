@@ -230,3 +230,48 @@ class ApiCallLog(models.Model):
     def __str__(self) -> str:
         state = "موفق" if self.ok else "ناموفق"
         return f"{self.method} {self.url} — {state}"
+
+
+
+class OutboxDelivery(TimeStampedModel):
+    """وضعیت مستقل تحویل هر رخداد به هر مقصد فعال."""
+
+    STATUS_CHOICES = OutboxEvent.STATUS_CHOICES
+
+    event = models.ForeignKey(
+        OutboxEvent, on_delete=models.CASCADE, related_name="deliveries",
+        verbose_name="رخداد",
+    )
+    endpoint = models.ForeignKey(
+        WebhookEndpoint, on_delete=models.PROTECT, related_name="deliveries",
+        verbose_name="مقصد",
+    )
+    status = models.CharField(
+        "وضعیت تحویل", max_length=20, choices=STATUS_CHOICES,
+        default=OutboxEvent.STATUS_PENDING, db_index=True,
+    )
+    attempts = models.PositiveSmallIntegerField("تعداد تلاش", default=0)
+    last_attempt_at = models.DateTimeField("آخرین تلاش", null=True, blank=True)
+    dispatched_at = models.DateTimeField("زمان ارسال موفق", null=True, blank=True)
+    last_error = models.TextField("آخرین خطا", blank=True)
+    lock_token = models.UUIDField("شناسه قفل", null=True, blank=True, editable=False)
+    locked_until = models.DateTimeField("انقضای قفل", null=True, blank=True, db_index=True)
+
+    class Meta:
+        verbose_name = "تحویل رخداد"
+        verbose_name_plural = "تحویل‌های رخداد"
+        ordering = ("event__created_at", "endpoint__name")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("event", "endpoint"), name="unique_outbox_delivery_per_endpoint"
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=("status", "created_at"),
+                name="integrations_outbox_status_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.event_id} → {self.endpoint.name} ({self.status})"

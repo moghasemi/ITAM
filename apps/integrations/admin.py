@@ -1,7 +1,7 @@
 """ثبت مدل‌های یکپارچه‌سازی در پنل مدیریت جنگو."""
 from django.contrib import admin
 
-from .models import ApiCallLog, OutboxEvent, WebhookEndpoint
+from .models import ApiCallLog, OutboxDelivery, OutboxEvent, WebhookEndpoint
 
 
 @admin.register(WebhookEndpoint)
@@ -31,4 +31,27 @@ class ApiCallLogAdmin(admin.ModelAdmin):
     readonly_fields = [field.name for field in ApiCallLog._meta.fields]
 
     def has_add_permission(self, request):
+        return False
+
+
+@admin.register(OutboxDelivery)
+class OutboxDeliveryAdmin(admin.ModelAdmin):
+    list_display = ("event", "endpoint", "status", "attempts", "last_attempt_at", "dispatched_at")
+    list_filter = ("status", "endpoint")
+    search_fields = ("event__aggregate_id", "endpoint__name", "last_error")
+    readonly_fields = [field.name for field in OutboxDelivery._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False

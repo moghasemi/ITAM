@@ -84,7 +84,13 @@ def visible_tickets(user, center=None):
 
 
 def can_manage_ticket(user, ticket: Ticket) -> bool:
-    """کارشناس IT یا کارشناس پیمانکار مسئول این درخواست."""
+    """کارشناس IT یا کارشناس پیمانکار مسئول این درخواست در مرکز مجاز."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if not user.is_admin_province and not user.get_scoped_centers().filter(
+        pk=ticket.asset.center_id
+    ).exists():
+        return False
     if user.has_role(User.ROLE_ADMIN_IT):
         return True
     if user.has_role(User.ROLE_TECHNICIAN):
@@ -99,6 +105,12 @@ def can_manage_ticket(user, ticket: Ticket) -> bool:
 
 
 def can_confirm_as_user(user, ticket: Ticket) -> bool:
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if not user.is_admin_province and not user.get_scoped_centers().filter(
+        pk=ticket.asset.center_id
+    ).exists():
+        return False
     if user.has_role(User.ROLE_ADMIN_IT):
         return True
     if ticket.reported_by_id and ticket.reported_by_id == user.pk:
@@ -111,7 +123,18 @@ def can_confirm_as_user(user, ticket: Ticket) -> bool:
 
 
 def can_confirm_as_it(user, ticket: Ticket) -> bool:
-    return user.has_role(User.ROLE_ADMIN_IT)
+    """تایید نهایی فقط در دامنه سازمانی کاربر مجاز است."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if user.is_admin_province:
+        return True
+    if ticket.center_id and ticket.center_id != ticket.asset.center_id:
+        return False
+    return bool(
+        user.has_role(User.ROLE_ADMIN_IT)
+        and ticket.asset.center_id
+        and user.get_scoped_centers().filter(pk=ticket.asset.center_id).exists()
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -726,6 +749,16 @@ def confirm_by_it(ticket: Ticket, user, note: str = "") -> Ticket:
         raise ValidationError("درخواست آماده تایید نهایی نیست.")
     if not can_confirm_as_it(user, ticket):
         raise PermissionDenied("تایید نهایی فقط توسط کارشناس فناوری اطلاعات مرکز انجام می‌شود.")
+
+    setting = SystemSetting.load()
+    if ticket.status == STATUS_RESOLVED and setting.require_user_confirmation:
+        raise PermissionDenied("پیش از تایید نهایی IT، تایید مستقل کاربر الزامی است.")
+    if ticket.status == STATUS_USER_CONFIRMED and setting.require_user_confirmation:
+        user_confirmation = ticket.events.filter(
+            event_type=TicketEvent.EVENT_USER_CONFIRMED
+        ).order_by("-at").first()
+        if not user_confirmation or user_confirmation.actor_id == user.pk:
+            raise PermissionDenied("تایید کاربر و تایید نهایی IT باید توسط دو کاربر متفاوت انجام شوند.")
 
     previous = ticket.status
     ticket.it_confirmed_at = timezone.now()

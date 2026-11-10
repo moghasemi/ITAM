@@ -35,6 +35,14 @@ from .forms import (
 from .models import Center, Contract, Contractor, Department, Location
 
 
+def _visible_contracts_for_user(user):
+    if user.is_admin_province:
+        return Contract.objects.all()
+    return Contract.objects.filter(
+        centers__in=user.get_scoped_centers()
+    ).distinct()
+
+
 # ---------------------------------------------------------------------------
 # مراکز استان
 # ---------------------------------------------------------------------------
@@ -111,6 +119,11 @@ class DepartmentCreateView(AdminItRequiredMixin, BaseCreateView):
     success_message = "واحد سازمانی ثبت شد."
 
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
 class DepartmentUpdateView(AdminItRequiredMixin, BaseUpdateView):
     model = Department
     form_class = DepartmentForm
@@ -122,6 +135,11 @@ class DepartmentUpdateView(AdminItRequiredMixin, BaseUpdateView):
     def get_queryset(self):
         scoped = self.request.user.get_scoped_centers()
         return Department.objects.filter(center__in=scoped)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +169,11 @@ class LocationCreateView(AdminItRequiredMixin, BaseCreateView):
     success_message = "محل استقرار ثبت شد."
 
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
 class LocationUpdateView(AdminItRequiredMixin, BaseUpdateView):
     model = Location
     form_class = LocationForm
@@ -163,6 +186,11 @@ class LocationUpdateView(AdminItRequiredMixin, BaseUpdateView):
         scoped = self.request.user.get_scoped_centers()
         return Location.objects.filter(center__in=scoped)
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
 
 # ---------------------------------------------------------------------------
 # پیمانکاران
@@ -174,10 +202,25 @@ class ContractorListView(AdminItRequiredMixin, BaseListView):
     active_menu = "org"
 
     def get_queryset(self):
-        queryset = Contractor.objects.annotate(
-            contracts_total=Count("contracts", distinct=True),
-            technicians_total=Count("technicians", distinct=True),
-        ).order_by("name")
+        user = self.request.user
+        contracts = _visible_contracts_for_user(user)
+        queryset = Contractor.objects.filter(
+            pk__in=contracts.values("contractor_id")
+        )
+        if user.is_admin_province:
+            queryset = queryset.annotate(
+                contracts_total=Count("contracts", distinct=True),
+                technicians_total=Count("technicians", distinct=True),
+            )
+        else:
+            scoped_centers = user.get_scoped_centers()
+            queryset = queryset.annotate(
+                contracts_total=Count("contracts", filter=Q(contracts__in=contracts), distinct=True),
+                technicians_total=Count(
+                    "technicians", filter=Q(technicians__center__in=scoped_centers), distinct=True
+                ),
+            )
+        queryset = queryset.order_by("name")
         return apply_search(queryset, self.request.GET.get("q"), ["name", "code", "contact_person", "phone"])
 
 
@@ -206,15 +249,29 @@ class ContractorDetailView(AdminItRequiredMixin, BaseDetailView):
     page_title = "پرونده پیمانکار"
     active_menu = "org"
 
+    def get_queryset(self):
+        contracts = _visible_contracts_for_user(self.request.user)
+        return Contractor.objects.filter(pk__in=contracts.values("contractor_id")).distinct()
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         contractor = self.object
-        context["contracts"] = contractor.contracts.select_related("contractor").order_by("-start_date")
-        context["technicians"] = contractor.technicians.all()
-        tickets = contractor.tickets.all()
+        user = self.request.user
+        from apps.maintenance.services import visible_visits
+        from apps.tickets.services import visible_tickets
+
+        contracts = _visible_contracts_for_user(user).filter(contractor=contractor)
+        context["contracts"] = contracts.select_related("contractor").order_by("-start_date")
+        technicians = contractor.technicians.all()
+        if not user.is_admin_province:
+            technicians = technicians.filter(center__in=user.get_scoped_centers())
+        context["technicians"] = technicians
+        tickets = visible_tickets(user).filter(assigned_contractor=contractor)
         context["tickets_total"] = tickets.count()
         context["tickets_open"] = tickets.filter(status__in=TICKET_OPEN_STATUSES).count()
-        context["visits"] = contractor.visits.select_related("contract").order_by("-scheduled_date")[:10]
+        context["visits"] = visible_visits(user).filter(
+            contract__contractor=contractor
+        ).select_related("contract").order_by("-scheduled_date")[:10]
         return context
 
 
@@ -228,11 +285,26 @@ class ContractListView(AdminItRequiredMixin, BaseListView):
     active_menu = "contracts"
     filter_form_class = ContractFilterForm
 
+    def get_filter_form(self):
+        return self.filter_form_class(
+            self.request.GET or None, user=self.request.user
+        )
+
     def get_queryset(self):
-        queryset = Contract.objects.select_related("contractor").annotate(
-            assets_total=Count("assets", distinct=True),
-            tickets_total=Count("tickets", distinct=True),
-        ).order_by("-start_date")
+        user = self.request.user
+        queryset = _visible_contracts_for_user(user).select_related("contractor")
+        if user.is_admin_province:
+            queryset = queryset.annotate(
+                assets_total=Count("assets", distinct=True),
+                tickets_total=Count("tickets", distinct=True),
+            )
+        else:
+            centers = user.get_scoped_centers()
+            queryset = queryset.annotate(
+                assets_total=Count("assets", filter=Q(assets__center__in=centers), distinct=True),
+                tickets_total=Count("tickets", filter=Q(tickets__asset__center__in=centers), distinct=True),
+            )
+        queryset = queryset.order_by("-start_date")
         form = self.get_filter_form()
         if form is not None and form.is_valid():
             data = form.cleaned_data
@@ -305,30 +377,51 @@ class ContractDetailView(AdminItRequiredMixin, BaseDetailView):
     page_title = "پرونده قرارداد"
     active_menu = "contracts"
 
+    def get_queryset(self):
+        return _visible_contracts_for_user(self.request.user)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         contract = self.object
-        tickets = contract.tickets.all()
+        from apps.assets.services import visible_assets
+        from apps.maintenance.services import visible_visits
+        from apps.tickets.services import visible_tickets
+
+        tickets = visible_tickets(self.request.user).filter(contract=contract)
+        visits = visible_visits(self.request.user).filter(contract=contract)
+        assets = visible_assets(self.request.user).filter(contract=contract)
         context["sla_policies"] = contract.sla_table()
-        context["visits"] = contract.visits.select_related("technician").order_by("sequence_number")
-        context["assets"] = contract.assets.select_related("category", "location")[:50]
-        context["assets_total"] = contract.assets.count()
+        context["visits"] = visits.select_related("technician").order_by("sequence_number")
+        context["assets"] = assets.select_related("category", "location")[:50]
+        context["assets_total"] = assets.count()
         context["tickets_total"] = tickets.count()
         context["tickets_open"] = tickets.filter(status__in=TICKET_OPEN_STATUSES).count()
         context["tickets_closed"] = tickets.exclude(status__in=TICKET_OPEN_STATUSES).count()
         context["breached_count"] = tickets.filter(Q(response_met=False) | Q(resolve_met=False)).count()
-        context["planned_visits"] = contract.planned_visit_count()
+        context["planned_visits"] = visits.count()
         context["sla_minutes_to_hours"] = True
         return context
 
 
 def contract_generate_visits(request, pk: int):
     """برنامه‌ریزی بازدیدهای دوره‌ای یک قرارداد."""
-    contract = get_object_or_404(Contract, pk=pk)
+    contract = get_object_or_404(
+        _visible_contracts_for_user(request.user),
+        pk=pk,
+    )
     if not request.user.has_role("admin_it"):
         from django.core.exceptions import PermissionDenied
 
         raise PermissionDenied("فقط کارشناس فناوری اطلاعات مرکز می‌تواند بازدیدها را برنامه‌ریزی کند.")
+    if (
+        request.user.has_role("admin_it")
+        and not request.user.is_admin_province
+        and contract.is_provincial
+    ):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied(
+            "برنامه‌ریزی قرارداد استانی باید توسط مدیر استان انجام شود تا بازدیدها بین مراکز تفکیک شوند."
+        )
     if request.method == "POST":
         from apps.maintenance.services import generate_visits
 
