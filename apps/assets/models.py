@@ -24,7 +24,7 @@ from apps.core.constants import (
     SNAPSHOT_STATUS_CHOICES,
 )
 from apps.core.models import TimeStampedModel
-from apps.core.validators import validate_image_file
+from apps.core.validators import validate_document_file, validate_image_file
 
 
 class AssetCategory(TimeStampedModel):
@@ -627,7 +627,7 @@ class AssetAttachment(TimeStampedModel):
     )
     kind = models.CharField("نوع", max_length=20, choices=KIND_CHOICES, default=KIND_PHOTO)
     title = models.CharField("عنوان", max_length=150, blank=True)
-    file = models.FileField("فایل", upload_to="assets/%Y/%m/")
+    file = models.FileField("فایل", upload_to="assets/%Y/%m/", validators=[validate_document_file])
     description = models.CharField("توضیحات", max_length=250, blank=True)
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
