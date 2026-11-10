@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import random
 
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -75,6 +76,8 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
+        if not settings.DEBUG or not settings.DATABASES["default"]["ENGINE"].endswith("sqlite3"):
+            raise CommandError("seed_demo فقط در محیط توسعه DEBUG=True و پایگاه SQLite مجاز است.")
         password = options["admin_password"]
         asset_count = options["assets"]
         if asset_count < 1:
@@ -107,52 +110,64 @@ class Command(BaseCommand):
             )
 
         self.stdout.write(self.style.MIGRATE_HEADING("۴) اتصال مراکز نمونه به جغرافیای رسمی"))
-        ou_markazi = OrganizationalUnit.objects.get(code="IR-PROV-100")
-        ou_arak = OrganizationalUnit.objects.get(code="IR-COUNTY-1000001")
-        ou_saveh = OrganizationalUnit.objects.get(code="IR-COUNTY-1000006")
-        ou_khomein = OrganizationalUnit.objects.get(code="IR-COUNTY-1000004")
+        ou_sistan = OrganizationalUnit.objects.get(code="IR-PROV-111", is_active=True)
+        ou_zahedan = OrganizationalUnit.objects.get(code="IR-COUNTY-1110005", is_active=True)
+        ou_zabol = OrganizationalUnit.objects.get(code="IR-COUNTY-1110004", is_active=True)
+        ou_iranshahr = OrganizationalUnit.objects.get(code="IR-COUNTY-1110001", is_active=True)
         center_hq, _ = Center.objects.get_or_create(
             code="HQ-01",
             defaults={
                 "name": "مرکز ستاد مدیریت فناوری اطلاعات استان",
-                "province": "مرکزی",
-                "parent_unit": ou_arak,
-                "city": "اراک",
+                "province": "سیستان و بلوچستان",
+                "parent_unit": ou_zahedan,
+                "city": "زاهدان",
                 "manager_name": "مهندس صادقی (مدیر فناوری اطلاعات استان)",
                 "it_lead_name": "علی محمدی",
                 "is_headquarters": True,
                 "phone": "086-33445566",
-                "address": "اراک، میدان شهدا، ساختمان ستاد مرکزی",
+                "address": "زاهدان، ساختمان ستاد مدیریت فناوری اطلاعات",
             },
         )
         center_saveh, _ = Center.objects.get_or_create(
             code="C-02",
             defaults={
                 "name": "مرکز فناوری اطلاعات ساوه",
-                "province": "مرکزی",
-                "parent_unit": ou_saveh,
-                "city": "ساوه",
+                "province": "سیستان و بلوچستان",
+                "parent_unit": ou_zabol,
+                "city": "زابل",
                 "manager_name": "حسین اکبری",
                 "it_lead_name": "مهرداد کاظمی",
                 "is_headquarters": False,
                 "phone": "086-42223344",
-                "address": "ساوه، بلوار طالقانی، اداره تابعه",
+                "address": "زابل، مرکز فناوری اطلاعات شهرستان",
             },
         )
         center_khomein, _ = Center.objects.get_or_create(
             code="C-03",
             defaults={
                 "name": "مرکز فناوری اطلاعات خمین",
-                "province": "مرکزی",
-                "parent_unit": ou_khomein,
-                "city": "خمین",
+                "province": "سیستان و بلوچستان",
+                "parent_unit": ou_iranshahr,
+                "city": "ایرانشهر",
                 "manager_name": "سعید مرادی",
                 "it_lead_name": "پیمان خسروی",
                 "is_headquarters": False,
                 "phone": "086-46667788",
-                "address": "خمین، خیابان امام، اداره تابعه",
+                "address": "ایرانشهر، مرکز فناوری اطلاعات شهرستان",
             },
         )
+        # Reconcile pre-existing demo centers when the seed is run more than once.
+        for center, county, city in [
+            (center_hq, ou_zahedan, "زاهدان"),
+            (center_saveh, ou_zabol, "زابل"),
+            (center_khomein, ou_iranshahr, "ایرانشهر"),
+        ]:
+            center.parent_unit = county
+            center.province = "سیستان و بلوچستان"
+            center.city = city
+            center.is_active = True
+            center.save()
+
         centers_list = [center_hq, center_saveh, center_khomein]
         self.stdout.write(f"   مراکز استان: {center_hq.name}، {center_saveh.name}، {center_khomein.name}")
 
@@ -200,6 +215,7 @@ class Command(BaseCommand):
             number="1403/IT/07",
             defaults={
                 "contractor": contractor,
+                "province": ou_sistan,
                 "title": "نگهداری و تعمیر تجهیزات رایانه‌ای و چاپگرها",
                 "start_date": today - dt.timedelta(days=60),
                 "end_date": today + dt.timedelta(days=305),
@@ -210,6 +226,10 @@ class Command(BaseCommand):
                 "status": Contract.STATUS_ACTIVE,
             },
         )
+        if contract.province_id != ou_sistan.pk:
+            contract.province = ou_sistan
+            contract.is_provincial = True
+            contract.save(update_fields=["province", "is_provincial", "updated_at"])
         if created:
             self.stdout.write(f"   قرارداد {contract.number} ایجاد شد")
         for priority, response, resolve in [
@@ -228,7 +248,7 @@ class Command(BaseCommand):
         admin_province, _ = User.objects.get_or_create(
             username="admin.province",
             defaults={
-                "org_unit": ou_markazi,
+                "org_unit": ou_sistan,
                 "first_name": "سهراب",
                 "last_name": "صادقی",
                 "role": User.ROLE_ADMIN_PROVINCE,
@@ -241,6 +261,8 @@ class Command(BaseCommand):
                 "is_superuser": False,
             },
         )
+        admin_province.org_unit = ou_sistan
+        admin_province.center = center_hq
         admin_province.set_password(password)
         admin_province.save()
 
@@ -258,6 +280,7 @@ class Command(BaseCommand):
                 "is_staff": True,
             },
         )
+        admin_it.center = center_hq
         admin_it.set_password(password)
         admin_it.save()
 
@@ -281,10 +304,12 @@ class Command(BaseCommand):
                 "first_name": "محمد",
                 "last_name": "رضایی",
                 "role": User.ROLE_MANAGER,
+                "center": center_hq,
                 "department": departments["100"],
                 "job_title": "رئیس اداره",
             },
         )
+        manager.center = center_hq
         manager.set_password(password)
         manager.save()
 
@@ -294,11 +319,13 @@ class Command(BaseCommand):
                 "first_name": "زهرا",
                 "last_name": "کریمی",
                 "role": User.ROLE_REQUESTER,
+                "center": center_hq,
                 "department": departments["200"],
                 "phone": "09127778899",
                 "personnel_code": "20112",
             },
         )
+        requester.center = center_hq
         requester.set_password(password)
         requester.save()
 
