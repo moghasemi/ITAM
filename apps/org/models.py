@@ -76,6 +76,35 @@ class OrganizationalUnit(TimeStampedModel):
                 raise ValidationError({"parent": "واحد بالادست یک شهرستان باید از سطح استانی باشد."})
 
 
+class TreatmentManagement(TimeStampedModel):
+    """واحد سازمانی مدیریت درمان استان؛ مستقل از واحدهای جغرافیایی."""
+
+    province = models.OneToOneField(
+        OrganizationalUnit,
+        verbose_name="استان",
+        on_delete=models.PROTECT,
+        related_name="treatment_management",
+        limit_choices_to={"unit_type": OrganizationalUnit.UNIT_PROVINCE},
+    )
+    name = models.CharField("نام مدیریت درمان", max_length=150)
+    code = models.CharField("کد مدیریت درمان", max_length=40, unique=True)
+    is_active = models.BooleanField("فعال", default=True)
+    notes = models.TextField("یادداشت", blank=True)
+
+    class Meta:
+        verbose_name = "مدیریت درمان استان"
+        verbose_name_plural = "مدیریت‌های درمان استان"
+        ordering = ("province__name",)
+
+    def __str__(self) -> str:
+        return self.name
+
+    def clean(self):
+        super().clean()
+        if self.province_id and self.province.unit_type != OrganizationalUnit.UNIT_PROVINCE:
+            raise ValidationError({"province": "مدیریت درمان باید دقیقاً به یک استان متصل باشد."})
+
+
 class Center(TimeStampedModel):
     """مرکز اداری / شهرستانی تحت مدیریت و نظارت مرکز فناوری اطلاعات استان."""
 
@@ -106,7 +135,16 @@ class Center(TimeStampedModel):
         null=True,
         blank=False,
         related_name="centers",
-        help_text="اتصال مرکز به یک واحد سازمانی شهرستانی (County) الزامی است.",
+        help_text="این رابطه صرفاً موقعیت جغرافیایی مرکز را مشخص می‌کند.",
+    )
+    treatment_management = models.ForeignKey(
+        TreatmentManagement,
+        verbose_name="مدیریت درمان استان",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="centers",
+        help_text="واحد سازمانی مالک مرکز؛ استان آن باید با استان محل جغرافیایی مرکز یکسان باشد.",
     )
     notes = models.TextField("یادداشت", blank=True)
 
@@ -125,7 +163,13 @@ class Center(TimeStampedModel):
         if is_new and not self.parent_unit:
             raise ValidationError({"parent_unit": "اتصال مرکز جدید به واحد سازمانی شهرستانی (County) الزامی است."})
         if self.parent_unit and self.parent_unit.unit_type != OrganizationalUnit.UNIT_COUNTY:
-            raise ValidationError({"parent_unit": "واحد بالادست مرکز باید حتماً از سطح شهرستانی باشد."})
+            raise ValidationError({"parent_unit": "واحد جغرافیایی مرکز باید از سطح شهرستانی باشد."})
+        if self.parent_unit_id and self.parent_unit.parent_id:
+            province = self.parent_unit.parent
+            if province.unit_type != OrganizationalUnit.UNIT_PROVINCE:
+                raise ValidationError({"parent_unit": "شهرستان مرکز باید به یک استان جغرافیایی متصل باشد."})
+            if self.treatment_management_id and self.treatment_management.province_id != province.pk:
+                raise ValidationError({"treatment_management": "استان مدیریت درمان باید با استان جغرافیایی مرکز یکسان باشد."})
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding or not self.pk
@@ -133,13 +177,34 @@ class Center(TimeStampedModel):
             raise ValidationError({"parent_unit": "اتصال مرکز جدید به واحد سازمانی شهرستانی (County) الزامی است."})
         if self.parent_unit:
             if self.parent_unit.unit_type != OrganizationalUnit.UNIT_COUNTY:
-                raise ValidationError({"parent_unit": "واحد بالادست مرکز باید حتماً از سطح شهرستانی باشد."})
-            if self.parent_unit.parent and self.parent_unit.parent.name:
-                self.province = self.parent_unit.parent.name
+                raise ValidationError({"parent_unit": "واحد جغرافیایی مرکز باید از سطح شهرستانی باشد."})
+            province = self.parent_unit.parent
+            if not province or province.unit_type != OrganizationalUnit.UNIT_PROVINCE:
+                raise ValidationError({"parent_unit": "شهرستان مرکز باید به یک استان متصل باشد."})
+            if self.treatment_management_id:
+                if self.treatment_management.province_id != province.pk:
+                    raise ValidationError({"treatment_management": "استان مدیریت درمان با استان جغرافیایی مرکز یکسان نیست."})
+            else:
+                management, _ = TreatmentManagement.objects.get_or_create(
+                    province=province,
+                    defaults={
+                        "name": f"مدیریت درمان استان {province.name}",
+                        "code": f"TM-{province.pk}",
+                        "is_active": province.is_active,
+                    },
+                )
+                self.treatment_management = management
+            if province.name:
+                self.province = province.name
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"treatment_management", "province"}
         super().save(*args, **kwargs)
 
     @property
     def province_name(self) -> str:
+        if self.treatment_management_id:
+            return self.treatment_management.province.name
         if self.parent_unit and self.parent_unit.parent:
             return self.parent_unit.parent.name
         return self.province or "مرکزی"
@@ -365,14 +430,14 @@ class Contract(TimeStampedModel):
     def covers_center(self, center) -> bool:
         if not self.province_id or center is None:
             return False
-        center_obj = center if hasattr(center, "parent_unit_id") else None
+        center_obj = center if hasattr(center, "treatment_management_id") else None
         if center_obj is None:
             from apps.org.models import Center
-            center_obj = Center.objects.select_related("parent_unit").filter(pk=center).first()
+            center_obj = Center.objects.select_related("treatment_management").filter(pk=center).first()
         return bool(
             center_obj
-            and center_obj.parent_unit_id
-            and center_obj.parent_unit.parent_id == self.province_id
+            and center_obj.treatment_management_id
+            and center_obj.treatment_management.province_id == self.province_id
         )
 
     @property
