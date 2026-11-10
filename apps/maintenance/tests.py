@@ -131,9 +131,14 @@ class ProvincialMaintenanceScopeTests(TestCase):
         self.assertTrue(visible_visits(self.center_it).filter(pk=self.visit.pk).exists())
         checks = visible_checks(self.center_it, self.visit)
         self.assertEqual(set(checks.values_list("pk", flat=True)), {self.own_check.pk})
-        self.assertTrue(can_confirm_visit(self.center_it, self.visit))
+        self.assertFalse(can_confirm_visit(self.center_it, self.visit))
         self.assertFalse(can_manage_visit(self.center_it, self.visit))
+        with self.assertRaises(ValidationError):
+            confirm_visit(self.visit, self.center_it, "تایید زودهنگام")
 
+        self.visit.status = "done"
+        self.visit.save(update_fields=["status", "updated_at"])
+        self.assertTrue(can_confirm_visit(self.center_it, self.visit))
         confirm_visit(self.visit, self.center_it, "تایید مرکز")
         self.visit.refresh_from_db()
         self.assertEqual(self.visit.it_confirmed_by_id, self.center_it.pk)
