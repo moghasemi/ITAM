@@ -37,6 +37,41 @@ if (-not (Test-Path (Join-Path $ProjectPath ".env"))) {
     throw "فایل .env یافت نشد. ابتدا deploy\\.env.example را به .env کپی و تنظیم کنید."
 }
 
+$envSettings = @{}
+Get-Content (Join-Path $ProjectPath ".env") | ForEach-Object {
+    $line = $_.Trim()
+    if ($line -and -not $line.StartsWith("#") -and $line.Contains("=")) {
+        $pair = $line.Split("=", 2)
+        $envSettings[$pair[0].Trim()] = $pair[1].Trim().Trim('"').Trim("'")
+    }
+}
+$debugValue = $envSettings["ITAM_DEBUG"]
+if ($debugValue -notin @("0", "false", "False", "no", "No")) {
+    throw "نصب سرویس عملیاتی فقط با ITAM_DEBUG=0 مجاز است."
+}
+if ($envSettings["ITAM_DB_ENGINE"].ToLowerInvariant() -notin @("postgres", "postgresql")) {
+    throw "نصب سرویس عملیاتی فقط با PostgreSQL مجاز است؛ SQLite صرفاً برای دموی محلی است."
+}
+$secret = $envSettings["ITAM_SECRET_KEY"]
+if (-not $secret -or $secret.Length -lt 50 -or $secret -match "REPLACE|CHANGE_ME") {
+    throw "ITAM_SECRET_KEY باید کلید تصادفی واقعی با حداقل ۵۰ نویسه باشد."
+}
+if (-not $envSettings["ITAM_ALLOWED_HOSTS"] -or $envSettings["ITAM_ALLOWED_HOSTS"] -match "(^|,)\\s*\\*(\\s*,|$)") {
+    throw "ITAM_ALLOWED_HOSTS باید میزبان‌های واقعی و بدون wildcard داشته باشد."
+}
+if ($envSettings["ITAM_SECURE_COOKIES"] -notin @("1", "true", "True", "yes", "Yes")) {
+    throw "ITAM_SECURE_COOKIES باید فعال باشد."
+}
+if ($envSettings["ITAM_USE_PROXY_SSL_HEADER"] -notin @("1", "true", "True", "yes", "Yes")) {
+    throw "ITAM_USE_PROXY_SSL_HEADER باید برای Reverse Proxy فعال باشد."
+}
+if ($envSettings["ITAM_PUBLIC_BASE_URL"] -notmatch "^https://") {
+    throw "ITAM_PUBLIC_BASE_URL باید نشانی HTTPS باشد."
+}
+foreach ($key in @("ITAM_DB_NAME", "ITAM_DB_USER", "ITAM_DB_PASSWORD", "ITAM_DB_HOST")) {
+    if (-not $envSettings[$key]) { throw "مقدار $key در .env الزامی است." }
+}
+
 if (-not $PythonPath) {
     $candidates = @(
         (Join-Path $ProjectPath ".venv\Scripts\python.exe"),
