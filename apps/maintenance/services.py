@@ -43,11 +43,11 @@ def visible_visits(user):
         return queryset
     if user.role == User.ROLE_ADMIN_PROVINCE:
         centers = user.get_scoped_centers()
-        province_ids = centers.values("parent_unit__parent_id")
+        province_ids = centers.values("treatment_management__province_id")
         return queryset.filter(
             Q(
                 center__in=centers,
-                center__parent_unit__parent_id=F("contract__province_id"),
+                center__treatment_management__province_id=F("contract__province_id"),
             )
             | Q(center__isnull=True, contract__province_id__in=province_ids)
         ).distinct()
@@ -56,11 +56,11 @@ def visible_visits(user):
         return queryset.filter(
             Q(
                 center__in=centers,
-                center__parent_unit__parent_id=F("contract__province_id"),
+                center__treatment_management__province_id=F("contract__province_id"),
             )
             | Q(
                 checks__asset__center__in=centers,
-                checks__asset__center__parent_unit__parent_id=F("contract__province_id"),
+                checks__asset__center__treatment_management__province_id=F("contract__province_id"),
             )
         ).distinct()
     if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
@@ -70,11 +70,11 @@ def visible_visits(user):
         return queryset.filter(
             Q(
                 center__in=centers,
-                center__parent_unit__parent_id=F("contract__province_id"),
+                center__treatment_management__province_id=F("contract__province_id"),
             )
             | Q(
                 checks__asset__center__in=centers,
-                checks__asset__center__parent_unit__parent_id=F("contract__province_id"),
+                checks__asset__center__treatment_management__province_id=F("contract__province_id"),
             )
         ).distinct()
     if user.has_role(User.ROLE_TECHNICIAN):
@@ -88,7 +88,7 @@ def visible_visits(user):
         ).filter(
             Q(
                 center__in=centers,
-                center__parent_unit__parent_id=F("contract__province_id"),
+                center__treatment_management__province_id=F("contract__province_id"),
             )
             | Q(
                 center__isnull=True,
@@ -106,7 +106,7 @@ def visible_checks(user, visit: MaintenanceVisit):
         return checks
     return checks.filter(
         asset__center__in=user.get_scoped_centers(),
-        asset__center__parent_unit__parent_id=F("visit__contract__province_id"),
+        asset__center__treatment_management__province_id=F("visit__contract__province_id"),
     )
 
 
@@ -138,7 +138,7 @@ def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
         return bool(
             visit.contract_id
             and visit.contract.province_id
-            and centers.filter(parent_unit__parent_id=visit.contract.province_id).exists()
+            and centers.filter(treatment_management__province_id=visit.contract.province_id).exists()
         )
     if user.has_role(User.ROLE_ADMIN_IT):
         return user.get_scoped_centers().filter(pk=visit.center_id).exists()
@@ -151,7 +151,7 @@ def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
         return bool(
             visit.contract.is_current
             and visit.contract.province_id
-            and centers.filter(parent_unit__parent_id=visit.contract.province_id).exists()
+            and centers.filter(treatment_management__province_id=visit.contract.province_id).exists()
         )
     return False
 
@@ -234,7 +234,7 @@ def populate_checks(visit: MaintenanceVisit, only_missing: bool = True) -> int:
     """ساخت برگه بازدید برای دارایی‌های قرارداد."""
     assets = Asset.objects.filter(
         contract=visit.contract,
-        center__parent_unit__parent_id=visit.contract.province_id,
+        center__treatment_management__province_id=visit.contract.province_id,
     ).exclude(status="retired")
     existing_ids = set()
     if only_missing:
