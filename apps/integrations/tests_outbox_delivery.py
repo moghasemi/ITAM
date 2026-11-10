@@ -315,3 +315,40 @@ class OutboxLeaseLockTests(TestCase):
         self.delivery.refresh_from_db()
         self.assertEqual(self.delivery.lock_token, current_token)
         self.assertEqual(self.delivery.status, OutboxEvent.STATUS_PENDING)
+
+
+
+class OutboxRequeueTests(TestCase):
+    def test_single_event_requeue_resets_dead_delivery(self):
+        event = OutboxEvent.objects.create(
+            event_type="ticket.reported",
+            aggregate_type="Ticket",
+            aggregate_id="T-REQUEUE",
+            payload={"ticket": "T-REQUEUE"},
+            status=OutboxEvent.STATUS_DEAD,
+            attempts=5,
+            last_error="delivery exhausted",
+        )
+        endpoint = WebhookEndpoint.objects.create(
+            name="requeue-endpoint",
+            url="https://requeue.example/events",
+        )
+        delivery = OutboxDelivery.objects.create(
+            event=event,
+            endpoint=endpoint,
+            status=OutboxEvent.STATUS_DEAD,
+            attempts=5,
+            last_error="delivery exhausted",
+            locked_until=timezone.now(),
+        )
+
+        event.requeue()
+
+        event.refresh_from_db()
+        delivery.refresh_from_db()
+        self.assertEqual(event.status, OutboxEvent.STATUS_PENDING)
+        self.assertEqual(event.attempts, 0)
+        self.assertEqual(delivery.status, OutboxEvent.STATUS_PENDING)
+        self.assertEqual(delivery.attempts, 0)
+        self.assertEqual(delivery.last_error, "")
+        self.assertIsNone(delivery.locked_until)
