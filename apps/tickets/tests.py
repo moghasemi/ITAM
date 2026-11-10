@@ -303,6 +303,8 @@ class TicketWorkflowTests(TestCase):
 
     def test_it_role_cannot_impersonate_requester_for_user_confirmation(self):
         ticket = self._create()
+        Ticket.objects.filter(pk=ticket.pk).update(status=STATUS_RESOLVED)
+        ticket.refresh_from_db()
         self.assertFalse(can_confirm_as_user(self.it_expert, ticket))
         with self.assertRaises(PermissionDenied):
             confirm_by_user(ticket, self.it_expert, "تایید به جای کاربر")
@@ -331,6 +333,8 @@ class TicketWorkflowTests(TestCase):
             contract=contract_b, center=center_b, status="active",
         )
         ticket_b = self._create(asset=asset_b)
+        Ticket.objects.filter(pk=ticket_b.pk).update(status=STATUS_RESOLVED)
+        ticket_b.refresh_from_db()
         province_admin = User.objects.create_user(
             username="province-admin-confirm-test", password="pass12345",
             role=User.ROLE_ADMIN_PROVINCE,
