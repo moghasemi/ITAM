@@ -181,7 +181,10 @@ def generate_visits(contract, *, user=None, populate=True) -> dict:
 
 def populate_checks(visit: MaintenanceVisit, only_missing: bool = True) -> int:
     """ساخت برگه بازدید برای دارایی‌های قرارداد."""
-    assets = Asset.objects.filter(contract=visit.contract).exclude(status="retired")
+    assets = Asset.objects.filter(
+        contract=visit.contract,
+        center__parent_unit__parent_id=visit.contract.province_id,
+    ).exclude(status="retired")
     existing_ids = set()
     if only_missing:
         existing_ids = set(visit.checks.values_list("asset_id", flat=True))
