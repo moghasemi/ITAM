@@ -291,7 +291,7 @@ class ContractListView(AdminItRequiredMixin, BaseListView):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = _visible_contracts_for_user(user).select_related("contractor")
+        queryset = _visible_contracts_for_user(user).select_related("contractor", "province")
         if user.is_admin_province:
             queryset = queryset.annotate(
                 assets_total=Count("assets", distinct=True),
