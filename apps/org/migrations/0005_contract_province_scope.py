@@ -59,6 +59,7 @@ class Migration(migrations.Migration):
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="contracts",
                 limit_choices_to={"unit_type": "province"},
+                help_text="قرارداد به دقیقاً یک استان تعلق دارد؛ قراردادهای قدیمیِ تعیین‌تکلیف‌نشده دسترسی عملیاتی نمی‌دهند.",
                 to="org.organizationalunit",
                 verbose_name="استان محل اجرای قرارداد",
             ),
