@@ -188,12 +188,10 @@ class User(AbstractUser):
         if province_id:
             return contracts.filter(province_id=province_id)
 
-        active_provinces = list(
-            contracts.order_by().values_list("province_id", flat=True).distinct()[:2]
-        )
-        if len(active_provinces) != 1:
-            return Contract.objects.none()
-        return contracts.filter(province_id=active_provinces[0])
+        # Preserve the established multi-province contractor model for legacy
+        # technicians without an explicit organizational assignment. New
+        # technicians created by a province administrator are bound in UserForm.
+        return contracts
 
     def _active_center_scope(self, queryset):
         """Exclude centers beneath inactive counties/provinces from operational access."""
