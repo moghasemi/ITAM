@@ -380,17 +380,16 @@ function initItamSettings() {
   if (savedUrl) document.getElementById("itamServerUrl").value = savedUrl;
   const savedTag = localStorage.getItem("itam_asset_tag");
   if (savedTag) document.getElementById("itamAssetTag").value = savedTag;
-  const savedTok = localStorage.getItem("itam_agent_token");
-  if (savedTok && document.getElementById("itamAgentToken")) document.getElementById("itamAgentToken").value = savedTok;
+  // Remove tokens persisted by older builds. Tokens must remain session-only.
+  localStorage.removeItem("itam_agent_token");
 }
 function saveItamSettings() {
   const url = document.getElementById("itamServerUrl").value.trim();
   const tag = document.getElementById("itamAssetTag").value.trim();
-  const tok = document.getElementById("itamAgentToken") ? document.getElementById("itamAgentToken").value.trim() : "";
   localStorage.setItem("itam_server_url", url);
   localStorage.setItem("itam_asset_tag", tag);
-  if (tok) localStorage.setItem("itam_agent_token", tok);
-  toast("✅ تنظیمات ذخیره شد");
+  // Deliberately do not persist the Agent Token in localStorage.
+  toast("✅ تنظیمات غیرحساس ذخیره شد؛ توکن فقط برای همین نشست استفاده می‌شود.");
 }
 window.addEventListener("DOMContentLoaded", initItamSettings);
 
@@ -446,21 +445,16 @@ async function syncWithItamServer() {
       body: JSON.stringify({ itamUrl, assetTag, agentToken })
     });
 
+    // The local PowerShell relay adds the required Bearer token,
+    // timestamp and one-time nonce. Never bypass it from browser JavaScript.
     let result;
-    if (relayResp.ok) {
+    try {
       result = await relayResp.json();
-    } else {
-      // در صورت عدم پاسخ رله، مستقیماً از طریق مرورگر به سرور ارسال می‌کنیم
-      const latestResp = await fetch(API + "/api/latest");
-      const snapData = await latestResp.json();
-      if (assetTag) snapData.asset_tag = assetTag;
-
-      const directResp = await fetch(itamUrl + "/api/v1/hardware/agent-sync/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(snapData)
-      });
-      result = await directResp.json();
+    } catch (_) {
+      throw new Error("پاسخ ایجنت محلی قابل‌خواندن نیست؛ agent.ps1 را بررسی و دوباره اجرا کنید.");
+    }
+    if (!relayResp.ok) {
+      throw new Error(result.error || `ارسال ناموفق بود (HTTP ${relayResp.status}).`);
     }
 
     if (result.status === "ok") {
