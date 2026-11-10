@@ -368,8 +368,12 @@ def _technicians_of(contractor):
     )
 
 
-def _it_experts():
-    return User.objects.filter(role=User.ROLE_ADMIN_IT, is_active=True)
+def _it_experts(center=None):
+    if center is None:
+        return User.objects.none()
+    return User.objects.filter(
+        role=User.ROLE_ADMIN_IT, is_active=True, center_id=center.pk
+    )
 
 
 def notify(users, title, message, url, level="info"):
@@ -430,7 +434,7 @@ def create_ticket(*, asset: Asset, title: str, description: str, priority: str, 
         actor=user,
     )
     notify(
-        _technicians_of(ticket.assigned_contractor) | _it_experts(),
+        _technicians_of(ticket.assigned_contractor) | _it_experts(ticket.asset.center),
         f"اعلام خرابی {ticket.number}",
         f"{asset.asset_tag} — {title}",
         ticket.get_absolute_url(),
@@ -671,7 +675,7 @@ def declare_resolved(ticket: Ticket, user, *, root_cause="", action_taken="", pa
             level="warning",
         )
     notify(
-        _it_experts(),
+        _it_experts(ticket.asset.center),
         f"اعلام رفع خرابی {ticket.number}",
         f"{ticket.asset.asset_tag} — در انتظار تایید نهایی",
         ticket.get_absolute_url(),
@@ -729,7 +733,7 @@ def confirm_by_user(ticket: Ticket, user, note: str = "", satisfaction=None) -> 
         actor=user,
     )
     notify(
-        _it_experts(),
+        _it_experts(ticket.asset.center),
         f"تایید کاربر برای {ticket.number}",
         "در انتظار تایید نهایی کارشناس فناوری اطلاعات مرکز",
         ticket.get_absolute_url(),
@@ -760,7 +764,7 @@ def reject_by_user(ticket: Ticket, user, reason: str = "") -> Ticket:
         from_status=previous, to_status=ticket.status,
     )
     notify(
-        _technicians_of(ticket.assigned_contractor) | _it_experts(),
+        _technicians_of(ticket.assigned_contractor) | _it_experts(ticket.asset.center),
         f"عدم تایید رفع خرابی {ticket.number}",
         reason or "کاربر اعلام کرد مشکل برطرف نشده است.",
         ticket.get_absolute_url(),
