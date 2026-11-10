@@ -189,7 +189,7 @@ class Center(TimeStampedModel):
                     province=province,
                     defaults={
                         "name": f"مدیریت درمان استان {province.name}",
-                        "code": f"TM-{province.pk}",
+                        "code": f"TM-{province.code}",
                         "is_active": province.is_active,
                     },
                 )
