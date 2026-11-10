@@ -3,7 +3,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
-from apps.org.models import OrganizationalUnit
+from apps.org.models import OrganizationalUnit, TreatmentManagement
 
 
 class IranGeographyLoaderTests(TestCase):
@@ -24,6 +24,10 @@ class IranGeographyLoaderTests(TestCase):
 
         self.assertEqual(provinces.count(), 31)
         self.assertEqual(counties.count(), 484)
+        self.assertEqual(TreatmentManagement.objects.count(), 31)
+        self.assertEqual(
+            TreatmentManagement.objects.values("province_id").distinct().count(), 31
+        )
         active_provinces = list(
             provinces.filter(is_active=True).values_list("name", flat=True)
         )
@@ -55,6 +59,7 @@ class IranGeographyLoaderTests(TestCase):
             OrganizationalUnit.objects.filter(code__startswith="IR-COUNTY-").count(),
             484,
         )
+        self.assertEqual(TreatmentManagement.objects.count(), 31)
 
     def test_loader_reuses_legacy_demo_hierarchy_and_keeps_center_link(self):
         national = OrganizationalUnit.objects.create(
