@@ -68,7 +68,10 @@ def visible_visits(user):
         if not centers.exists():
             return queryset.none()
         return queryset.filter(
-            Q(center__in=centers)
+            Q(
+                center__in=centers,
+                center__parent_unit__parent_id=F("contract__province_id"),
+            )
             | Q(
                 checks__asset__center__in=centers,
                 checks__asset__center__parent_unit__parent_id=F("contract__province_id"),
