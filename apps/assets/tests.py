@@ -17,7 +17,7 @@ from apps.assets.models import (
     HardwareSnapshot,
     SnapshotItem,
 )
-from apps.assets.services import compute_diff, create_snapshot, reference_snapshot
+from apps.assets.services import can_record_snapshot, compute_diff, create_snapshot, reference_snapshot, visible_assets
 from apps.core.constants import (
     DIFF_ADDED,
     DIFF_CHANGED,
@@ -741,6 +741,38 @@ class SnapshotAccessBoundaryTests(TestCase):
             center=self.center_b,
             contract=self.contract,
         )
+        today = timezone.localdate()
+        self.expired_contract = Contract.objects.create(
+            contractor=self.contractor,
+            province=province_a,
+            number="SNAP-ACCESS-EXPIRED",
+            title="قرارداد منقضی آزمون",
+            start_date=today - dt.timedelta(days=90),
+            end_date=today - dt.timedelta(days=1),
+            status=Contract.STATUS_ACTIVE,
+        )
+        self.asset_expired = Asset.objects.create(
+            asset_tag="SNAP-ACCESS-ASSET-EXPIRED",
+            category=self.category,
+            center=self.center_a,
+            contract=self.expired_contract,
+        )
+        other_contractor = Contractor.objects.create(name="پیمانکار دیگر آزمون دسترسی")
+        other_contract = Contract.objects.create(
+            contractor=other_contractor,
+            province=province_a,
+            number="SNAP-ACCESS-OTHER",
+            title="قرارداد پیمانکار دیگر",
+            start_date=today - dt.timedelta(days=5),
+            end_date=today + dt.timedelta(days=30),
+            status=Contract.STATUS_ACTIVE,
+        )
+        self.asset_other_contractor = Asset.objects.create(
+            asset_tag="SNAP-ACCESS-ASSET-OTHER",
+            category=self.category,
+            center=self.center_a,
+            contract=other_contract,
+        )
 
         self.client = Client()
         self.client.force_login(self.it_a)
@@ -830,6 +862,16 @@ class SnapshotAccessBoundaryTests(TestCase):
         response = self.client.get(reverse("assets:snapshot_detail", args=[snapshot.pk]))
 
         self.assertEqual(response.status_code, 404)
+
+    def test_technician_cannot_view_or_snapshot_asset_with_expired_contract(self):
+        self.assertFalse(visible_assets(self.technician).filter(pk=self.asset_expired.pk).exists())
+        self.assertFalse(can_record_snapshot(self.technician, self.asset_expired))
+
+    def test_technician_cannot_view_or_snapshot_other_contractor_asset(self):
+        self.assertFalse(
+            visible_assets(self.technician).filter(pk=self.asset_other_contractor.pk).exists()
+        )
+        self.assertFalse(can_record_snapshot(self.technician, self.asset_other_contractor))
 
     def test_anonymous_user_is_denied_pending_snapshot_list(self):
         from django.test import Client
