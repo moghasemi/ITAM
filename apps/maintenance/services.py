@@ -58,12 +58,12 @@ def visible_visits(user):
         if not user.contractor_id:
             return queryset.none()
         centers = user.get_scoped_centers()
-        province_ids = centers.values("parent_unit__parent_id")
+        active_contracts = user.get_active_contractor_contracts()
         return queryset.filter(
-            contractor_id=user.contractor_id
+            contractor_id=user.contractor_id,
+            contract__in=active_contracts,
         ).filter(
-            Q(center__in=centers) |
-            Q(center__isnull=True, contract__province_id__in=province_ids)
+            Q(center__in=centers) | Q(center__isnull=True, contract__province_id__in=active_contracts.values("province_id"))
         )
     return queryset.none()
 
