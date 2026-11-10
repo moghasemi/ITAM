@@ -5,8 +5,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count, Q
-from django.http import HttpResponse, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 import json
+import mimetypes
 import time
 import hashlib
 from datetime import datetime, timezone as dt_timezone
@@ -490,10 +491,34 @@ class AttachmentCreateView(RepairStaffRequiredMixin, PageContextMixin, CreateVie
         return reverse("assets:detail", args=[self.asset.pk])
 
 
+@login_required
+def attachment_download(request, pk: int):
+    """Serve an attachment only after checking access to its owning asset."""
+    attachment = get_object_or_404(
+        AssetAttachment.objects.select_related("asset"),
+        pk=pk,
+    )
+    if not visible_assets(request.user).filter(pk=attachment.asset_id).exists():
+        raise PermissionDenied("این پیوست متعلق به دارایی خارج از دامنه مجاز شماست.")
+    if not attachment.file:
+        raise Http404("فایل پیوست موجود نیست.")
+    filename = attachment.file.name.rsplit("/", 1)[-1]
+    content_type, _ = mimetypes.guess_type(filename)
+    return FileResponse(
+        attachment.file.open("rb"),
+        as_attachment=True,
+        filename=filename,
+        content_type=content_type or "application/octet-stream",
+    )
+
+
+@login_required
 def attachment_delete(request, pk: int):
     attachment = get_object_or_404(AssetAttachment.objects.select_related("asset"), pk=pk)
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("حذف پیوست فقط توسط کارشناس IT امکان‌پذیر است.")
+    if not visible_assets(request.user).filter(pk=attachment.asset_id).exists():
+        raise PermissionDenied("این پیوست متعلق به دارایی خارج از دامنه مجاز شماست.")
     asset_pk = attachment.asset_id
     if request.method == "POST":
         label = str(attachment)

@@ -774,6 +774,19 @@ class SnapshotAccessBoundaryTests(TestCase):
             contract=other_contract,
         )
 
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.assets.models import AssetAttachment
+
+        self.attachment_a = AssetAttachment.objects.create(
+            asset=self.asset_a,
+            file=SimpleUploadedFile("asset-a.txt", b"private asset A"),
+            uploaded_by=self.it_a,
+        )
+        self.attachment_b = AssetAttachment.objects.create(
+            asset=self.asset_b,
+            file=SimpleUploadedFile("asset-b.txt", b"private asset B"),
+            uploaded_by=self.it_a,
+        )
         self.client = Client()
         self.client.force_login(self.it_a)
 
@@ -872,6 +885,26 @@ class SnapshotAccessBoundaryTests(TestCase):
             visible_assets(self.technician).filter(pk=self.asset_other_contractor.pk).exists()
         )
         self.assertFalse(can_record_snapshot(self.technician, self.asset_other_contractor))
+
+    def test_it_user_can_download_attachment_for_own_center_asset(self):
+        response = self.client.get(
+            reverse("assets:attachment_download", args=[self.attachment_a.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("attachment", response["Content-Disposition"])
+
+    def test_it_user_cannot_download_foreign_center_attachment(self):
+        response = self.client.get(
+            reverse("assets:attachment_download", args=[self.attachment_b.pk])
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_it_user_cannot_delete_foreign_center_attachment(self):
+        response = self.client.post(
+            reverse("assets:attachment_delete", args=[self.attachment_b.pk])
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(self.attachment_b.file.storage.exists(self.attachment_b.file.name))
 
     def test_anonymous_user_is_denied_pending_snapshot_list(self):
         from django.test import Client
