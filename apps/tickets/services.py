@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -77,6 +77,7 @@ def visible_tickets(user, center=None):
         active_contracts = user.get_active_contractor_contracts()
         qs = queryset.filter(
             contract__in=active_contracts,
+            contract__province_id=F("asset__center__parent_unit__parent_id"),
         ).filter(
             Q(assigned_contractor_id=user.contractor_id)
             | Q(assigned_technician=user)
@@ -113,6 +114,8 @@ def can_manage_ticket(user, ticket: Ticket) -> bool:
             or not ticket.contract_id
             or ticket.contract.contractor_id != user.contractor_id
             or not ticket.contract.is_current
+            or not ticket.asset.center_id
+            or not ticket.contract.covers_center(ticket.asset.center)
         ):
             return False
         if ticket.assigned_technician_id == user.pk:
