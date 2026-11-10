@@ -32,6 +32,16 @@ class WebhookTargetSecurityTests(SimpleTestCase):
         self.assertEqual(pinned_ip, "10.20.30.40")
         self.assertEqual(port, 8080)
 
+
+    @patch("apps.integrations.services.socket.getaddrinfo")
+    def test_public_webhook_requires_https(self, resolver):
+        resolver.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80))
+        ]
+        with patch.dict(os.environ, {"ITAM_WEBHOOK_ALLOWED_HOSTS": ""}):
+            with self.assertRaises(ValueError):
+                _resolve_webhook_target("http://events.example/api")
+
     @patch("apps.integrations.services.socket.getaddrinfo")
     def test_public_target_is_resolved_to_a_pinned_ip(self, resolver):
         resolver.return_value = [
