@@ -1,7 +1,10 @@
 """آزمون‌های موتور مقایسه اقلام، اسنپ‌شات و مولد QR."""
 from __future__ import annotations
 
+import datetime as dt
+
 from django.test import TestCase
+from django.utils import timezone
 from django.urls import reverse
 
 from apps.accounts.models import User
@@ -22,7 +25,7 @@ from apps.core.constants import (
     DIFF_REPLACED,
     DIFF_UNCHANGED,
 )
-from apps.org.models import Contract, Contractor
+from apps.org.models import Center, Contract, Contractor, OrganizationalUnit
 
 
 class _Item:
@@ -107,38 +110,30 @@ class DiffEngineTests(TestCase):
 class SnapshotWorkflowTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        from apps.org.models import Center, OrganizationalUnit
-
         national = OrganizationalUnit.objects.create(
-            name="کشور گردش‌کار اسنپ‌شات",
-            code="SNAP-WORKFLOW-NAT",
+            name="کشور اسنپ‌شات", code="SNAP-NAT",
             unit_type=OrganizationalUnit.UNIT_NATIONAL,
         )
         province = OrganizationalUnit.objects.create(
-            name="استان گردش‌کار اسنپ‌شات",
-            code="SNAP-WORKFLOW-PRV",
-            unit_type=OrganizationalUnit.UNIT_PROVINCE,
-            parent=national,
+            name="استان اسنپ‌شات", code="SNAP-PROV",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national,
         )
         county = OrganizationalUnit.objects.create(
-            name="شهرستان گردش‌کار اسنپ‌شات",
-            code="SNAP-WORKFLOW-CNT",
-            unit_type=OrganizationalUnit.UNIT_COUNTY,
-            parent=province,
+            name="شهرستان اسنپ‌شات", code="SNAP-COUNTY",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=province,
         )
         cls.center = Center.objects.create(
-            name="مرکز گردش‌کار اسنپ‌شات",
-            code="SNAP-WORKFLOW-CENTER",
-            parent_unit=county,
+            name="مرکز اسنپ‌شات", code="SNAP-CENTER", parent_unit=county
         )
-
         cls.contractor = Contractor.objects.create(name="پیمانکار آزمون")
+        today = timezone.localdate()
         cls.contract = Contract.objects.create(
             contractor=cls.contractor,
+            province=province,
             number="T-1",
             title="قرارداد آزمون",
-            start_date="2024-01-01",
-            end_date="2025-01-01",
+            start_date=today - dt.timedelta(days=10),
+            end_date=today + dt.timedelta(days=100),
         )
         cls.category = AssetCategory.objects.create(
             name="کیس", code="PC", requires_component_tracking=True
@@ -662,41 +657,51 @@ class SnapshotAccessBoundaryTests(TestCase):
             code="SNAP-ACCESS-NAT",
             unit_type=OrganizationalUnit.UNIT_NATIONAL,
         )
-        province = OrganizationalUnit.objects.create(
-            name="استان آزمون دسترسی",
-            code="SNAP-ACCESS-PRV",
+        province_a = OrganizationalUnit.objects.create(
+            name="استان آزمون دسترسی الف",
+            code="SNAP-ACCESS-PRV-A",
             unit_type=OrganizationalUnit.UNIT_PROVINCE,
             parent=national,
         )
-        county = OrganizationalUnit.objects.create(
-            name="شهرستان آزمون دسترسی",
-            code="SNAP-ACCESS-CNT",
+        province_b = OrganizationalUnit.objects.create(
+            name="استان آزمون دسترسی ب",
+            code="SNAP-ACCESS-PRV-B",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE,
+            parent=national,
+        )
+        county_a = OrganizationalUnit.objects.create(
+            name="شهرستان آزمون دسترسی الف",
+            code="SNAP-ACCESS-CNT-A",
             unit_type=OrganizationalUnit.UNIT_COUNTY,
-            parent=province,
+            parent=province_a,
+        )
+        county_b = OrganizationalUnit.objects.create(
+            name="شهرستان آزمون دسترسی ب",
+            code="SNAP-ACCESS-CNT-B",
+            unit_type=OrganizationalUnit.UNIT_COUNTY,
+            parent=province_b,
         )
         self.center_a = Center.objects.create(
             name="مرکز آزمون دسترسی الف",
             code="SNAP-ACCESS-A",
-            parent_unit=county,
+            parent_unit=county_a,
         )
         self.center_b = Center.objects.create(
             name="مرکز آزمون دسترسی ب",
             code="SNAP-ACCESS-B",
-            parent_unit=county,
+            parent_unit=county_b,
         )
 
         self.contractor = Contractor.objects.create(name="پیمانکار آزمون دسترسی")
         self.contract = Contract.objects.create(
             contractor=self.contractor,
+            province=province_a,
             number="SNAP-ACCESS-001",
-            title="قرارداد محدود به مرکز الف",
-            is_provincial=False,
-            start_date="2026-01-01",
-            end_date="2027-01-01",
+            title="قرارداد استانی الف",
+            start_date=timezone.localdate() - dt.timedelta(days=5),
+            end_date=timezone.localdate() + dt.timedelta(days=30),
             status=Contract.STATUS_ACTIVE,
         )
-        self.contract.centers.add(self.center_a)
-
         self.technician = User.objects.create_user(
             username="snapshot_access_tech",
             password="test-password",
@@ -727,9 +732,9 @@ class SnapshotAccessBoundaryTests(TestCase):
             center=self.center_a,
             contract=self.contract,
         )
-        # Deliberately inconsistent legacy assignment: this asset is at B,
-        # although the non-provincial contract covers only center A. It
-        # exercises the contract-match authorization shortcut in the service.
+        # Deliberately inconsistent assignment: this asset is at province B,
+        # although its contract belongs to province A. It exercises the
+        # cross-province authorization boundary.
         self.asset_b = Asset.objects.create(
             asset_tag="SNAP-ACCESS-ASSET-B",
             category=self.category,
