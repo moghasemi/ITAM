@@ -41,14 +41,14 @@ if (-not (Test-Path (Join-Path $ProjectPath ".env"))) {
 if ([string]::IsNullOrWhiteSpace($BackupRoot)) {
     throw "برای نصب عملیاتی، مسیر پشتیبان‌گیری روی دیسک مستقل یا Share شبکه را با -BackupRoot مشخص کنید."
 }
-$projectFullPath = [System.IO.Path]::GetFullPath($ProjectPath).TrimEnd("\\") + "\\"
-$backupFullPath = [System.IO.Path]::GetFullPath($BackupRoot).TrimEnd("\\") + "\\"
+$projectFullPath = [System.IO.Path]::GetFullPath($ProjectPath).TrimEnd([char]92) + [char]92
+$backupFullPath = [System.IO.Path]::GetFullPath($BackupRoot).TrimEnd([char]92) + [char]92
 if ($backupFullPath.StartsWith($projectFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "مسیر پشتیبان نباید داخل پوشه پروژه باشد."
 }
 $projectDrive = [System.IO.Path]::GetPathRoot($projectFullPath)
 $backupDrive = [System.IO.Path]::GetPathRoot($backupFullPath)
-if (-not $BackupRoot.StartsWith("\\\\") -and $projectDrive -eq $backupDrive) {
+if (-not $BackupRoot.StartsWith(([string][char]92) + [char]92) -and $projectDrive -eq $backupDrive) {
     throw "مسیر پشتیبان باید روی Volume جداگانه یا Share شبکه باشد."
 }
 New-Item -ItemType Directory -Force -Path $BackupRoot | Out-Null
