@@ -1,7 +1,10 @@
 """آزمون‌های موتور مقایسه اقلام، اسنپ‌شات و مولد QR."""
 from __future__ import annotations
 
+import datetime as dt
+
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.assets import qrgen
@@ -21,7 +24,7 @@ from apps.core.constants import (
     DIFF_REPLACED,
     DIFF_UNCHANGED,
 )
-from apps.org.models import Contract, Contractor
+from apps.org.models import Center, Contract, Contractor, OrganizationalUnit
 
 
 class _Item:
@@ -106,20 +109,38 @@ class DiffEngineTests(TestCase):
 class SnapshotWorkflowTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        national = OrganizationalUnit.objects.create(
+            name="کشور اسنپ‌شات", code="SNAP-NAT",
+            unit_type=OrganizationalUnit.UNIT_NATIONAL,
+        )
+        province = OrganizationalUnit.objects.create(
+            name="استان اسنپ‌شات", code="SNAP-PROV",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national,
+        )
+        county = OrganizationalUnit.objects.create(
+            name="شهرستان اسنپ‌شات", code="SNAP-COUNTY",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=province,
+        )
+        cls.center = Center.objects.create(
+            name="مرکز اسنپ‌شات", code="SNAP-CENTER", parent_unit=county
+        )
         cls.contractor = Contractor.objects.create(name="پیمانکار آزمون")
+        today = timezone.localdate()
         cls.contract = Contract.objects.create(
             contractor=cls.contractor,
+            province=province,
             number="T-1",
             title="قرارداد آزمون",
-            start_date="2024-01-01",
-            end_date="2025-01-01",
+            start_date=today - dt.timedelta(days=10),
+            end_date=today + dt.timedelta(days=100),
         )
         cls.category = AssetCategory.objects.create(
             name="کیس", code="PC", requires_component_tracking=True
         )
         cls.cpu = ComponentType.objects.create(name="پردازنده", code="CPU", is_key_item=True)
         cls.asset = Asset.objects.create(
-            asset_tag="A-1", category=cls.category, contract=cls.contract, brand="DELL"
+            asset_tag="A-1", category=cls.category, contract=cls.contract,
+            center=cls.center, brand="DELL"
         )
         cls.technician = User.objects.create_user(
             username="tech", password="pass12345", role=User.ROLE_TECHNICIAN, contractor=cls.contractor
