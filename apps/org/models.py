@@ -115,7 +115,7 @@ class Center(TimeStampedModel):
         max_length=80,
         blank=True,
         default="مرکزی",
-        help_text="این فیلد منسوخ شده است؛ استان رسماً از سلسله‌مراتب سازمانی واحد بالادست استخراج می‌شود.",
+        help_text="این فیلد منسوخ شده است؛ استان از شهرستان جغرافیایی بالادست استخراج می‌شود.",
     )
     city = models.CharField("شهر / شهرستان", max_length=80, blank=True)
     address = models.TextField("نشانی", blank=True)
@@ -135,7 +135,7 @@ class Center(TimeStampedModel):
     is_active = models.BooleanField("فعال", default=True)
     parent_unit = models.ForeignKey(
         "OrganizationalUnit",
-        verbose_name="واحد سازمانی شهرستانی بالادست",
+        verbose_name="شهرستان جغرافیایی",
         on_delete=models.PROTECT,
         null=True,
         blank=False,
