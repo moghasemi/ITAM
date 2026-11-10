@@ -330,6 +330,8 @@ def confirm_visit(visit: MaintenanceVisit, user, note: str = ""):
     """تایید بازدید توسط کارشناس فناوری اطلاعات مرکز."""
     if not can_confirm_visit(user, visit):
         raise PermissionDenied("تایید بازدید فقط توسط کارشناس فناوری اطلاعات مجاز همان دامنه انجام می‌شود.")
+    if visit.status != VISIT_DONE:
+        raise ValidationError("بازدید باید ابتدا توسط پیمانکار تکمیل شود.")
     visit.it_confirmed_by = user
     visit.it_confirmed_at = timezone.now()
     visit.it_note = note[:300]
