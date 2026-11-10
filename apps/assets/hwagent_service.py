@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.utils import timezone
 
@@ -20,7 +21,7 @@ from apps.core.constants import (
 from apps.integrations.models import OutboxEvent
 
 from .models import Asset, AssetCategory, ComponentType, HardwareSnapshot, SnapshotItem
-from .services import compute_diff, reference_snapshot
+from .services import can_record_snapshot, compute_diff, reference_snapshot
 
 
 def get_or_create_component_type(name: str, code: str, is_key: bool = True, sort_order: int = 100) -> ComponentType:
@@ -189,12 +190,15 @@ def apply_hwagent_snapshot(
     user=None,
     note: str = "",
     seal_number: str = "",
-    auto_approve_baseline: bool = True,
+    auto_approve_baseline: bool = False,
 ) -> Tuple[HardwareSnapshot, Dict[str, Any]]:
     """پردازش و ذخیره اسنپ‌شات استخراج‌شده از HWAgent برای یک دارایی مشخص.
 
     خروجی: تاپل شامل نمونه اسنپ‌شات و دیکشنری مغایرت‌ها (Diff)
     """
+    if not can_record_snapshot(user, asset):
+        raise PermissionDenied("اجازه ثبت اسنپ‌شات HWAgent برای این تجهیز را ندارید.")
+
     data = parse_hwagent_json(raw_data)
 
     # به‌روزرسانی اطلاعات سیستم در جدول دارایی
@@ -397,8 +401,19 @@ def apply_hwagent_snapshot(
     snapshot.diff_data = diff
     snapshot.diff_count = diff.get("total_changes", 0)
 
-    # تعیین وضعیت اسنپ‌شات
-    if is_baseline and auto_approve_baseline and user and (user.is_superuser or getattr(user, 'is_admin_it', False)):
+    # HWAgent فقط داده را ثبت می‌کند؛ قفل پایه تنها با تنظیم صریحِ عدم نیاز به تایید IT مجاز است.
+    snapshot.status = SNAPSHOT_PENDING
+    snapshot.save(update_fields=["status", "diff_data", "diff_count", "updated_at"])
+    from apps.core.models import SystemSetting
+    setting = SystemSetting.load()
+
+    if (
+        is_baseline
+        and auto_approve_baseline
+        and not setting.baseline_requires_it_confirm
+        and user
+        and (user.is_superuser or getattr(user, "is_admin_it", False))
+    ):
         snapshot.lock(user)
         asset.current_snapshot = snapshot
         asset.baseline_locked_at = snapshot.locked_at
@@ -411,9 +426,6 @@ def apply_hwagent_snapshot(
             actor=user,
         )
     else:
-        snapshot.status = SNAPSHOT_PENDING
-        snapshot.save(update_fields=["status", "diff_data", "diff_count", "updated_at"])
-
         if diff.get("has_alarm"):
             OutboxEvent.emit(
                 EVENT_HARDWARE_DIFF_DETECTED,
