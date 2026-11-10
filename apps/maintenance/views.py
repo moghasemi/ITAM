@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, UpdateView
 
-from apps.accounts.permissions import AnyRoleRequiredMixin, RepairStaffRequiredMixin
+from apps.accounts.permissions import AnyRoleRequiredMixin, ProvinceAdminRequiredMixin
 from apps.core.constants import CHECK_HEALTHY, VISIT_DONE, VISIT_PLANNED, VISIT_IN_PROGRESS, VISIT_MISSED
 from apps.core.mixins import BaseListView, PageContextMixin, apply_search
 from apps.core.utils import log_action
@@ -131,7 +131,7 @@ class VisitDetailView(AnyRoleRequiredMixin, PageContextMixin, DetailView):
         return context
 
 
-class VisitCreateView(RepairStaffRequiredMixin, PageContextMixin, CreateView):
+class VisitCreateView(ProvinceAdminRequiredMixin, PageContextMixin, CreateView):
     model = MaintenanceVisit
     form_class = VisitForm
     template_name = "maintenance/visit_form.html"
@@ -175,7 +175,7 @@ class VisitCreateView(RepairStaffRequiredMixin, PageContextMixin, CreateView):
         return reverse("maintenance:visit_detail", args=[self.object.pk])
 
 
-class VisitUpdateView(RepairStaffRequiredMixin, PageContextMixin, UpdateView):
+class VisitUpdateView(ProvinceAdminRequiredMixin, PageContextMixin, UpdateView):
     model = MaintenanceVisit
     form_class = VisitForm
     template_name = "maintenance/visit_form.html"
