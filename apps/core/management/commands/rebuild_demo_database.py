@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import sqlite3
 from pathlib import Path
 
@@ -64,8 +65,23 @@ class Command(BaseCommand):
         if not backup_path.is_file() or backup_path.stat().st_size == 0:
             raise CommandError("ساخت نسخه پشتیبان ناموفق بود؛ پایگاه داده پاک نشد.")
 
-        self.stdout.write(self.style.SUCCESS(f"نسخه پشتیبان ذخیره شد: {backup_path}"))
+        # Verify the backup before any destructive operation.
+        with sqlite3.connect(str(backup_path)) as verification:
+            integrity = verification.execute("PRAGMA integrity_check").fetchone()[0]
+            foreign_key_issues = verification.execute("PRAGMA foreign_key_check").fetchall()
+        if integrity != "ok" or foreign_key_issues:
+            raise CommandError(
+                "اعتبارسنجی نسخه پشتیبان ناموفق بود؛ پایگاه داده پاک نشد. "
+                f"integrity={integrity}, foreign_key_issues={len(foreign_key_issues)}"
+            )
+        backup_sha256 = hashlib.sha256(backup_path.read_bytes()).hexdigest()
+
+        self.stdout.write(self.style.SUCCESS(f"نسخه پشتیبان ذخیره و اعتبارسنجی شد: {backup_path}"))
+        self.stdout.write(f"SHA-256: {backup_sha256}")
         try:
+            # Apply pending schema migrations before flush/seed. Any failure
+            # enters the restore path below, keeping the original DB recoverable.
+            call_command("migrate", interactive=False, verbosity=0)
             call_command("flush", interactive=False, verbosity=0)
             call_command(
                 "seed_demo",
@@ -73,6 +89,14 @@ class Command(BaseCommand):
                 assets=options["assets"],
                 no_demo_tickets=options["no_demo_tickets"],
             )
+            with sqlite3.connect(str(db_path)) as verification:
+                integrity = verification.execute("PRAGMA integrity_check").fetchone()[0]
+                foreign_key_issues = verification.execute("PRAGMA foreign_key_check").fetchall()
+            if integrity != "ok" or foreign_key_issues:
+                raise CommandError(
+                    "اعتبارسنجی پایگاه بازسازی‌شده ناموفق بود: "
+                    f"integrity={integrity}, foreign_key_issues={len(foreign_key_issues)}"
+                )
         except Exception as seed_error:
             self.stderr.write(self.style.ERROR("بازسازی نمونه ناموفق بود؛ تلاش برای بازیابی نسخه پشتیبان..."))
             try:
