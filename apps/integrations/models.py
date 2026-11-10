@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 from apps.core.constants import EVENT_TYPE_CHOICES
@@ -167,11 +167,25 @@ class OutboxEvent(models.Model):
             ]
         )
 
+    @transaction.atomic
     def requeue(self):
+        """بازگرداندن رخداد و تحویل‌های متوقف‌شده به صف به‌صورت یکپارچه."""
+        self.deliveries.filter(status=self.STATUS_DEAD).update(
+            status=self.STATUS_PENDING,
+            attempts=0,
+            last_error="",
+            last_attempt_at=None,
+            dispatched_at=None,
+            lock_token=None,
+            locked_until=None,
+        )
         self.status = self.STATUS_PENDING
         self.last_error = ""
         self.attempts = 0
-        self.save(update_fields=["status", "last_error", "attempts"])
+        self.dispatched_at = None
+        self.save(
+            update_fields=["status", "last_error", "attempts", "dispatched_at"]
+        )
 
     # -- تولید رخداد --------------------------------------------------------
     @classmethod
