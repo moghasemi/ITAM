@@ -238,7 +238,7 @@ def user_set_password(request, pk: int):
     if user.is_superuser and not request.user.is_superuser:
         raise PermissionDenied("امکان تغییر گذرواژه مدیر ارشد کلان وجود ندارد.")
 
-    form = AdminSetPasswordForm(request.POST or None)
+    form = AdminSetPasswordForm(request.POST or None, user=user)
     if request.method == "POST" and form.is_valid():
         user.set_password(form.cleaned_data["new_password1"])
         user.save(update_fields=["password"])

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, UserCreationForm
+from django.contrib.auth.password_validation import validate_password
 
 from apps.core.forms import StyledModelForm, apply_widget_classes
 from apps.org.models import Center, Contractor, Department
@@ -108,8 +109,16 @@ class UserForm(StyledModelForm):
         if password1 or password2:
             if password1 != password2:
                 raise forms.ValidationError({"password2": "گذرواژه‌ها یکسان نیستند."})
-            if len(password1) < 8:
-                raise forms.ValidationError({"password1": "گذرواژه باید حداقل ۸ نویسه باشد."})
+            candidate = User(
+                username=cleaned.get("username") or self.instance.username,
+                first_name=cleaned.get("first_name") or "",
+                last_name=cleaned.get("last_name") or "",
+                email=cleaned.get("email") or "",
+            )
+            try:
+                validate_password(password1, user=candidate)
+            except forms.ValidationError as exc:
+                self.add_error("password1", exc)
         role = cleaned.get("role")
         contractor = cleaned.get("contractor")
         if role == User.ROLE_TECHNICIAN and not contractor:
@@ -187,12 +196,19 @@ class AdminSetPasswordForm(forms.Form):
         label="تکرار گذرواژه جدید", strip=False, widget=forms.PasswordInput(attrs={"autocomplete": "new-password"})
     )
 
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
     def clean(self):
         cleaned = super().clean()
         first = cleaned.get("new_password1")
         second = cleaned.get("new_password2")
         if first and second and first != second:
             raise forms.ValidationError({"new_password2": "گذرواژه‌ها یکسان نیستند."})
-        if first and len(first) < 8:
-            raise forms.ValidationError({"new_password1": "گذرواژه باید حداقل ۸ نویسه باشد."})
+        if first:
+            try:
+                validate_password(first, user=self.user)
+            except forms.ValidationError as exc:
+                self.add_error("new_password1", exc)
         return cleaned

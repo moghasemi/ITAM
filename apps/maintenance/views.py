@@ -143,16 +143,19 @@ class VisitCreateView(RepairStaffRequiredMixin, PageContextMixin, CreateView):
 
     def _bind_visit_center(self, visit):
         contract = visit.contract
+        user = self.request.user
+        if not user.is_admin_country and not contract.centers.filter(
+            pk__in=user.get_scoped_centers()
+        ).exists():
+            raise PermissionDenied("قرارداد خارج از دامنه مراکز مجاز شماست.")
         if contract.is_provincial:
-            if not self.request.user.is_admin_province:
+            if not user.is_admin_province:
                 raise PermissionDenied("برنامه‌ریزی بازدید قرارداد استانی فقط توسط مدیر استان مجاز است.")
             visit.center = None
             return
         centers = list(contract.centers.all())
         if len(centers) != 1:
             raise ValidationError("قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد.")
-        if not self.request.user.is_admin_province and not self.request.user.get_scoped_centers().filter(pk=centers[0].pk).exists():
-            raise PermissionDenied("قرارداد خارج از دامنه مراکز مجاز شماست.")
         visit.center = centers[0]
 
     def form_valid(self, form):
@@ -190,16 +193,19 @@ class VisitUpdateView(RepairStaffRequiredMixin, PageContextMixin, UpdateView):
     def form_valid(self, form):
         contract = form.cleaned_data["contract"]
         try:
+            user = self.request.user
+            if not user.is_admin_country and not contract.centers.filter(
+                pk__in=user.get_scoped_centers()
+            ).exists():
+                raise PermissionDenied("قرارداد خارج از دامنه مراکز مجاز شماست.")
             if contract.is_provincial:
-                if not self.request.user.is_admin_province:
+                if not user.is_admin_province:
                     raise PermissionDenied("ویرایش بازدید قرارداد استانی فقط توسط مدیر استان مجاز است.")
                 form.instance.center = None
             else:
                 centers = list(contract.centers.all())
                 if len(centers) != 1:
                     raise ValidationError("قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد.")
-                if not self.request.user.is_admin_province and not self.request.user.get_scoped_centers().filter(pk=centers[0].pk).exists():
-                    raise PermissionDenied("قرارداد خارج از دامنه مراکز مجاز شماست.")
                 form.instance.center = centers[0]
         except ValidationError as exc:
             form.add_error("contract", exc)
@@ -286,6 +292,8 @@ def check_edit(request, pk: int):
     check = get_object_or_404(
         VisitAssetCheck.objects.select_related("visit", "visit__contract", "asset"), pk=pk
     )
+    # The write endpoint must enforce the same asset-level scope as the detail view.
+    get_object_or_404(visible_checks(request.user, check.visit), pk=check.pk)
     if not can_manage_visit(request.user, check.visit):
         raise PermissionDenied("اجازه ثبت این برگه بازدید را ندارید.")
 
