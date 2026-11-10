@@ -22,6 +22,7 @@ from .forms import (
 )
 from .models import MaintenanceVisit, VisitAssetCheck
 from .services import (
+    can_confirm_visit,
     can_manage_visit,
     complete_visit,
     confirm_visit,
@@ -122,6 +123,7 @@ class VisitDetailView(AnyRoleRequiredMixin, PageContextMixin, DetailView):
         context["checks"] = scoped_checks.select_related("asset", "asset__category", "asset__location")
         context["stats"] = visit_statistics(visit, checks=scoped_checks)
         context["can_manage"] = can_manage_visit(self.request.user, visit)
+        context["can_confirm"] = can_confirm_visit(self.request.user, visit)
         context["complete_form"] = VisitCompleteForm(
             initial={"report_text": visit.report_text, "recommendation": visit.recommendation}
         )
@@ -268,7 +270,7 @@ def visit_bulk_healthy(request, pk: int):
     def handler(visit):
         if not can_manage_visit(request.user, visit):
             raise PermissionDenied("اجازه ثبت این بازدید را ندارید.")
-        pending = visit.checks.filter(checked=False)
+        pending = visible_checks(request.user, visit).filter(checked=False)
         count = pending.count()
         for check in pending:
             save_check(check, request.user, condition=CHECK_HEALTHY, checked=True)
