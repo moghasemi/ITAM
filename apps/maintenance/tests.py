@@ -126,6 +126,33 @@ class ProvincialMaintenanceScopeTests(TestCase):
         response = client.get(reverse("maintenance:check_edit", args=[self.foreign_check.pk]))
         self.assertEqual(response.status_code, 404)
 
+    def test_province_admin_cannot_open_foreign_visit_edit_page(self):
+        foreign_contract = Contract.objects.create(
+            contractor=self.contractor,
+            province=self.other_center.parent_unit.parent,
+            number="MNT-CONTRACT-FOREIGN-VISIT",
+            title="Foreign visit contract",
+            start_date=timezone.localdate() - dt.timedelta(days=1),
+            end_date=timezone.localdate() + dt.timedelta(days=30),
+        )
+        foreign_visit = MaintenanceVisit.objects.create(
+            contract=foreign_contract,
+            contractor=self.contractor,
+            center=None,
+            sequence_number=1,
+            scheduled_date=timezone.localdate(),
+        )
+        client = Client()
+        client.force_login(self.provincial_admin)
+        response = client.get(reverse("maintenance:visit_update", args=[foreign_visit.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_center_it_cannot_open_visit_scheduling_page(self):
+        client = Client()
+        client.force_login(self.center_it)
+        response = client.get(reverse("maintenance:visit_create"))
+        self.assertEqual(response.status_code, 403)
+
 
     def test_center_it_can_review_and_confirm_province_wide_visit_for_own_assets(self):
         self.assertTrue(visible_visits(self.center_it).filter(pk=self.visit.pk).exists())
