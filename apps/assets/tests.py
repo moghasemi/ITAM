@@ -238,6 +238,18 @@ class SnapshotWorkflowTests(TestCase):
             create_snapshot(self.asset, other)
 
 
+    def test_it_user_without_center_fails_closed(self):
+        from apps.assets.services import can_edit_asset
+
+        unscoped_it = User.objects.create_user(
+            username="unscoped-it",
+            password="pass12345",
+            role=User.ROLE_ADMIN_IT,
+        )
+        self.assertFalse(can_edit_asset(unscoped_it, self.asset))
+        self.assertFalse(can_record_snapshot(unscoped_it, self.asset))
+
+
     def test_pending_snapshot_cannot_be_submitted_twice(self):
         from django.core.exceptions import ValidationError
         from apps.assets.services import submit_snapshot
