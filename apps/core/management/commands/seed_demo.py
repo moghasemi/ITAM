@@ -76,7 +76,7 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
-        if not settings.DEBUG or not settings.DATABASES["default"]["ENGINE"].endswith("sqlite3"):
+        if (not settings.DEBUG and not settings.RUNNING_TESTS) or not settings.DATABASES["default"]["ENGINE"].endswith("sqlite3"):
             raise CommandError("seed_demo فقط در محیط توسعه DEBUG=True و پایگاه SQLite مجاز است.")
         password = options["admin_password"]
         asset_count = options["assets"]
