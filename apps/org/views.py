@@ -243,6 +243,10 @@ class ContractorUpdateView(ProvinceAdminRequiredMixin, BaseUpdateView):
     active_menu = "org"
     success_url_name = "org:contractor_detail"
 
+    def get_queryset(self):
+        contracts = _visible_contracts_for_user(self.request.user)
+        return Contractor.objects.filter(pk__in=contracts.values("contractor_id")).distinct()
+
 
 class ContractorDetailView(AdminItRequiredMixin, BaseDetailView):
     model = Contractor
@@ -375,6 +379,9 @@ class ContractUpdateView(ProvinceAdminRequiredMixin, ContractFormMixin, BaseUpda
     active_menu = "contracts"
     success_url_name = "org:contract_detail"
     creating = False
+
+    def get_queryset(self):
+        return _visible_contracts_for_user(self.request.user)
 
 
 class ContractDetailView(AdminItRequiredMixin, BaseDetailView):
