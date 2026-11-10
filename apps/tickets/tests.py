@@ -421,7 +421,9 @@ class TicketWorkflowTests(TestCase):
             asset_tag="A-OTHER", category=self.category, center=other_center, status="active"
         )
         self._create()
-        self._create(asset=other_asset)
+        misbound_ticket = self._create(asset=other_asset)
+        # A stale/incorrect Ticket.center must never override the asset's real center.
+        Ticket.objects.filter(pk=misbound_ticket.pk).update(center=self.center)
         provincial_admin = User.objects.create_user(
             username="provincial-admin", password="pass12345",
             role=User.ROLE_ADMIN_PROVINCE,
@@ -431,6 +433,9 @@ class TicketWorkflowTests(TestCase):
             visible_tickets(provincial_admin).values_list("asset__center_id", flat=True)
         )
         self.assertEqual(visible_centers, {self.center.pk})
+        self.assertFalse(visible_tickets(provincial_admin).filter(
+            pk=misbound_ticket.pk
+        ).exists())
 
     def test_center_admin_without_center_sees_no_tickets(self):
         from .services import visible_tickets
