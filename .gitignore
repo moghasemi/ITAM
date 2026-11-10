@@ -11,3 +11,6 @@ logs/
 backups/
 secret_key.txt
 *.log
+
+# Local deployment secrets
+.env
