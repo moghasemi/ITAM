@@ -349,6 +349,8 @@ class Contract(TimeStampedModel):
     def clean(self):
         super().clean()
         errors = {}
+        if self.province_id:
+            self.is_provincial = True
         if not self.province_id:
             errors["province"] = "تعیین استان برای هر قرارداد الزامی است."
         elif self.province.unit_type != OrganizationalUnit.UNIT_PROVINCE:
