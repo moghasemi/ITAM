@@ -1,9 +1,13 @@
 """نماهای درخواست خرابی و اقدام‌های گردش کار."""
 from __future__ import annotations
 
+import mimetypes
+
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, ListView
@@ -35,7 +39,7 @@ from .forms import (
     UserConfirmForm,
     UserRejectForm,
 )
-from .models import Ticket, TicketEvent, TicketPart
+from .models import Ticket, TicketAttachment, TicketEvent, TicketPart
 from .services import (
     acknowledge,
     can_confirm_as_it,
@@ -406,6 +410,29 @@ def ticket_add_part(request, pk: int):
     else:
         messages.error(request, "اطلاعات قطعه کامل نیست.")
     return redirect("tickets:detail", pk=pk)
+
+
+@login_required
+def ticket_attachment_download(request, pk: int):
+    """Serve ticket files only when the requester can view the owning ticket."""
+    attachment = get_object_or_404(
+        TicketAttachment.objects.select_related("ticket"),
+        pk=pk,
+    )
+    if not visible_tickets(request.user).filter(pk=attachment.ticket_id).exists():
+        raise PermissionDenied("این پیوست متعلق به درخواستی خارج از دامنه مجاز شماست.")
+    if not attachment.file:
+        raise Http404("فایل پیوست موجود نیست.")
+    filename = attachment.file.name.rsplit("/", 1)[-1]
+    content_type, _ = mimetypes.guess_type(filename)
+    response = FileResponse(
+        attachment.file.open("rb"),
+        as_attachment=True,
+        filename=filename,
+        content_type=content_type or "application/octet-stream",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 def ticket_add_attachment(request, pk: int):
