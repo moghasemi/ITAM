@@ -23,5 +23,6 @@ urlpatterns = [
     path("<int:pk>/cancel/", views.ticket_cancel, name="cancel"),
     path("<int:pk>/note/", views.ticket_add_note, name="add_note"),
     path("<int:pk>/part/", views.ticket_add_part, name="add_part"),
+    path("attachments/<int:pk>/download/", views.ticket_attachment_download, name="attachment_download"),
     path("<int:pk>/attachment/", views.ticket_add_attachment, name="add_attachment"),
 ]
