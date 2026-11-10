@@ -12,7 +12,10 @@ from apps.org.models import Center, Contract, Contractor, OrganizationalUnit
 
 from .forms import VisitForm
 from .models import MaintenanceVisit, VisitAssetCheck
-from .services import save_check, visible_checks
+from .services import (
+    can_confirm_visit, can_manage_visit, confirm_visit, save_check,
+    visible_checks, visible_visits,
+)
 from .views import VisitCreateView
 
 
@@ -74,6 +77,10 @@ class ProvincialMaintenanceScopeTests(TestCase):
             username="maintenance-provincial-admin", password="TestPass!9382",
             role=User.ROLE_ADMIN_PROVINCE, org_unit=cls.province,
         )
+        cls.center_it = User.objects.create_user(
+            username="maintenance-center-it", password="TestPass!9382",
+            role=User.ROLE_ADMIN_IT, center=cls.center,
+        )
 
     def test_provincial_admin_cannot_select_or_schedule_foreign_contract(self):
         foreign_contract = Contract.objects.create(
@@ -118,3 +125,24 @@ class ProvincialMaintenanceScopeTests(TestCase):
         client.force_login(self.provincial_admin)
         response = client.get(reverse("maintenance:check_edit", args=[self.foreign_check.pk]))
         self.assertEqual(response.status_code, 404)
+
+
+    def test_center_it_can_review_and_confirm_province_wide_visit_for_own_assets(self):
+        self.assertTrue(visible_visits(self.center_it).filter(pk=self.visit.pk).exists())
+        checks = visible_checks(self.center_it, self.visit)
+        self.assertEqual(set(checks.values_list("pk", flat=True)), {self.own_check.pk})
+        self.assertTrue(can_confirm_visit(self.center_it, self.visit))
+        self.assertFalse(can_manage_visit(self.center_it, self.visit))
+
+        confirm_visit(self.visit, self.center_it, "تایید مرکز")
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.it_confirmed_by_id, self.center_it.pk)
+        self.assertIsNotNone(self.visit.it_confirmed_at)
+
+    def test_center_it_cannot_confirm_visit_without_a_scoped_asset(self):
+        other_it = User.objects.create_user(
+            username="maintenance-other-center-it", password="TestPass!9382",
+            role=User.ROLE_ADMIN_IT, center=self.other_center,
+        )
+        self.assertFalse(visible_visits(other_it).filter(pk=self.visit.pk).exists())
+        self.assertFalse(can_confirm_visit(other_it, self.visit))
