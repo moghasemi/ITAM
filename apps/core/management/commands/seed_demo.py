@@ -214,6 +214,9 @@ class Command(BaseCommand):
             },
         )
 
+        contractor.is_active = True
+        contractor.save(update_fields=["is_active", "updated_at"])
+
         today = timezone.localdate()
         contract, created = Contract.objects.get_or_create(
             number="1403/IT/07",
@@ -230,10 +233,14 @@ class Command(BaseCommand):
                 "status": Contract.STATUS_ACTIVE,
             },
         )
-        if contract.province_id != ou_sistan.pk:
-            contract.province = ou_sistan
-            contract.is_provincial = True
-            contract.save(update_fields=["province", "is_provincial", "updated_at"])
+        contract.province = ou_sistan
+        contract.is_provincial = True
+        contract.start_date = today - dt.timedelta(days=60)
+        contract.end_date = today + dt.timedelta(days=305)
+        contract.status = Contract.STATUS_ACTIVE
+        contract.save(update_fields=[
+            "province", "is_provincial", "start_date", "end_date", "status", "updated_at"
+        ])
         if created:
             self.stdout.write(f"   قرارداد {contract.number} ایجاد شد")
         for priority, response, resolve in [
@@ -265,8 +272,12 @@ class Command(BaseCommand):
                 "is_superuser": False,
             },
         )
+        admin_province.role = User.ROLE_ADMIN_PROVINCE
         admin_province.org_unit = ou_sistan
         admin_province.center = center_hq
+        admin_province.is_active = True
+        admin_province.is_staff = True
+        admin_province.is_superuser = False
         admin_province.set_password(password)
         admin_province.save()
 
@@ -284,7 +295,10 @@ class Command(BaseCommand):
                 "is_staff": True,
             },
         )
+        admin_it.role = User.ROLE_ADMIN_IT
         admin_it.center = center_hq
+        admin_it.is_active = True
+        admin_it.is_staff = True
         admin_it.set_password(password)
         admin_it.save()
 
@@ -299,6 +313,9 @@ class Command(BaseCommand):
                 "job_title": "کارشناس پشتیبانی",
             },
         )
+        technician.role = User.ROLE_TECHNICIAN
+        technician.contractor = contractor
+        technician.is_active = True
         technician.set_password(password)
         technician.save()
 
@@ -313,7 +330,9 @@ class Command(BaseCommand):
                 "job_title": "رئیس اداره",
             },
         )
+        manager.role = User.ROLE_MANAGER
         manager.center = center_hq
+        manager.is_active = True
         manager.set_password(password)
         manager.save()
 
@@ -329,7 +348,9 @@ class Command(BaseCommand):
                 "personnel_code": "20112",
             },
         )
+        requester.role = User.ROLE_REQUESTER
         requester.center = center_hq
+        requester.is_active = True
         requester.set_password(password)
         requester.save()
 
