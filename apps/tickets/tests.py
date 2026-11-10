@@ -144,6 +144,20 @@ class TicketWorkflowTests(TestCase):
         )
 
 
+    def test_ticket_notifications_do_not_cross_center_boundaries(self):
+        county = self.center.parent_unit
+        other_center = Center.objects.create(
+            name="مرکز دوم اعلان", code="NOTIFY-CENTER-2", parent_unit=county,
+        )
+        other_it = User.objects.create_user(
+            username="other-center-it", password="pass12345",
+            role=User.ROLE_ADMIN_IT, center=other_center,
+        )
+        self._create()
+        self.assertTrue(self.it_expert.notifications.exists())
+        self.assertFalse(other_it.notifications.exists())
+
+
     def test_ticket_sla_start_cannot_be_backdated_by_service_caller(self):
         requested_past = timezone.now() - dt.timedelta(days=365)
         before_create = timezone.now()
