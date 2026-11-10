@@ -113,7 +113,7 @@ class ContractForm(StyledModelForm):
                 )
             elif user.center_id and user.center.parent_unit_id:
                 self.fields["province"].queryset = self.fields["province"].queryset.filter(
-                    pk=user.center.parent_unit.parent_id
+                    pk=user.center.treatment_management.province_id if user.center.treatment_management_id else None
                 )
             else:
                 self.fields["province"].queryset = OrganizationalUnit.objects.none()
@@ -169,7 +169,7 @@ class ContractFilterForm(forms.Form):
                 pk__in=scoped_contracts.values("contractor_id")
             )
         elif not user.is_admin_country:
-            province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
+            province_ids = user.get_scoped_centers().values("treatment_management__province_id")
             scoped_contracts = Contract.objects.filter(province_id__in=province_ids).distinct()
             self.fields["contractor"].queryset = Contractor.objects.filter(
                 pk__in=scoped_contracts.values("contractor_id")
