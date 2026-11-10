@@ -197,6 +197,10 @@ def _resolve_webhook_target(raw_url: str):
             raise ValueError(
                 "مقصدهای خصوصی/محلی مجاز نیستند؛ در صورت نیاز، نام میزبان دقیق را در ITAM_WEBHOOK_ALLOWED_HOSTS ثبت کنید."
             )
+        if parsed.scheme == "http" and ip.is_global:
+            raise ValueError(
+                "ارسال HTTP رمزنگاری‌نشده به نشانی عمومی مجاز نیست؛ برای مقصد عمومی از HTTPS استفاده کنید."
+            )
 
     # The socket is connected to this exact validated IP below; DNS is not resolved again.
     return parsed, addresses[0], port
