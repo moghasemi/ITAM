@@ -41,11 +41,14 @@ def visible_visits(user):
         return queryset.none()
     if user.is_superuser or user.role == User.ROLE_ADMIN_COUNTRY:
         return queryset
-    if user.role in (User.ROLE_ADMIN_PROVINCE, User.ROLE_ADMIN_COUNTY):
+    if user.role == User.ROLE_ADMIN_PROVINCE:
         centers = user.get_scoped_centers()
+        province_ids = centers.values("parent_unit__parent_id")
         return queryset.filter(
-            Q(center__in=centers) | Q(contract__centers__in=centers)
+            Q(center__in=centers) | Q(contract__province_id__in=province_ids)
         ).distinct()
+    if user.role == User.ROLE_ADMIN_COUNTY:
+        return queryset.filter(center__in=user.get_scoped_centers())
     if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
         centers = user.get_scoped_centers()
         if not centers.exists():
@@ -54,8 +57,13 @@ def visible_visits(user):
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id:
             return queryset.none()
+        centers = user.get_scoped_centers()
+        province_ids = centers.values("parent_unit__parent_id")
         return queryset.filter(
-            contractor_id=user.contractor_id, center__in=user.get_scoped_centers()
+            contractor_id=user.contractor_id
+        ).filter(
+            Q(center__in=centers) |
+            Q(center__isnull=True, contract__province_id__in=province_ids)
         )
     return queryset.none()
 
@@ -76,14 +84,23 @@ def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
         centers = user.get_scoped_centers()
         if visit.center_id:
             return centers.filter(pk=visit.center_id).exists()
-        return visit.contract.centers.filter(pk__in=centers).exists()
+        return bool(
+            visit.contract_id
+            and visit.contract.province_id
+            and centers.filter(parent_unit__parent_id=visit.contract.province_id).exists()
+        )
     if user.has_role(User.ROLE_ADMIN_IT):
         return user.get_scoped_centers().filter(pk=visit.center_id).exists()
     if user.has_role(User.ROLE_TECHNICIAN):
+        centers = user.get_scoped_centers()
+        if not user.contractor_id or visit.contract.contractor_id != user.contractor_id:
+            return False
+        if visit.center_id:
+            return centers.filter(pk=visit.center_id).exists()
         return bool(
-            user.contractor_id
-            and visit.contract.contractor_id == user.contractor_id
-            and user.get_scoped_centers().filter(pk=visit.center_id).exists()
+            visit.contract.is_current
+            and visit.contract.province_id
+            and centers.filter(parent_unit__parent_id=visit.contract.province_id).exists()
         )
     return False
 
@@ -107,15 +124,11 @@ def generate_visits(contract, *, user=None, populate=True) -> dict:
     if not contract.visit_interval_days:
         raise ValidationError("دوره بازدید برای این قرارداد تعریف نشده است.")
 
-    centers = list(contract.centers.all())
-    if contract.is_provincial:
-        visit_center = None  # استان‌گسترده؛ فقط مدیر استان می‌تواند این بازدید را مدیریت کند.
-    elif len(centers) == 1:
-        visit_center = centers[0]
-    else:
-        raise ValidationError(
-            "برای برنامه‌ریزی بازدید، قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد."
-        )
+    if not contract.province_id:
+        raise ValidationError("استان قرارداد تعیین نشده است؛ ابتدا پرونده قرارداد را تکمیل کنید.")
+    if not contract.province_id or contract.province.unit_type != "province":
+        raise ValidationError("استان قرارداد معتبر نیست.")
+    visit_center = None  # قرارداد به یک استان تعلق دارد و بازدید در سطح استان ثبت می‌شود.
 
     total = contract.planned_visit_count()
     created = 0
