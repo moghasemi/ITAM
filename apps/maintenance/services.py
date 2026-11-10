@@ -29,6 +29,14 @@ from apps.integrations.models import OutboxEvent
 from .models import MaintenanceVisit, VisitAssetCheck
 
 
+def _it_experts_for_center(center_id):
+    if not center_id:
+        return User.objects.none()
+    return User.objects.filter(
+        role=User.ROLE_ADMIN_IT, is_active=True, center_id=center_id
+    )
+
+
 # ---------------------------------------------------------------------------
 # دسترسی
 # ---------------------------------------------------------------------------
@@ -276,7 +284,7 @@ def mark_missed_visits(user=None) -> int:
             actor=user,
         )
         Notification.push_many(
-            list(User.objects.filter(role=User.ROLE_ADMIN_IT, is_active=True)),
+            list(_it_experts_for_center(visit.center_id)),
             f"بازدید {visit.number} انجام نشد",
             f"مهلت بازدید دوره‌ای قرارداد {visit.contract.number} به پایان رسید.",
             visit.get_absolute_url(),
