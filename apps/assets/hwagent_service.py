@@ -20,7 +20,7 @@ from apps.core.constants import (
 )
 from apps.integrations.models import OutboxEvent
 
-from .models import Asset, AssetCategory, ComponentType, HardwareSnapshot, SnapshotItem
+from .models import AgentCredential, Asset, AssetCategory, ComponentType, HardwareSnapshot, SnapshotItem
 from .services import can_record_snapshot, compute_diff, reference_snapshot
 
 
@@ -191,13 +191,38 @@ def apply_hwagent_snapshot(
     note: str = "",
     seal_number: str = "",
     auto_approve_baseline: bool = False,
+    agent_credential=None,
 ) -> Tuple[HardwareSnapshot, Dict[str, Any]]:
     """پردازش و ذخیره اسنپ‌شات استخراج‌شده از HWAgent برای یک دارایی مشخص.
 
     خروجی: تاپل شامل نمونه اسنپ‌شات و دیکشنری مغایرت‌ها (Diff)
     """
-    if not can_record_snapshot(user, asset):
-        raise PermissionDenied("اجازه ثبت اسنپ‌شات HWAgent برای این تجهیز را ندارید.")
+    if user is not None:
+        if not can_record_snapshot(user, asset):
+            raise PermissionDenied("اجازه ثبت اسنپ‌شات HWAgent برای این تجهیز را ندارید.")
+    else:
+        # مسیر API فقط با اعتبارنامه معتبر و محدود به همان مرکز مجاز است.
+        if not agent_credential or agent_credential.status != AgentCredential.STATUS_ACTIVE:
+            raise PermissionDenied("اعتبارنامه ایجنت برای ثبت اسنپ‌شات معتبر نیست.")
+        if agent_credential.expires_at and timezone.now() > agent_credential.expires_at:
+            raise PermissionDenied("اعتبارنامه ایجنت منقضی شده است.")
+        center = agent_credential.center
+        county = center.parent_unit if center else None
+        province = county.parent if county else None
+        management = getattr(center, "treatment_management", None) if center else None
+        if (
+            not center
+            or center.pk != asset.center_id
+            or not center.is_active
+            or not county
+            or not county.is_active
+            or not province
+            or not province.is_active
+            or not management
+            or not management.is_active
+            or management.province_id != province.pk
+        ):
+            raise PermissionDenied("مرکز یا زنجیره سازمانی ایجنت غیرفعال یا خارج از حوزه دارایی است.")
     if asset.snapshots.filter(is_baseline=True, status=SNAPSHOT_PENDING).exists():
         raise ValidationError("اسنپ‌شات پایه این تجهیز هنوز تایید نشده است؛ تا تعیین تکلیف آن، ثبت نسخه جدید مجاز نیست.")
 
