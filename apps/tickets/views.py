@@ -197,7 +197,7 @@ class TicketDetailView(AnyRoleRequiredMixin, PageContextMixin, DetailView):
         context = super().get_context_data(**kwargs)
         ticket = self.object
         user = self.request.user
-        recalculate_sla(ticket)
+        recalculate_sla(ticket, save=False)
         context["events"] = ticket.events.select_related("actor")
         context["pauses"] = ticket.pauses.all()
         context["parts"] = ticket.parts.select_related("component_type")
@@ -217,7 +217,7 @@ class TicketDetailView(AnyRoleRequiredMixin, PageContextMixin, DetailView):
 def ticket_print(request, pk: int):
     """نسخه چاپی درخواست."""
     ticket = get_object_or_404(visible_tickets(request.user), pk=pk)
-    recalculate_sla(ticket)
+    recalculate_sla(ticket, save=False)
     return render(
         request,
         "tickets/ticket_print.html",
