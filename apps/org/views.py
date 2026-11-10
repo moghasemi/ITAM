@@ -36,11 +36,10 @@ from .models import Center, Contract, Contractor, Department, Location
 
 
 def _visible_contracts_for_user(user):
-    if user.is_admin_province:
+    if user.is_admin_country:
         return Contract.objects.all()
-    return Contract.objects.filter(
-        centers__in=user.get_scoped_centers()
-    ).distinct()
+    province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
+    return Contract.objects.filter(province_id__in=province_ids).distinct()
 
 
 # ---------------------------------------------------------------------------
@@ -324,6 +323,11 @@ class ContractListView(AdminItRequiredMixin, BaseListView):
 class ContractFormMixin:
     """ذخیره هم‌زمان قرارداد و سیاست‌های SLA."""
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.request.method == "POST":
@@ -416,7 +420,7 @@ def contract_generate_visits(request, pk: int):
     if (
         request.user.has_role("admin_it")
         and not request.user.is_admin_province
-        and contract.is_provincial
+        and contract.province_id
     ):
         from django.core.exceptions import PermissionDenied
         raise PermissionDenied(
