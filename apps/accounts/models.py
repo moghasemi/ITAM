@@ -180,6 +180,7 @@ class User(AbstractUser):
             is_active=True,
             parent_unit__is_active=True,
             parent_unit__parent__is_active=True,
+            treatment_management__is_active=True,
         )
 
     def get_scoped_centers(self):
@@ -194,13 +195,13 @@ class User(AbstractUser):
                 if not self.org_unit.is_active:
                     return Center.objects.none()
                 return self._active_center_scope(
-                    Center.objects.filter(parent_unit__parent=self.org_unit)
+                    Center.objects.filter(treatment_management__province=self.org_unit)
                 )
             if self.center:
-                province = (self.center.parent_unit.parent if self.center.parent_unit_id and self.center.parent_unit.parent_id else None)
+                province = (self.center.treatment_management.province if self.center.treatment_management_id else None)
                 if province and province.is_active:
                     return self._active_center_scope(
-                        Center.objects.filter(parent_unit__parent=province)
+                        Center.objects.filter(treatment_management__province=province)
                     )
                 return Center.objects.none()
             return Center.objects.none()
@@ -221,7 +222,7 @@ class User(AbstractUser):
                 "province_id", flat=True
             )
             return self._active_center_scope(
-                Center.objects.filter(parent_unit__parent_id__in=province_ids)
+                Center.objects.filter(treatment_management__province_id__in=province_ids)
             ).distinct()
         return Center.objects.none()
 
