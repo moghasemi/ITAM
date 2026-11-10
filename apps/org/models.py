@@ -366,7 +366,7 @@ class Contract(TimeStampedModel):
             raise ValidationError(errors)
 
     def covers_center(self, center) -> bool:
-        if not self.is_current or not self.province_id or center is None:
+        if not self.province_id or center is None:
             return False
         center_obj = center if hasattr(center, "parent_unit_id") else None
         if center_obj is None:
