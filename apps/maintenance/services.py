@@ -48,12 +48,17 @@ def visible_visits(user):
             Q(center__in=centers) | Q(contract__province_id__in=province_ids)
         ).distinct()
     if user.role == User.ROLE_ADMIN_COUNTY:
-        return queryset.filter(center__in=user.get_scoped_centers())
+        centers = user.get_scoped_centers()
+        return queryset.filter(
+            Q(center__in=centers) | Q(checks__asset__center__in=centers)
+        ).distinct()
     if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
         centers = user.get_scoped_centers()
         if not centers.exists():
             return queryset.none()
-        return queryset.filter(center__in=centers)
+        return queryset.filter(
+            Q(center__in=centers) | Q(checks__asset__center__in=centers)
+        ).distinct()
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id:
             return queryset.none()
@@ -75,6 +80,17 @@ def visible_checks(user, visit: MaintenanceVisit):
     if user.is_superuser or user.role == User.ROLE_ADMIN_COUNTRY:
         return checks
     return checks.filter(asset__center__in=user.get_scoped_centers())
+
+
+def can_confirm_visit(user, visit: MaintenanceVisit) -> bool:
+    """اجازه تایید نهایی بازدید برای مدیر IT در محدوده مراکز دارای چک‌لیست."""
+    if not getattr(user, "is_authenticated", False) or not user.has_role(User.ROLE_ADMIN_IT):
+        return False
+    if not visible_visits(user).filter(pk=visit.pk).exists():
+        return False
+    if user.is_admin_country:
+        return True
+    return visible_checks(user, visit).exists()
 
 
 def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
@@ -312,7 +328,7 @@ def complete_visit(visit: MaintenanceVisit, user, *, report_text="", recommendat
 @transaction.atomic
 def confirm_visit(visit: MaintenanceVisit, user, note: str = ""):
     """تایید بازدید توسط کارشناس فناوری اطلاعات مرکز."""
-    if not user.has_role(User.ROLE_ADMIN_IT) or not can_manage_visit(user, visit):
+    if not can_confirm_visit(user, visit):
         raise PermissionDenied("تایید بازدید فقط توسط کارشناس فناوری اطلاعات مجاز همان دامنه انجام می‌شود.")
     visit.it_confirmed_by = user
     visit.it_confirmed_at = timezone.now()
