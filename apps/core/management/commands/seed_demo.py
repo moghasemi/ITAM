@@ -131,7 +131,7 @@ class Command(BaseCommand):
         center_saveh, _ = Center.objects.get_or_create(
             code="C-02",
             defaults={
-                "name": "مرکز فناوری اطلاعات ساوه",
+                "name": "مرکز فناوری اطلاعات زابل",
                 "province": "سیستان و بلوچستان",
                 "parent_unit": ou_zabol,
                 "city": "زابل",
@@ -145,7 +145,7 @@ class Command(BaseCommand):
         center_khomein, _ = Center.objects.get_or_create(
             code="C-03",
             defaults={
-                "name": "مرکز فناوری اطلاعات خمین",
+                "name": "مرکز فناوری اطلاعات ایرانشهر",
                 "province": "سیستان و بلوچستان",
                 "parent_unit": ou_iranshahr,
                 "city": "ایرانشهر",
@@ -176,8 +176,8 @@ class Command(BaseCommand):
             ("حوزه ریاست و مدیریت استان", "100", "محمد رضایی", center_hq),
             ("معاونت اداری و مالی ستاد", "200", "زهرا کریمی", center_hq),
             ("واحد فناوری اطلاعات ستاد", "210", "علی محمدی", center_hq),
-            ("امور کارکنان مرکز ساوه", "300", "مهرداد کاظمی", center_saveh),
-            ("فناوری و اداری مرکز خمین", "400", "پیمان خسروی", center_khomein),
+            ("امور کارکنان مرکز زابل", "300", "مهرداد کاظمی", center_saveh),
+            ("فناوری و اداری مرکز ایرانشهر", "400", "پیمان خسروی", center_khomein),
         ]:
             department, _ = Department.objects.get_or_create(
                 name=name, center=center_ref, defaults={"code": code, "manager_name": manager}
