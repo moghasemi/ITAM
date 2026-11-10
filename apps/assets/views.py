@@ -55,6 +55,7 @@ from .models import (
     AssetRelationship,
     ComponentType,
     HardwareSnapshot,
+    SnapshotItem,
     AgentCredential,
     AgentNonce,
     AgentSyncAuditLog,
@@ -504,12 +505,64 @@ def attachment_download(request, pk: int):
         raise Http404("فایل پیوست موجود نیست.")
     filename = attachment.file.name.rsplit("/", 1)[-1]
     content_type, _ = mimetypes.guess_type(filename)
-    return FileResponse(
+    response = FileResponse(
         attachment.file.open("rb"),
         as_attachment=True,
         filename=filename,
         content_type=content_type or "application/octet-stream",
     )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@login_required
+def snapshot_file(request, pk: int, kind: str):
+    """Serve snapshot photos only to users who can view the owning asset."""
+    snapshot = get_object_or_404(
+        HardwareSnapshot.objects.select_related("asset"),
+        pk=pk,
+    )
+    if not visible_assets(request.user).filter(pk=snapshot.asset_id).exists():
+        raise PermissionDenied("این فایل متعلق به دارایی خارج از دامنه مجاز شماست.")
+    allowed_fields = {"case_photo", "seal_photo"}
+    if kind not in allowed_fields:
+        raise Http404("نوع فایل معتبر نیست.")
+    file_field = getattr(snapshot, kind)
+    if not file_field:
+        raise Http404("فایل تصویر موجود نیست.")
+    filename = file_field.name.rsplit("/", 1)[-1]
+    content_type, _ = mimetypes.guess_type(filename)
+    response = FileResponse(
+        file_field.open("rb"),
+        as_attachment=False,
+        filename=filename,
+        content_type=content_type or "application/octet-stream",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@login_required
+def snapshot_item_photo(request, pk: int):
+    """Serve an individual component photo through the snapshot's asset scope."""
+    item = get_object_or_404(
+        SnapshotItem.objects.select_related("snapshot__asset"),
+        pk=pk,
+    )
+    if not visible_assets(request.user).filter(pk=item.snapshot.asset_id).exists():
+        raise PermissionDenied("این عکس متعلق به دارایی خارج از دامنه مجاز شماست.")
+    if not item.photo:
+        raise Http404("فایل تصویر موجود نیست.")
+    filename = item.photo.name.rsplit("/", 1)[-1]
+    content_type, _ = mimetypes.guess_type(filename)
+    response = FileResponse(
+        item.photo.open("rb"),
+        as_attachment=False,
+        filename=filename,
+        content_type=content_type or "application/octet-stream",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @login_required

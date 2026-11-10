@@ -89,7 +89,7 @@
         <div>
           <h3 class="section-title">کیس باز شده</h3>
           {% if snapshot.case_photo %}
-            <a href="{{ snapshot.case_photo.url }}" target="_blank">
+            <a href="{% url 'assets:snapshot_file' snapshot.pk 'case_photo' %}" target="_blank">
               <img src="{{ snapshot.case_photo.url }}" alt="عکس کیس" style="max-width:100%;border-radius:10px;border:1px solid var(--border)">
             </a>
           {% else %}<p class="muted small">تصویری ثبت نشده است.</p>{% endif %}
@@ -97,7 +97,7 @@
         <div>
           <h3 class="section-title">پلمب / برچسب امنیتی</h3>
           {% if snapshot.seal_photo %}
-            <a href="{{ snapshot.seal_photo.url }}" target="_blank">
+            <a href="{% url 'assets:snapshot_file' snapshot.pk 'seal_photo' %}" target="_blank">
               <img src="{{ snapshot.seal_photo.url }}" alt="عکس پلمب" style="max-width:100%;border-radius:10px;border:1px solid var(--border)">
             </a>
           {% else %}<p class="muted small">تصویری ثبت نشده است.</p>{% endif %}
@@ -127,7 +127,7 @@
           <td>{{ item.quantity|fa }}</td>
           <td>{{ item.slot|default:"—" }}</td>
           <td><span class="badge badge-{{ item.condition|item_css }}">{{ item.get_condition_display }}</span></td>
-          <td>{% if item.photo %}<a href="{{ item.photo.url }}" target="_blank">مشاهده</a>{% else %}—{% endif %}</td>
+          <td>{% if item.photo %}<a href="{% url 'assets:snapshot_item_photo' item.pk %}" target="_blank">مشاهده</a>{% else %}—{% endif %}</td>
           <td class="small">{{ item.notes|default:"—" }}</td>
         </tr>
       {% empty %}
