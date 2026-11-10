@@ -24,6 +24,17 @@ class IranGeographyLoaderTests(TestCase):
 
         self.assertEqual(provinces.count(), 31)
         self.assertEqual(counties.count(), 484)
+        active_provinces = list(
+            provinces.filter(is_active=True).values_list("name", flat=True)
+        )
+        self.assertEqual(active_provinces, ["سیستان و بلوچستان"])
+        self.assertFalse(
+            counties.exclude(parent__name="سیستان و بلوچستان").filter(is_active=True).exists()
+        )
+        self.assertEqual(
+            counties.filter(parent__name="سیستان و بلوچستان", is_active=True).count(),
+            counties.filter(parent__name="سیستان و بلوچستان").count(),
+        )
         self.assertEqual(
             OrganizationalUnit.objects.filter(
                 unit_type=OrganizationalUnit.UNIT_COUNTY,
