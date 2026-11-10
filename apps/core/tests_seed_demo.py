@@ -43,7 +43,7 @@ class DemoSeedProvinceTests(TestCase):
         from django.test import override_settings
         from django.core.management.base import CommandError
 
-        with override_settings(DEBUG=False):
+        with override_settings(DEBUG=False, RUNNING_TESTS=False):
             with self.assertRaises(CommandError):
                 call_command(
                     "seed_demo",
