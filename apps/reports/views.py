@@ -68,10 +68,10 @@ class ReportsHomeView(StaffRequiredMixin, PageContextMixin, View):
             "assets_total": assets.count(),
             "contracts_active": (
                 Contract.objects.filter(status=Contract.STATUS_ACTIVE).count()
-                if request.user.is_admin_province
+                if request.user.is_admin_country
                 else Contract.objects.filter(
                     status=Contract.STATUS_ACTIVE,
-                    centers__in=request.user.get_scoped_centers(),
+                    province_id__in=request.user.get_scoped_centers().values("parent_unit__parent_id"),
                 ).distinct().count()
             ),
             "breached_total": tickets.filter(Q(response_met=False) | Q(resolve_met=False)).count(),
