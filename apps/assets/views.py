@@ -55,6 +55,7 @@ from .models import (
     AssetRelationship,
     ComponentType,
     HardwareSnapshot,
+    SnapshotItem,
     AgentCredential,
     AgentNonce,
     AgentSyncAuditLog,
