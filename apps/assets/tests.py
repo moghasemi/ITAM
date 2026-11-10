@@ -148,7 +148,7 @@ class SnapshotWorkflowTests(TestCase):
             username="tech", password="pass12345", role=User.ROLE_TECHNICIAN, contractor=cls.contractor
         )
         cls.it_expert = User.objects.create_user(
-            username="expert", password="pass12345", role=User.ROLE_ADMIN_IT
+            username="expert", password="pass12345", role=User.ROLE_ADMIN_IT, center=cls.center
         )
 
     def _make_snapshot(self, serial, user=None):
@@ -236,6 +236,54 @@ class SnapshotWorkflowTests(TestCase):
         )
         with self.assertRaises(PermissionDenied):
             create_snapshot(self.asset, other)
+
+
+    def test_pending_snapshot_cannot_be_submitted_twice(self):
+        from django.core.exceptions import ValidationError
+        from apps.assets.services import submit_snapshot
+
+        snapshot = self._make_snapshot("CPU-REPEAT")
+        submit_snapshot(snapshot, self.technician)
+        snapshot.refresh_from_db()
+        first_confirmation = snapshot.technician_confirmed_at
+        with self.assertRaises(ValidationError):
+            submit_snapshot(snapshot, self.technician)
+        snapshot.refresh_from_db()
+        self.assertEqual(snapshot.status, "pending")
+        self.assertEqual(snapshot.technician_confirmed_at, first_confirmation)
+
+    def test_snapshot_requires_a_distinct_it_reviewer(self):
+        from django.core.exceptions import ValidationError
+        from apps.assets.services import approve_snapshot, submit_snapshot
+
+        snapshot = self._make_snapshot("CPU-SELF", user=self.it_expert)
+        submit_snapshot(snapshot, self.it_expert)
+        with self.assertRaises(ValidationError):
+            approve_snapshot(snapshot, self.it_expert)
+
+        second_expert = User.objects.create_user(
+            username="expert-second",
+            password="pass12345",
+            role=User.ROLE_ADMIN_IT,
+            center=self.center,
+        )
+        approve_snapshot(snapshot, second_expert)
+        snapshot.refresh_from_db()
+        self.assertEqual(snapshot.status, "locked")
+        self.assertEqual(snapshot.technician_confirmed_by_id, self.it_expert.pk)
+        self.assertEqual(snapshot.it_confirmed_by_id, second_expert.pk)
+
+    def test_locked_snapshot_cannot_be_rejected(self):
+        from django.core.exceptions import ValidationError
+        from apps.assets.services import approve_snapshot, reject_snapshot, submit_snapshot
+
+        snapshot = self._make_snapshot("CPU-LOCKED")
+        submit_snapshot(snapshot, self.technician)
+        approve_snapshot(snapshot, self.it_expert)
+        with self.assertRaises(ValidationError):
+            reject_snapshot(snapshot, self.it_expert, "late rejection")
+        snapshot.refresh_from_db()
+        self.assertEqual(snapshot.status, "locked")
 
 
 class QrGeneratorTests(TestCase):
