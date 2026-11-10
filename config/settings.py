@@ -69,9 +69,9 @@ else:
     if not SECRET_KEY:
         from django.core.exceptions import ImproperlyConfigured
         raise ImproperlyConfigured("متغیر محیطی ITAM_SECRET_KEY در محیط عملیاتی (DEBUG=False) الزامی است.")
-    if len(SECRET_KEY) < 50:
+    if len(SECRET_KEY) < 50 or "REPLACE" in SECRET_KEY.upper() or "CHANGE_ME" in SECRET_KEY.upper():
         from django.core.exceptions import ImproperlyConfigured
-        raise ImproperlyConfigured("طول کلید ITAM_SECRET_KEY در محیط عملیاتی باید حداقل ۵۰ نویسه با آنتروپی بالا باشد.")
+        raise ImproperlyConfigured("ITAM_SECRET_KEY باید یک کلید تصادفی واقعی با حداقل ۵۰ نویسه باشد؛ مقدار نمونه/جایگزین مجاز نیست.")
 
     ALLOWED_HOSTS = env_list("ITAM_ALLOWED_HOSTS", [])
     if not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS:
@@ -209,7 +209,13 @@ ASGI_APPLICATION = "config.asgi.application"
 # ---------------------------------------------------------------------------
 DB_ENGINE = os.environ.get("ITAM_DB_ENGINE", "sqlite").lower()
 
-if DB_ENGINE in ("postgres", "postgresql") or os.environ.get("ITAM_DB_NAME"):
+if not DEBUG and not RUNNING_TESTS and DB_ENGINE not in ("postgres", "postgresql"):
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        "محیط عملیاتی ITAM باید از PostgreSQL استفاده کند؛ SQLite فقط برای توسعه/دمو محلی مجاز است."
+    )
+
+if DB_ENGINE in ("postgres", "postgresql"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -223,7 +229,7 @@ if DB_ENGINE in ("postgres", "postgresql") or os.environ.get("ITAM_DB_NAME"):
             },
         }
     }
-else:
+elif DB_ENGINE == "sqlite":
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -233,6 +239,9 @@ else:
             },
         }
     }
+else:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured("ITAM_DB_ENGINE باید sqlite یا postgresql باشد.")
 
 # ---------------------------------------------------------------------------
 # احراز هویت
