@@ -4,6 +4,7 @@ from __future__ import annotations
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, UserCreationForm
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 
 from apps.core.forms import StyledModelForm, apply_widget_classes
 from apps.org.models import Center, Contract, Contractor, Department, OrganizationalUnit
@@ -105,7 +106,7 @@ class UserForm(StyledModelForm):
             elif self.current_user.center_id and self.current_user.center.treatment_management_id:
                 province = self.current_user.center.treatment_management.province
             if province:
-                today = __import__("django.utils.timezone", fromlist=["timezone"]).localdate()
+                today = timezone.localdate()
                 active_contracts = Contract.objects.filter(
                     province=province,
                     status=Contract.STATUS_ACTIVE,
