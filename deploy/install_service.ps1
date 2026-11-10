@@ -10,6 +10,7 @@
 param(
     [string]$ProjectPath = (Resolve-Path "$PSScriptRoot\..").Path,
     [string]$PythonPath  = "",
+    [string]$BackupRoot  = "",
     [string]$TaskUser    = "SYSTEM",
     [switch]$SkipServerTask,
     [switch]$SkipScheduledJobs
@@ -36,6 +37,21 @@ Write-Ok "پوشه پروژه: $ProjectPath"
 if (-not (Test-Path (Join-Path $ProjectPath ".env"))) {
     throw "فایل .env یافت نشد. ابتدا deploy\.env.example را به .env کپی و تنظیم کنید."
 }
+
+if ([string]::IsNullOrWhiteSpace($BackupRoot)) {
+    throw "برای نصب عملیاتی، مسیر پشتیبان‌گیری روی دیسک مستقل یا Share شبکه را با -BackupRoot مشخص کنید."
+}
+$projectFullPath = [System.IO.Path]::GetFullPath($ProjectPath).TrimEnd("\\") + "\\"
+$backupFullPath = [System.IO.Path]::GetFullPath($BackupRoot).TrimEnd("\\") + "\\"
+if ($backupFullPath.StartsWith($projectFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "مسیر پشتیبان نباید داخل پوشه پروژه باشد."
+}
+$projectDrive = [System.IO.Path]::GetPathRoot($projectFullPath)
+$backupDrive = [System.IO.Path]::GetPathRoot($backupFullPath)
+if (-not $BackupRoot.StartsWith("\\\\") -and $projectDrive -eq $backupDrive) {
+    throw "مسیر پشتیبان باید روی Volume جداگانه یا Share شبکه باشد."
+}
+New-Item -ItemType Directory -Force -Path $BackupRoot | Out-Null
 
 $envSettings = @{}
 Get-Content (Join-Path $ProjectPath ".env") | ForEach-Object {
@@ -136,7 +152,7 @@ if (-not $SkipScheduledJobs) {
         @{ Name = "ITAM-Dispatch";  Args = "manage.py dispatch_outbox --limit 200"; Schedule = "/SC MINUTE /MO 5";  Desc = "ارسال رخدادها به سامانه مدیریت" },
         @{ Name = "ITAM-SLA";       Args = "manage.py check_sla_breaches";           Schedule = "/SC MINUTE /MO 30"; Desc = "بررسی نقض SLA" },
         @{ Name = "ITAM-Visits";    Args = "manage.py mark_missed_visits";           Schedule = "/SC DAILY /ST 07:00"; Desc = "بازدیدهای خارج از مهلت" },
-        @{ Name = "ITAM-Backup";    Args = "-File `"$ProjectPath\deploy\backup.ps1`" -PythonPath `"$PythonPath`" -ProjectPath `"$ProjectPath`""; Schedule = "/SC DAILY /ST 23:30"; Desc = "پشتیبان‌گیری روزانه" }
+        @{ Name = "ITAM-Backup";    Args = "-File `"$ProjectPath\deploy\backup.ps1`" -PythonPath `"$PythonPath`" -ProjectPath `"$ProjectPath`" -BackupRoot `"$BackupRoot`""; Schedule = "/SC DAILY /ST 23:30"; Desc = "پشتیبان‌گیری روزانه" }
     )
     foreach ($job in $jobs) {
         schtasks /Delete /TN $job.Name /F 2>$null | Out-Null
