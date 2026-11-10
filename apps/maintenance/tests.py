@@ -287,3 +287,42 @@ class ProvincialMaintenanceScopeTests(TestCase):
         self.assertFalse(it_a.notifications.filter(
             title=f"بازدید {visit_b.number} انجام نشد"
         ).exists())
+
+
+
+    def test_inactive_center_assets_do_not_block_visit_completion(self):
+        from .services import complete_visit, populate_checks
+
+        inactive_center = Center.objects.create(
+            name="Inactive Maintenance Center",
+            code="MNT-CENTER-INACTIVE",
+            parent_unit=self.center.parent_unit,
+            is_active=False,
+        )
+        inactive_asset = Asset.objects.create(
+            asset_tag="MNT-ASSET-INACTIVE",
+            category=self.asset.category,
+            contract=self.contract,
+            center=inactive_center,
+            status="active",
+        )
+        visit = MaintenanceVisit.objects.create(
+            number="MNT-VISIT-ACTIVE-SCOPE",
+            contract=self.contract,
+            contractor=self.contractor,
+            center=None,
+            sequence_number=20,
+            scheduled_date=timezone.localdate(),
+        )
+
+        populate_checks(visit)
+        self.assertFalse(visit.checks.filter(asset=inactive_asset).exists())
+
+        # A legacy check may remain after its center is deactivated; it must
+        # not become an invisible blocker for the operational completion flow.
+        VisitAssetCheck.objects.create(visit=visit, asset=inactive_asset, checked=False)
+        visit.checks.filter(asset__center__is_active=True).update(checked=True)
+
+        complete_visit(visit, self.provincial_admin)
+        visit.refresh_from_db()
+        self.assertEqual(visit.status, "done")
