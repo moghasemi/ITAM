@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from apps.accounts.forms import UserForm
 from apps.accounts.models import User
-from apps.org.models import Center, Contract, Contractor, OrganizationalUnit
+from apps.org.models import Center, Contract, Contractor, Department, OrganizationalUnit
 
 
 class TechnicianProvinceScopeTests(TestCase):
@@ -114,4 +114,19 @@ class TechnicianProvinceScopeTests(TestCase):
         self.assertEqual(
             set(technician.get_active_contractor_contracts().values_list("pk", flat=True)),
             {self.contract_a.pk},
+        )
+
+
+
+    def test_user_form_departments_are_limited_to_authorized_centers(self):
+        department_a = Department.objects.create(
+            center=self.center_a, name="Department A",
+        )
+        Department.objects.create(
+            center=self.center_b, name="Department B",
+        )
+        form = UserForm(current_user=self.province_admin)
+        self.assertEqual(
+            list(form.fields["department"].queryset),
+            [department_a],
         )
