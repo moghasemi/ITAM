@@ -163,6 +163,11 @@ class ContractFilterForm(forms.Form):
         super().__init__(*args, **kwargs)
         if user is None:
             self.fields["contractor"].queryset = Contractor.objects.none()
+        elif user.has_role("technician"):
+            scoped_contracts = user.get_active_contractor_contracts()
+            self.fields["contractor"].queryset = Contractor.objects.filter(
+                pk__in=scoped_contracts.values("contractor_id")
+            )
         elif not user.is_admin_country:
             province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
             scoped_contracts = Contract.objects.filter(province_id__in=province_ids).distinct()
