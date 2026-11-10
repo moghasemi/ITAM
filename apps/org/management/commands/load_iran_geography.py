@@ -131,6 +131,7 @@ class Command(BaseCommand):
         unit_type: str,
         parent: OrganizationalUnit | None,
         legacy_code: str | None = None,
+        is_active: bool = True,
     ) -> tuple[OrganizationalUnit, bool]:
         unit = OrganizationalUnit.objects.filter(code=code).first()
         if unit is None and legacy_code:
@@ -154,7 +155,7 @@ class Command(BaseCommand):
                 name=name,
                 unit_type=unit_type,
                 parent=parent,
-                is_active=True,
+                is_active=is_active,
             )
         else:
             if unit.unit_type != unit_type:
@@ -162,7 +163,7 @@ class Command(BaseCommand):
             unit.code = code
             unit.name = name
             unit.parent = parent
-            unit.is_active = True
+            unit.is_active = is_active
 
         unit.save()
         return unit, created
@@ -196,6 +197,7 @@ class Command(BaseCommand):
                 unit_type=OrganizationalUnit.UNIT_PROVINCE,
                 parent=root,
                 legacy_code=LEGACY_CODES["province"].get(row["id"]),
+                is_active=row["name"].strip() == "سیستان و بلوچستان",
             )
             province_units[row["id"]] = unit
             if created:
@@ -211,6 +213,7 @@ class Command(BaseCommand):
                 unit_type=OrganizationalUnit.UNIT_COUNTY,
                 parent=province_units[row["province_id"]],
                 legacy_code=LEGACY_CODES["county"].get(row["id"]),
+                is_active=province_units[row["province_id"]].is_active,
             )
             if created:
                 created_counties += 1
