@@ -144,19 +144,17 @@ class VisitCreateView(RepairStaffRequiredMixin, PageContextMixin, CreateView):
     def _bind_visit_center(self, visit):
         contract = visit.contract
         user = self.request.user
-        if not user.is_admin_country and not contract.centers.filter(
-            pk__in=user.get_scoped_centers()
-        ).exists():
-            raise PermissionDenied("قرارداد خارج از دامنه مراکز مجاز شماست.")
-        if contract.is_provincial:
-            if not user.is_admin_province:
-                raise PermissionDenied("برنامه‌ریزی بازدید قرارداد استانی فقط توسط مدیر استان مجاز است.")
-            visit.center = None
-            return
-        centers = list(contract.centers.all())
-        if len(centers) != 1:
-            raise ValidationError("قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد.")
-        visit.center = centers[0]
+        centers = user.get_scoped_centers()
+        if not user.is_admin_country and not (
+            contract.province_id
+            and centers.filter(parent_unit__parent_id=contract.province_id).exists()
+        ):
+            raise PermissionDenied("قرارداد خارج از دامنه استان مجاز شماست.")
+        if not user.is_admin_province:
+            raise PermissionDenied("برنامه‌ریزی بازدید استانی فقط توسط مدیر استان یا کشور مجاز است.")
+        if not contract.province_id:
+            raise ValidationError("استان قرارداد تعیین نشده است.")
+        visit.center = None
 
     def form_valid(self, form):
         try:
@@ -194,19 +192,17 @@ class VisitUpdateView(RepairStaffRequiredMixin, PageContextMixin, UpdateView):
         contract = form.cleaned_data["contract"]
         try:
             user = self.request.user
-            if not user.is_admin_country and not contract.centers.filter(
-                pk__in=user.get_scoped_centers()
-            ).exists():
-                raise PermissionDenied("قرارداد خارج از دامنه مراکز مجاز شماست.")
-            if contract.is_provincial:
-                if not user.is_admin_province:
-                    raise PermissionDenied("ویرایش بازدید قرارداد استانی فقط توسط مدیر استان مجاز است.")
-                form.instance.center = None
-            else:
-                centers = list(contract.centers.all())
-                if len(centers) != 1:
-                    raise ValidationError("قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد.")
-                form.instance.center = centers[0]
+            centers = user.get_scoped_centers()
+            if not user.is_admin_country and not (
+                contract.province_id
+                and centers.filter(parent_unit__parent_id=contract.province_id).exists()
+            ):
+                raise PermissionDenied("قرارداد خارج از دامنه استان مجاز شماست.")
+            if not user.is_admin_province:
+                raise PermissionDenied("ویرایش بازدید استانی فقط توسط مدیر استان یا کشور مجاز است.")
+            if not contract.province_id:
+                raise ValidationError("استان قرارداد تعیین نشده است.")
+            form.instance.center = None
         except ValidationError as exc:
             form.add_error("contract", exc)
             return self.form_invalid(form)
