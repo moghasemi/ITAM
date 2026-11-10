@@ -97,7 +97,16 @@ class UserForm(StyledModelForm):
         else:
             self.fields["center"].queryset = Center.objects.filter(is_active=True)
 
-        self.fields["department"].queryset = Department.objects.filter(is_active=True)
+        departments = Department.objects.filter(is_active=True)
+        if (
+            self.current_user
+            and not self.current_user.is_superuser
+            and self.current_user.role != User.ROLE_ADMIN_COUNTRY
+        ):
+            departments = departments.filter(
+                center__in=self.current_user.get_scoped_centers()
+            )
+        self.fields["department"].queryset = departments
         contractors = Contractor.objects.filter(is_active=True)
         if self.current_user and self.current_user.role == User.ROLE_ADMIN_PROVINCE:
             province = None
@@ -175,6 +184,13 @@ class UserForm(StyledModelForm):
             center = cleaned.get("center")
             if center and not self.current_user.get_scoped_centers().filter(pk=center.pk).exists():
                 raise forms.ValidationError({"center": "مرکز انتخاب‌شده خارج از حوزه سازمانی مجاز شما است."})
+
+        department = cleaned.get("department")
+        center = cleaned.get("center")
+        if department and center and department.center_id != center.pk:
+            self.add_error("department", "واحد سازمانی باید متعلق به مرکز انتخاب‌شده باشد.")
+        elif department and not center:
+            self.add_error("center", "برای تخصیص واحد سازمانی، انتخاب مرکز الزامی است.")
 
         return cleaned
 
