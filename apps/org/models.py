@@ -355,15 +355,8 @@ class Contract(TimeStampedModel):
             errors["province"] = "واحد انتخاب‌شده باید از نوع استان باشد."
         if self.start_date and self.end_date and self.end_date < self.start_date:
             errors["end_date"] = "تاریخ پایان نمی‌تواند قبل از تاریخ شروع باشد."
-        if self.province_id and self.pk:
-            legacy_centers = self.centers.select_related("parent_unit__parent").all()
-            if any(
-                not center.parent_unit_id
-                or not center.parent_unit.parent_id
-                or center.parent_unit.parent_id != self.province_id
-                for center in legacy_centers
-            ):
-                errors["province"] = "تمام مراکز قدیمی متصل به قرارداد باید متعلق به استان قرارداد باشند."
+        # Legacy centers M2M is retained for historical data only and is not
+        # authoritative for access scope; the province FK is the sole boundary.
         if errors:
             raise ValidationError(errors)
 
