@@ -35,6 +35,8 @@ class VisitFilterForm(StyledForm):
             return
         if user.is_admin_country:
             contracts = Contract.objects.all()
+        elif user.has_role("technician"):
+            contracts = user.get_active_contractor_contracts()
         else:
             province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
             contracts = Contract.objects.filter(province_id__in=province_ids).distinct()
@@ -65,6 +67,8 @@ class VisitForm(StyledModelForm):
             return
         if user.is_admin_country:
             contracts = Contract.objects.all()
+        elif user.has_role("technician"):
+            contracts = user.get_active_contractor_contracts()
         else:
             province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
             contracts = Contract.objects.filter(province_id__in=province_ids).distinct()
