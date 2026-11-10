@@ -298,6 +298,25 @@ class SnapshotWorkflowTests(TestCase):
         self.assertEqual(snapshot.status, "locked")
 
 
+    def test_hardware_notifications_are_center_scoped(self):
+        from apps.assets.services import notify_it_experts
+
+        other_center = Center.objects.create(
+            name="مرکز دیگر اعلان اسنپ‌شات",
+            code="SNAP-NOTIFY-OTHER",
+            parent_unit=self.center.parent_unit,
+        )
+        other_expert = User.objects.create_user(
+            username="snapshot-other-it",
+            password="pass12345",
+            role=User.ROLE_ADMIN_IT,
+            center=other_center,
+        )
+        notify_it_experts("هشدار آزمون", "متن آزمون", center=self.center)
+        self.assertEqual(self.it_expert.notifications.count(), 1)
+        self.assertEqual(other_expert.notifications.count(), 0)
+
+
 class QrGeneratorTests(TestCase):
     """اعتبارسنجی مولد QR: چندجمله‌ای Reed-Solomon، ساختار و بازیابی داده."""
 
