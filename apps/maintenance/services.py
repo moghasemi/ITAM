@@ -78,6 +78,10 @@ def visible_checks(user, visit: MaintenanceVisit):
 
 
 def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if user.is_admin_country:
+        return True
     if not visible_visits(user).filter(pk=visit.pk).exists():
         return False
     if user.is_admin_province:
