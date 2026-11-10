@@ -197,7 +197,7 @@ class User(AbstractUser):
                     Center.objects.filter(parent_unit__parent=self.org_unit)
                 )
             if self.center:
-                province = self.center.parent_unit.parent if self.center.parent_unit_id else None
+                province = (self.center.parent_unit.parent if self.center.parent_unit_id and self.center.parent_unit.parent_id else None)
                 if province and province.is_active:
                     return self._active_center_scope(
                         Center.objects.filter(parent_unit__parent=province)
@@ -206,10 +206,10 @@ class User(AbstractUser):
             return Center.objects.none()
         if self.role == self.ROLE_ADMIN_COUNTY:
             if self.org_unit:
-                if not self.org_unit.is_active or not self.org_unit.parent.is_active:
+                if not self.org_unit.is_active or not self.org_unit.parent_id or not self.org_unit.parent.is_active:
                     return Center.objects.none()
                 return self._active_center_scope(Center.objects.filter(parent_unit=self.org_unit))
-            if self.center and self.center.parent_unit_id and self.center.parent_unit.parent.is_active:
+            if self.center and self.center.parent_unit_id and self.center.parent_unit.parent_id and self.center.parent_unit.parent.is_active:
                 return self._active_center_scope(Center.objects.filter(pk=self.center_id))
             return Center.objects.none()
         if self.role in (self.ROLE_ADMIN_IT, self.ROLE_MANAGER, self.ROLE_REQUESTER):
