@@ -109,7 +109,12 @@ def visible_visits(user):
 def visible_checks(user, visit: MaintenanceVisit):
     if not visible_visits(user).filter(pk=visit.pk).exists():
         return visit.checks.none()
-    checks = visit.checks.select_related("asset", "asset__category", "asset__location")
+    checks = visit.checks.select_related("asset", "asset__category", "asset__location").filter(
+        asset__center__is_active=True,
+        asset__center__parent_unit__is_active=True,
+        asset__center__parent_unit__parent__is_active=True,
+        asset__center__treatment_management__is_active=True,
+    )
     if user.is_superuser or user.role == User.ROLE_ADMIN_COUNTRY:
         return checks
     return checks.filter(
@@ -242,8 +247,14 @@ def populate_checks(visit: MaintenanceVisit, only_missing: bool = True) -> int:
     """ساخت برگه بازدید برای دارایی‌های قرارداد."""
     assets = Asset.objects.filter(
         contract=visit.contract,
+        center__is_active=True,
+        center__parent_unit__is_active=True,
+        center__parent_unit__parent__is_active=True,
+        center__treatment_management__is_active=True,
         center__treatment_management__province_id=visit.contract.province_id,
     ).exclude(status="retired")
+    if visit.center_id:
+        assets = assets.filter(center_id=visit.center_id)
     existing_ids = set()
     if only_missing:
         existing_ids = set(visit.checks.values_list("asset_id", flat=True))
@@ -322,7 +333,7 @@ def complete_visit(visit: MaintenanceVisit, user, *, report_text="", recommendat
     if visit.status == VISIT_DONE:
         raise ValidationError("این بازدید پیش‌تر پایان یافته است.")
 
-    pending = visit.checks.filter(checked=False).count()
+    pending = visible_checks(user, visit).filter(checked=False).count()
     if pending and not force:
         raise ValidationError(
             f"{pending} برگه بازدید تکمیل نشده است. برای پایان اجباری گزینه «پایان با ناقص» را انتخاب کنید."
