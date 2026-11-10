@@ -387,9 +387,11 @@ def recompute_diff(snapshot: HardwareSnapshot, save: bool = True) -> dict:
     return result
 
 
-def notify_it_experts(title: str, message: str, url: str = "", level: str = "info"):
-    """ارسال اعلان به کارشناسان فناوری اطلاعات مرکز."""
-    experts = User.objects.filter(role=User.ROLE_ADMIN_IT, is_active=True)
+def notify_it_experts(title: str, message: str, url: str = "", level: str = "info", center=None):
+    """ارسال اعلان فقط به کارشناسان IT همان مرکز؛ نبود مرکز یعنی عدم ارسال."""
+    experts = User.objects.filter(
+        role=User.ROLE_ADMIN_IT, is_active=True, center_id=center.pk
+    ) if center is not None else User.objects.none()
     Notification.push_many(experts, title, message, url, level)
 
 
@@ -416,6 +418,7 @@ def _notify_diff_alarm(snapshot: HardwareSnapshot, result: dict):
         message,
         url=f"/assets/{snapshot.asset_id}/",
         level="danger",
+        center=snapshot.asset.center,
     )
     OutboxEvent.emit(
         EVENT_HARDWARE_DIFF_DETECTED,
@@ -467,6 +470,7 @@ def submit_snapshot(snapshot: HardwareSnapshot, user) -> dict:
             f"اسنپ‌شات نسخه {snapshot.version} تجهیز {snapshot.asset.asset_tag} در انتظار تایید شماست.",
             url=f"/assets/snapshots/{snapshot.pk}/",
             level="warning",
+            center=snapshot.asset.center,
         )
     else:
         # تنها در صورت غیرفعال‌بودن صریح الزام تایید مستقل، ثبت‌کننده می‌تواند قفل کند.
