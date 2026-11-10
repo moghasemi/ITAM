@@ -82,3 +82,29 @@ class TreatmentManagementSeparationTests(TestCase):
 
         self.assertTrue(contract.covers_center(center))
         self.assertFalse(contract.covers_center(None))
+
+    def test_contract_does_not_cover_orphan_center_with_owner_only(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from apps.org.models import Contract, Contractor
+
+        center = Center.objects.create(
+            name="مرکز بدون شهرستان", code="TM-CENTER-ORPHAN", parent_unit=self.county_a
+        )
+        contractor = Contractor.objects.create(name="پیمانکار مرکز یتیم")
+        today = timezone.localdate()
+        contract = Contract.objects.create(
+            contractor=contractor,
+            province=self.province_a,
+            number="TM-CONTRACT-ORPHAN",
+            title="قرارداد مرکز یتیم",
+            start_date=today,
+            end_date=today + timedelta(days=30),
+        )
+
+        # Simulate a legacy orphan record without invoking Center.save().
+        Center.objects.filter(pk=center.pk).update(parent_unit=None)
+        center.refresh_from_db()
+
+        self.assertIsNotNone(center.treatment_management_id)
+        self.assertFalse(contract.covers_center(center))
