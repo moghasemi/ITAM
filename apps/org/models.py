@@ -203,11 +203,16 @@ class Center(TimeStampedModel):
 
     @property
     def province_name(self) -> str:
-        if self.treatment_management_id:
-            return self.treatment_management.province.name
+        # Geographic location remains authoritative when present. For legacy
+        # orphan centers, preserve the historical province text rather than
+        # silently replacing it with the organizational owner.
         if self.parent_unit and self.parent_unit.parent:
             return self.parent_unit.parent.name
-        return self.province or "مرکزی"
+        if self.province:
+            return self.province
+        if self.treatment_management_id:
+            return self.treatment_management.province.name
+        return "مرکزی"
 
     @property
     def county_name(self) -> str:
