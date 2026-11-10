@@ -443,7 +443,7 @@ class Contract(TimeStampedModel):
         center_obj = center if hasattr(center, "treatment_management_id") else None
         if center_obj is None:
             from apps.org.models import Center
-            center_obj = Center.objects.select_related("treatment_management").filter(pk=center).first()
+            center_obj = Center.objects.select_related("treatment_management", "parent_unit__parent").filter(pk=center).first()
         if not center_obj or not center_obj.treatment_management_id or not center_obj.parent_unit_id:
             return False
 
