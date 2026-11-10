@@ -4,12 +4,13 @@
 #
 #  اجرا در PowerShell با دسترسی Administrator:
 #      .\install_service.ps1
-#      .\install_service.ps1 -ProjectPath "D:\itam" -Port 8080
+#      .\install_service.ps1 -ProjectPath "D:\itam"
 # ==========================================================================
 [CmdletBinding()]
 param(
     [string]$ProjectPath = (Resolve-Path "$PSScriptRoot\..").Path,
     [string]$PythonPath  = "",
+    [string]$BackupRoot  = "",
     [string]$TaskUser    = "SYSTEM",
     [switch]$SkipServerTask,
     [switch]$SkipScheduledJobs
@@ -34,7 +35,60 @@ if (-not (Test-Path (Join-Path $ProjectPath "manage.py"))) {
 Write-Ok "پوشه پروژه: $ProjectPath"
 
 if (-not (Test-Path (Join-Path $ProjectPath ".env"))) {
-    throw "فایل .env یافت نشد. ابتدا deploy\\.env.example را به .env کپی و تنظیم کنید."
+    throw "فایل .env یافت نشد. ابتدا deploy\.env.example را به .env کپی و تنظیم کنید."
+}
+
+if ([string]::IsNullOrWhiteSpace($BackupRoot)) {
+    throw "برای نصب عملیاتی، مسیر پشتیبان‌گیری روی دیسک مستقل یا Share شبکه را با -BackupRoot مشخص کنید."
+}
+$projectFullPath = [System.IO.Path]::GetFullPath($ProjectPath).TrimEnd([char]92) + [char]92
+$backupFullPath = [System.IO.Path]::GetFullPath($BackupRoot).TrimEnd([char]92) + [char]92
+if ($backupFullPath.StartsWith($projectFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "مسیر پشتیبان نباید داخل پوشه پروژه باشد."
+}
+$projectDrive = [System.IO.Path]::GetPathRoot($projectFullPath)
+$backupDrive = [System.IO.Path]::GetPathRoot($backupFullPath)
+if (-not $BackupRoot.StartsWith(([string][char]92) + [char]92) -and $projectDrive -eq $backupDrive) {
+    throw "مسیر پشتیبان باید روی Volume جداگانه یا Share شبکه باشد."
+}
+New-Item -ItemType Directory -Force -Path $BackupRoot | Out-Null
+
+$envSettings = @{}
+Get-Content (Join-Path $ProjectPath ".env") | ForEach-Object {
+    $line = $_.Trim()
+    if ($line -and -not $line.StartsWith("#") -and $line.Contains("=")) {
+        $pair = $line.Split("=", 2)
+        $envSettings[$pair[0].Trim()] = $pair[1].Trim().Trim('"').Trim("'")
+    }
+}
+$debugValue = $envSettings["ITAM_DEBUG"]
+if ($debugValue -notin @("0", "false", "False", "no", "No")) {
+    throw "نصب سرویس عملیاتی فقط با ITAM_DEBUG=0 مجاز است."
+}
+$dbEngine = [string]$envSettings["ITAM_DB_ENGINE"]
+if ($dbEngine.ToLowerInvariant() -notin @("postgres", "postgresql")) {
+    throw "نصب سرویس عملیاتی فقط با PostgreSQL مجاز است؛ SQLite صرفاً برای دموی محلی است."
+}
+$secret = $envSettings["ITAM_SECRET_KEY"]
+if (-not $secret -or $secret.Length -lt 50 -or $secret -match "REPLACE|CHANGE_ME") {
+    throw "ITAM_SECRET_KEY باید کلید تصادفی واقعی با حداقل ۵۰ نویسه باشد."
+}
+$allowedHosts = [string]$envSettings["ITAM_ALLOWED_HOSTS"]
+$hostEntries = @($allowedHosts.Split(",") | ForEach-Object { $_.Trim() })
+if ([string]::IsNullOrWhiteSpace($allowedHosts) -or $hostEntries -contains "*") {
+    throw "ITAM_ALLOWED_HOSTS باید میزبان‌های واقعی و بدون wildcard داشته باشد."
+}
+if ($envSettings["ITAM_SECURE_COOKIES"] -notin @("1", "true", "True", "yes", "Yes")) {
+    throw "ITAM_SECURE_COOKIES باید فعال باشد."
+}
+if ($envSettings["ITAM_USE_PROXY_SSL_HEADER"] -notin @("1", "true", "True", "yes", "Yes")) {
+    throw "ITAM_USE_PROXY_SSL_HEADER باید برای Reverse Proxy فعال باشد."
+}
+if ($envSettings["ITAM_PUBLIC_BASE_URL"] -notmatch "^https://") {
+    throw "ITAM_PUBLIC_BASE_URL باید نشانی HTTPS باشد."
+}
+foreach ($key in @("ITAM_DB_NAME", "ITAM_DB_USER", "ITAM_DB_PASSWORD", "ITAM_DB_HOST")) {
+    if (-not $envSettings[$key]) { throw "مقدار $key در .env الزامی است." }
 }
 
 if (-not $PythonPath) {
@@ -98,7 +152,7 @@ if (-not $SkipScheduledJobs) {
         @{ Name = "ITAM-Dispatch";  Args = "manage.py dispatch_outbox --limit 200"; Schedule = "/SC MINUTE /MO 5";  Desc = "ارسال رخدادها به سامانه مدیریت" },
         @{ Name = "ITAM-SLA";       Args = "manage.py check_sla_breaches";           Schedule = "/SC MINUTE /MO 30"; Desc = "بررسی نقض SLA" },
         @{ Name = "ITAM-Visits";    Args = "manage.py mark_missed_visits";           Schedule = "/SC DAILY /ST 07:00"; Desc = "بازدیدهای خارج از مهلت" },
-        @{ Name = "ITAM-Backup";    Args = "-File `"$ProjectPath\deploy\backup.ps1`" -PythonPath `"$PythonPath`" -ProjectPath `"$ProjectPath`""; Schedule = "/SC DAILY /ST 23:30"; Desc = "پشتیبان‌گیری روزانه" }
+        @{ Name = "ITAM-Backup";    Args = "-File `"$ProjectPath\deploy\backup.ps1`" -PythonPath `"$PythonPath`" -ProjectPath `"$ProjectPath`" -BackupRoot `"$BackupRoot`""; Schedule = "/SC DAILY /ST 23:30"; Desc = "پشتیبان‌گیری روزانه" }
     )
     foreach ($job in $jobs) {
         schtasks /Delete /TN $job.Name /F 2>$null | Out-Null

@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, UpdateView
 
-from apps.accounts.permissions import AnyRoleRequiredMixin, RepairStaffRequiredMixin
+from apps.accounts.permissions import AnyRoleRequiredMixin, ProvinceAdminRequiredMixin
 from apps.core.constants import CHECK_HEALTHY, VISIT_DONE, VISIT_PLANNED, VISIT_IN_PROGRESS, VISIT_MISSED
 from apps.core.mixins import BaseListView, PageContextMixin, apply_search
 from apps.core.utils import log_action
@@ -22,6 +22,7 @@ from .forms import (
 )
 from .models import MaintenanceVisit, VisitAssetCheck
 from .services import (
+    can_confirm_visit,
     can_manage_visit,
     complete_visit,
     confirm_visit,
@@ -89,7 +90,7 @@ class VisitListView(AnyRoleRequiredMixin, BaseListView):
             "done": base.filter(status=VISIT_DONE).count(),
             "missed": base.filter(status=VISIT_MISSED).count(),
         }
-        context["can_create"] = user.has_role("admin_it")
+        context["can_create"] = user.is_admin_province
         return context
 
 
@@ -122,6 +123,7 @@ class VisitDetailView(AnyRoleRequiredMixin, PageContextMixin, DetailView):
         context["checks"] = scoped_checks.select_related("asset", "asset__category", "asset__location")
         context["stats"] = visit_statistics(visit, checks=scoped_checks)
         context["can_manage"] = can_manage_visit(self.request.user, visit)
+        context["can_confirm"] = can_confirm_visit(self.request.user, visit)
         context["complete_form"] = VisitCompleteForm(
             initial={"report_text": visit.report_text, "recommendation": visit.recommendation}
         )
@@ -129,7 +131,7 @@ class VisitDetailView(AnyRoleRequiredMixin, PageContextMixin, DetailView):
         return context
 
 
-class VisitCreateView(RepairStaffRequiredMixin, PageContextMixin, CreateView):
+class VisitCreateView(ProvinceAdminRequiredMixin, PageContextMixin, CreateView):
     model = MaintenanceVisit
     form_class = VisitForm
     template_name = "maintenance/visit_form.html"
@@ -143,17 +145,18 @@ class VisitCreateView(RepairStaffRequiredMixin, PageContextMixin, CreateView):
 
     def _bind_visit_center(self, visit):
         contract = visit.contract
-        if contract.is_provincial:
-            if not self.request.user.is_admin_province:
-                raise PermissionDenied("برنامه‌ریزی بازدید قرارداد استانی فقط توسط مدیر استان مجاز است.")
-            visit.center = None
-            return
-        centers = list(contract.centers.all())
-        if len(centers) != 1:
-            raise ValidationError("قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد.")
-        if not self.request.user.is_admin_province and not self.request.user.get_scoped_centers().filter(pk=centers[0].pk).exists():
-            raise PermissionDenied("قرارداد خارج از دامنه مراکز مجاز شماست.")
-        visit.center = centers[0]
+        user = self.request.user
+        centers = user.get_scoped_centers()
+        if not user.is_admin_country and not (
+            contract.province_id
+            and centers.filter(parent_unit__parent_id=contract.province_id).exists()
+        ):
+            raise PermissionDenied("قرارداد خارج از دامنه استان مجاز شماست.")
+        if not user.is_admin_province:
+            raise PermissionDenied("برنامه‌ریزی بازدید استانی فقط توسط مدیر استان یا کشور مجاز است.")
+        if not contract.province_id:
+            raise ValidationError("استان قرارداد تعیین نشده است.")
+        visit.center = None
 
     def form_valid(self, form):
         try:
@@ -172,7 +175,7 @@ class VisitCreateView(RepairStaffRequiredMixin, PageContextMixin, CreateView):
         return reverse("maintenance:visit_detail", args=[self.object.pk])
 
 
-class VisitUpdateView(RepairStaffRequiredMixin, PageContextMixin, UpdateView):
+class VisitUpdateView(ProvinceAdminRequiredMixin, PageContextMixin, UpdateView):
     model = MaintenanceVisit
     form_class = VisitForm
     template_name = "maintenance/visit_form.html"
@@ -190,17 +193,18 @@ class VisitUpdateView(RepairStaffRequiredMixin, PageContextMixin, UpdateView):
     def form_valid(self, form):
         contract = form.cleaned_data["contract"]
         try:
-            if contract.is_provincial:
-                if not self.request.user.is_admin_province:
-                    raise PermissionDenied("ویرایش بازدید قرارداد استانی فقط توسط مدیر استان مجاز است.")
-                form.instance.center = None
-            else:
-                centers = list(contract.centers.all())
-                if len(centers) != 1:
-                    raise ValidationError("قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد.")
-                if not self.request.user.is_admin_province and not self.request.user.get_scoped_centers().filter(pk=centers[0].pk).exists():
-                    raise PermissionDenied("قرارداد خارج از دامنه مراکز مجاز شماست.")
-                form.instance.center = centers[0]
+            user = self.request.user
+            centers = user.get_scoped_centers()
+            if not user.is_admin_country and not (
+                contract.province_id
+                and centers.filter(parent_unit__parent_id=contract.province_id).exists()
+            ):
+                raise PermissionDenied("قرارداد خارج از دامنه استان مجاز شماست.")
+            if not user.is_admin_province:
+                raise PermissionDenied("ویرایش بازدید استانی فقط توسط مدیر استان یا کشور مجاز است.")
+            if not contract.province_id:
+                raise ValidationError("استان قرارداد تعیین نشده است.")
+            form.instance.center = None
         except ValidationError as exc:
             form.add_error("contract", exc)
             return self.form_invalid(form)
@@ -266,7 +270,7 @@ def visit_bulk_healthy(request, pk: int):
     def handler(visit):
         if not can_manage_visit(request.user, visit):
             raise PermissionDenied("اجازه ثبت این بازدید را ندارید.")
-        pending = visit.checks.filter(checked=False)
+        pending = visible_checks(request.user, visit).filter(checked=False)
         count = pending.count()
         for check in pending:
             save_check(check, request.user, condition=CHECK_HEALTHY, checked=True)
@@ -286,6 +290,8 @@ def check_edit(request, pk: int):
     check = get_object_or_404(
         VisitAssetCheck.objects.select_related("visit", "visit__contract", "asset"), pk=pk
     )
+    # The write endpoint must enforce the same asset-level scope as the detail view.
+    get_object_or_404(visible_checks(request.user, check.visit), pk=check.pk)
     if not can_manage_visit(request.user, check.visit):
         raise PermissionDenied("اجازه ثبت این برگه بازدید را ندارید.")
 

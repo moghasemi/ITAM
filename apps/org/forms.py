@@ -97,14 +97,34 @@ class ContractForm(StyledModelForm):
     class Meta:
         model = Contract
         fields = [
-            "contractor", "number", "title", "is_provincial", "centers", "start_date", "end_date",
+            "contractor", "province", "number", "title", "start_date", "end_date",
             "visit_interval_days", "status", "visit_scope", "repair_scope", "notes",
         ]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["province"].queryset = OrganizationalUnit.objects.filter(
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, is_active=True
+        ).order_by("name")
+        if user and user.role == "admin_province" and not user.is_superuser:
+            if user.org_unit_id:
+                self.fields["province"].queryset = self.fields["province"].queryset.filter(
+                    pk=user.org_unit_id
+                )
+            elif user.center_id and user.center.parent_unit_id:
+                self.fields["province"].queryset = self.fields["province"].queryset.filter(
+                    pk=user.center.parent_unit.parent_id
+                )
+            else:
+                self.fields["province"].queryset = OrganizationalUnit.objects.none()
 
     def clean(self):
         cleaned = super().clean()
         start = cleaned.get("start_date")
         end = cleaned.get("end_date")
+        province = cleaned.get("province")
+        if not province:
+            self.add_error("province", "انتخاب استان قرارداد الزامی است.")
         if start and end and end < start:
             raise forms.ValidationError({"end_date": "تاریخ پایان باید بعد از تاریخ شروع باشد."})
         return cleaned
@@ -143,10 +163,14 @@ class ContractFilterForm(forms.Form):
         super().__init__(*args, **kwargs)
         if user is None:
             self.fields["contractor"].queryset = Contractor.objects.none()
-        elif not user.is_admin_province:
-            scoped_contracts = Contract.objects.filter(
-                centers__in=user.get_scoped_centers()
-            ).distinct()
+        elif user.has_role("technician"):
+            scoped_contracts = user.get_active_contractor_contracts()
+            self.fields["contractor"].queryset = Contractor.objects.filter(
+                pk__in=scoped_contracts.values("contractor_id")
+            )
+        elif not user.is_admin_country:
+            province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
+            scoped_contracts = Contract.objects.filter(province_id__in=province_ids).distinct()
             self.fields["contractor"].queryset = Contractor.objects.filter(
                 pk__in=scoped_contracts.values("contractor_id")
             )

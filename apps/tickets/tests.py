@@ -5,7 +5,7 @@ import datetime as dt
 
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -27,10 +27,13 @@ from apps.org.models import (
     Center, Contract, Contractor, OrganizationalUnit, SlaPolicy,
 )
 
-from .models import Ticket, TicketEvent, TicketPause
+from .models import Ticket, TicketAttachment, TicketEvent, TicketPause
 from .services import (
     acknowledge,
     can_confirm_as_it,
+    can_confirm_as_user,
+    can_manage_ticket,
+    visible_tickets,
     confirm_by_it,
     confirm_by_user,
     create_ticket,
@@ -65,6 +68,7 @@ class TicketWorkflowTests(TestCase):
         cls.contractor = Contractor.objects.create(name="پیمانکار آزمون")
         cls.contract = Contract.objects.create(
             contractor=cls.contractor,
+            province=province,
             number="C-100",
             title="قرارداد آزمون",
             start_date=timezone.localdate() - dt.timedelta(days=30),
@@ -138,6 +142,40 @@ class TicketWorkflowTests(TestCase):
         self.assertTrue(
             OutboxEvent.objects.filter(event_type="ticket.reported", aggregate_id=ticket.pk).exists()
         )
+
+    def test_technician_cannot_manage_ticket_when_asset_is_bound_to_foreign_contract_province(self):
+        national = self.center.parent_unit.parent.parent
+        province_b = OrganizationalUnit.objects.create(
+            name="استان دوم آزمون", code="TEST-PROV-SECOND",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national,
+        )
+        county_b = OrganizationalUnit.objects.create(
+            name="شهرستان دوم استان دوم", code="TEST-COUNTY-SECOND",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=province_b,
+        )
+        center_b = Center.objects.create(
+            name="مرکز استان دوم", code="TEST-CENTER-SECOND", parent_unit=county_b,
+        )
+        Contract.objects.create(
+            contractor=self.contractor,
+            province=province_b,
+            number="C-200",
+            title="قرارداد فعال استان دوم",
+            start_date=timezone.localdate() - dt.timedelta(days=5),
+            end_date=timezone.localdate() + dt.timedelta(days=30),
+            visit_interval_days=90,
+        )
+        # The asset is physically in province B but references province A's contract.
+        foreign_asset = Asset.objects.create(
+            asset_tag="A-FOREIGN-CONTRACT-PROVINCE",
+            category=self.category,
+            contract=self.contract,
+            center=center_b,
+            status="active",
+        )
+        ticket = self._create(asset=foreign_asset)
+        self.assertFalse(visible_tickets(self.technician).filter(pk=ticket.pk).exists())
+        self.assertFalse(can_manage_ticket(self.technician, ticket))
 
     def test_acknowledge_permission(self):
         ticket = self._create()
@@ -262,6 +300,50 @@ class TicketWorkflowTests(TestCase):
         self.assertEqual(ticket.status, STATUS_IN_PROGRESS)
         self.assertIsNone(ticket.resolved_declared_at)
 
+
+    def test_it_role_cannot_impersonate_requester_for_user_confirmation(self):
+        ticket = self._create()
+        Ticket.objects.filter(pk=ticket.pk).update(status=STATUS_RESOLVED)
+        ticket.refresh_from_db()
+        self.assertFalse(can_confirm_as_user(self.it_expert, ticket))
+        with self.assertRaises(PermissionDenied):
+            confirm_by_user(ticket, self.it_expert, "تایید به جای کاربر")
+
+    def test_province_admin_cannot_confirm_user_step_for_another_province(self):
+        national = self.center.parent_unit.parent.parent
+        province_b = OrganizationalUnit.objects.create(
+            name="استان تایید دوم", code="TEST-CONFIRM-PROV-B",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national,
+        )
+        county_b = OrganizationalUnit.objects.create(
+            name="شهرستان تایید دوم", code="TEST-CONFIRM-COUNTY-B",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=province_b,
+        )
+        center_b = Center.objects.create(
+            name="مرکز تایید دوم", code="TEST-CONFIRM-CENTER-B", parent_unit=county_b,
+        )
+        contract_b = Contract.objects.create(
+            contractor=self.contractor, province=province_b,
+            number="C-CONFIRM-B", title="قرارداد استان دوم",
+            start_date=timezone.localdate() - dt.timedelta(days=5),
+            end_date=timezone.localdate() + dt.timedelta(days=30),
+        )
+        asset_b = Asset.objects.create(
+            asset_tag="A-CONFIRM-B", category=self.category,
+            contract=contract_b, center=center_b, status="active",
+        )
+        ticket_b = self._create(asset=asset_b)
+        Ticket.objects.filter(pk=ticket_b.pk).update(status=STATUS_RESOLVED)
+        ticket_b.refresh_from_db()
+        province_admin = User.objects.create_user(
+            username="province-admin-confirm-test", password="pass12345",
+            role=User.ROLE_ADMIN_PROVINCE,
+            org_unit=self.center.parent_unit.parent,
+        )
+        self.assertFalse(can_confirm_as_user(province_admin, ticket_b))
+        with self.assertRaises(PermissionDenied):
+            confirm_by_user(ticket_b, province_admin, "تایید خارج از استان")
+
     def test_it_cannot_bypass_required_user_confirmation(self):
         ticket = self._create()
         acknowledge(ticket, self.technician)
@@ -324,6 +406,49 @@ class TicketWorkflowTests(TestCase):
         self.assertTrue(steps[0]["active"])
         self.assertFalse(steps[0]["done"])
 
+    def test_provincial_ticket_scope_is_limited_to_own_province(self):
+        from .services import visible_tickets
+
+        national = self.center.parent_unit.parent.parent
+        other_province = OrganizationalUnit.objects.create(
+            name="استان دوم", code="TEST-PROV-2",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national,
+        )
+        other_county = OrganizationalUnit.objects.create(
+            name="شهرستان استان دوم", code="TEST-COUNTY-2",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=other_province,
+        )
+        other_center = Center.objects.create(
+            name="مرکز استان دوم", code="TEST-CENTER-2", parent_unit=other_county,
+        )
+        other_asset = Asset.objects.create(
+            asset_tag="A-OTHER", category=self.category, center=other_center, status="active"
+        )
+        self._create()
+        misbound_ticket = self._create(asset=other_asset)
+        # A stale/incorrect Ticket.center must never override the asset's real center.
+        Ticket.objects.filter(pk=misbound_ticket.pk).update(center=self.center)
+        provincial_admin = User.objects.create_user(
+            username="provincial-admin", password="pass12345",
+            role=User.ROLE_ADMIN_PROVINCE,
+            org_unit=self.center.parent_unit.parent,
+        )
+        visible_centers = set(
+            visible_tickets(provincial_admin).values_list("asset__center_id", flat=True)
+        )
+        self.assertEqual(visible_centers, {self.center.pk})
+        self.assertFalse(visible_tickets(provincial_admin).filter(
+            pk=misbound_ticket.pk
+        ).exists())
+
+    def test_center_admin_without_center_sees_no_tickets(self):
+        from .services import visible_tickets
+
+        self._create()
+        unscoped_admin = User.objects.create_user(
+            username="unscoped-it", password="pass12345", role=User.ROLE_ADMIN_IT
+        )
+        self.assertFalse(visible_tickets(unscoped_admin).exists())
     def test_requester_scope(self):
         from .services import visible_tickets
 
@@ -335,3 +460,58 @@ class TicketWorkflowTests(TestCase):
         self.assertEqual(visible_tickets(self.requester).count(), 1)
         self.assertEqual(visible_tickets(self.it_expert).count(), 1)
         self.assertEqual(visible_tickets(self.technician).count(), 1)
+
+
+    def test_ticket_attachment_download_respects_ticket_visibility(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.urls import reverse
+
+        own_ticket = self._create()
+        own_attachment = TicketAttachment.objects.create(
+            ticket=own_ticket,
+            file=SimpleUploadedFile("own-ticket.txt", b"own ticket"),
+            uploaded_by=self.requester,
+        )
+        other_center = Center.objects.create(
+            name="مرکز دیگر آزمون",
+            code="TEST-CENTER-2",
+            parent_unit=self.center.parent_unit,
+        )
+        other_asset = Asset.objects.create(
+            asset_tag="A-2000",
+            category=self.category,
+            contract=self.contract,
+            center=other_center,
+            status="active",
+        )
+        other_requester = User.objects.create_user(
+            username="other-requester",
+            password="pass12345",
+            role=User.ROLE_REQUESTER,
+            center=other_center,
+        )
+        other_ticket = create_ticket(
+            asset=other_asset,
+            title="درخواست مرکز دیگر",
+            description="آزمون دسترسی پیوست",
+            priority=PRIORITY_HIGH,
+            user=other_requester,
+            failure_type="power",
+        )
+        foreign_attachment = TicketAttachment.objects.create(
+            ticket=other_ticket,
+            file=SimpleUploadedFile("foreign-ticket.txt", b"foreign ticket"),
+            uploaded_by=other_requester,
+        )
+
+        client = Client()
+        client.force_login(self.it_expert)
+        own_response = client.get(
+            reverse("tickets:attachment_download", args=[own_attachment.pk])
+        )
+        foreign_response = client.get(
+            reverse("tickets:attachment_download", args=[foreign_attachment.pk])
+        )
+        self.assertEqual(own_response.status_code, 200)
+        self.assertEqual(foreign_response.status_code, 403)
+

@@ -302,9 +302,10 @@ def private_media(request, path: str):
     from apps.accounts.models import User
     from apps.assets.models import AssetAttachment, HardwareSnapshot, SnapshotItem
     from apps.maintenance.models import VisitAssetCheck
-    from apps.maintenance.services import visible_visits
+    from apps.maintenance.services import visible_checks, visible_visits
     from apps.tickets.models import TicketAttachment
     from apps.tickets.services import visible_tickets
+    from apps.assets.services import visible_assets
 
     user = request.user
     allowed = False
@@ -316,19 +317,16 @@ def private_media(request, path: str):
         if owner:
             allowed = (
                 owner.pk == user.pk
-                or user.is_admin_province
+                or user.is_admin_country
                 or (
-                    user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER)
+                    owner.center_id
                     and user.get_scoped_centers().filter(pk=owner.center_id).exists()
                 )
             )
     elif path.startswith("visits/"):
         check = VisitAssetCheck.objects.select_related("visit", "asset").filter(photo=path).first()
         if check:
-            allowed = visible_visits(user).filter(pk=check.visit_id).exists() and (
-                user.is_admin_province
-                or user.get_scoped_centers().filter(pk=check.asset.center_id).exists()
-            )
+            allowed = visible_checks(user, check.visit).filter(pk=check.pk).exists()
     elif path.startswith("hardware/"):
         snapshot = HardwareSnapshot.objects.select_related("asset").filter(
             Q(case_photo=path) | Q(seal_photo=path)
@@ -339,9 +337,7 @@ def private_media(request, path: str):
             ).first()
             snapshot = item.snapshot if item else None
         if snapshot:
-            allowed = user.is_admin_province or user.get_scoped_centers().filter(
-                pk=snapshot.asset.center_id
-            ).exists()
+            allowed = visible_assets(user).filter(pk=snapshot.asset_id).exists()
     elif path.startswith("assets/"):
         attachment = AssetAttachment.objects.select_related("asset").filter(file=path).first()
         if attachment:

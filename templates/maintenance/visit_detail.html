@@ -15,7 +15,7 @@
       <button class="btn btn-secondary" type="submit">⚡ ثبت گروهی وضعیت سالم</button>
     </form>
   {% endif %}
-  {% if user.is_admin_it and object.status == 'done' and not object.it_confirmed_at %}
+  {% if can_confirm and object.status == 'done' and not object.it_confirmed_at %}
     <form method="post" action="{% url 'maintenance:visit_confirm' object.pk %}" class="inline-form"
           data-confirm="این بازدید تایید شود؟">{% csrf_token %}
       <button class="btn btn-success" type="submit">✅ تایید بازدید</button>
@@ -110,7 +110,7 @@
         </form>
       {% endif %}
 
-      {% if user.is_admin_it and object.status == 'done' and not object.it_confirmed_at %}
+      {% if can_confirm and object.status == 'done' and not object.it_confirmed_at %}
         <h3 class="section-title mt-2">تایید کارشناس IT</h3>
         <form method="post" action="{% url 'maintenance:visit_confirm' object.pk %}">
           {% csrf_token %}

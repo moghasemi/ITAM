@@ -157,10 +157,10 @@
         <div class="card-foot">
           <a class="btn btn-ghost btn-sm" href="{% url 'assets:snapshot_detail' object.current_snapshot.pk %}">مشاهده اسنپ‌شات جاری</a>
           {% if object.current_snapshot.case_photo %}
-            <a class="btn btn-ghost btn-sm" href="{{ object.current_snapshot.case_photo.url }}" target="_blank">عکس کیس باز شده</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'assets:snapshot_file' object.current_snapshot.pk 'case_photo' %}" target="_blank">عکس کیس باز شده</a>
           {% endif %}
           {% if object.current_snapshot.seal_photo %}
-            <a class="btn btn-ghost btn-sm" href="{{ object.current_snapshot.seal_photo.url }}" target="_blank">عکس پلمب</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'assets:snapshot_file' object.current_snapshot.pk 'seal_photo' %}" target="_blank">عکس پلمب</a>
           {% endif %}
         </div>
       {% endif %}
@@ -288,7 +288,7 @@
             <tr>
               <td>{{ attachment.get_kind_display }}</td>
               <td>{{ attachment.title|default:"—" }}</td>
-              <td><a href="{{ attachment.file.url }}" target="_blank">{{ attachment.file.name|truncatechars:40 }}</a></td>
+              <td><a href="{% url 'assets:attachment_download' attachment.pk %}" target="_blank">{{ attachment.file.name|truncatechars:40 }}</a></td>
               <td>{{ attachment.uploaded_by.display_name|default:"—" }}</td>
               <td class="nowrap">{{ attachment.created_at|jdatetime }}</td>
               <td>

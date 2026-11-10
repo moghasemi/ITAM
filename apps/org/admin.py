@@ -31,9 +31,13 @@ class ContractorAdmin(admin.ModelAdmin):
 
 @admin.register(Contract)
 class ContractAdmin(admin.ModelAdmin):
-    list_display = ("number", "contractor", "title", "start_date", "end_date", "visit_interval_days", "status")
-    list_filter = ("status", "contractor")
-    search_fields = ("number", "title")
+    list_display = ("number", "contractor", "province", "title", "start_date", "end_date", "visit_interval_days", "status")
+    list_filter = ("status", "province", "contractor")
+    search_fields = ("number", "title", "province__name", "contractor__name")
+    fields = (
+        "contractor", "province", "number", "title", "start_date", "end_date",
+        "visit_interval_days", "status", "visit_scope", "repair_scope", "notes",
+    )
     inlines = [SlaPolicyInline]
     date_hierarchy = "start_date"
 

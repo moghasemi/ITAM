@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -44,7 +44,7 @@ from .models import Ticket, TicketEvent, TicketPause
 # دسترسی
 # ---------------------------------------------------------------------------
 def visible_tickets(user, center=None):
-    """درخواست‌های قابل مشاهده برای هر نقش و مرکز."""
+    """درخواست‌های قابل مشاهده با محدودسازی صریح دامنه سازمانی (Fail-Closed)."""
     queryset = Ticket.objects.select_related(
         "asset", "asset__category", "asset__location", "contract", "assigned_contractor",
         "assigned_technician", "reported_by", "center", "asset__center",
@@ -52,53 +52,73 @@ def visible_tickets(user, center=None):
     if not getattr(user, "is_authenticated", False):
         return queryset.none()
 
-    if getattr(user, "is_admin_province", False) or user.is_superuser:
+    if user.is_superuser or user.role == User.ROLE_ADMIN_COUNTRY:
+        return queryset.filter(Q(center=center) | Q(asset__center=center)) if center else queryset
+
+    if user.role in (User.ROLE_ADMIN_PROVINCE, User.ROLE_ADMIN_COUNTY):
+        centers = user.get_scoped_centers()
+        qs = queryset.filter(asset__center__in=centers)
         if center:
-            queryset = queryset.filter(Q(center=center) | Q(asset__center=center))
-        return queryset
+            qs = qs.filter(asset__center=center)
+        return qs.distinct()
 
     if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
-        if user.center_id:
-            return queryset.filter(Q(center_id=user.center_id) | Q(asset__center_id=user.center_id))
-        elif center:
-            return queryset.filter(Q(center=center) | Q(asset__center=center))
-        return queryset
+        if not user.center_id:
+            return queryset.none()
+        qs = queryset.filter(asset__center_id=user.center_id)
+        if center:
+            qs = qs.filter(asset__center=center)
+        return qs
 
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id:
             return queryset.none()
+        centers = user.get_scoped_centers()
+        active_contracts = user.get_active_contractor_contracts()
         qs = queryset.filter(
-            Q(assigned_contractor_id=user.contractor_id) | Q(assigned_technician=user) |
-            Q(contract__contractor_id=user.contractor_id)
-        )
+            contract__in=active_contracts,
+            contract__province_id=F("asset__center__parent_unit__parent_id"),
+        ).filter(
+            Q(assigned_contractor_id=user.contractor_id)
+            | Q(assigned_technician=user)
+            | Q(contract__contractor_id=user.contractor_id)
+        ).filter(asset__center__in=centers)
         if center:
-            qs = qs.filter(Q(center=center) | Q(asset__center=center))
+            qs = qs.filter(asset__center=center)
         return qs.distinct()
 
     condition = Q(reported_by=user)
     if user.department_id:
         condition |= Q(asset__department_id=user.department_id)
-    if user.center_id:
-        condition &= (Q(center_id=user.center_id) | Q(asset__center_id=user.center_id) | Q(center__isnull=True))
+    if not user.center_id:
+        return queryset.none()
+    condition &= Q(asset__center_id=user.center_id)
     return queryset.filter(condition).distinct()
-
 
 def can_manage_ticket(user, ticket: Ticket) -> bool:
     """کارشناس IT یا کارشناس پیمانکار مسئول این درخواست در مرکز مجاز."""
     if not getattr(user, "is_authenticated", False):
         return False
-    if not user.is_admin_province and not user.get_scoped_centers().filter(
+    if not user.get_scoped_centers().filter(
         pk=ticket.asset.center_id
     ).exists():
         return False
     if user.has_role(User.ROLE_ADMIN_IT):
         return True
     if user.has_role(User.ROLE_TECHNICIAN):
+        if (
+            not user.contractor_id
+            or not ticket.contract_id
+            or ticket.contract.contractor_id != user.contractor_id
+            or not ticket.contract.is_current
+            or not ticket.asset.center_id
+            or not ticket.contract.covers_center(ticket.asset.center)
+        ):
+            return False
         if ticket.assigned_technician_id == user.pk:
             return True
         return bool(
-            user.contractor_id
-            and ticket.assigned_contractor_id
+            ticket.assigned_contractor_id
             and user.contractor_id == ticket.assigned_contractor_id
         )
     return False
@@ -107,12 +127,12 @@ def can_manage_ticket(user, ticket: Ticket) -> bool:
 def can_confirm_as_user(user, ticket: Ticket) -> bool:
     if not getattr(user, "is_authenticated", False):
         return False
-    if not user.is_admin_province and not user.get_scoped_centers().filter(
+    if not ticket.asset.center_id or not user.get_scoped_centers().filter(
         pk=ticket.asset.center_id
     ).exists():
         return False
-    if user.has_role(User.ROLE_ADMIN_IT):
-        return True
+    # User confirmation must come from the requester/custodian/department,
+    # never from an IT role acting as the user in the approval workflow.
     if ticket.reported_by_id and ticket.reported_by_id == user.pk:
         return True
     if ticket.asset.custodian_id and ticket.asset.custodian_id == user.pk:
@@ -126,8 +146,10 @@ def can_confirm_as_it(user, ticket: Ticket) -> bool:
     """تایید نهایی فقط در دامنه سازمانی کاربر مجاز است."""
     if not getattr(user, "is_authenticated", False):
         return False
-    if user.is_admin_province:
+    if user.is_superuser or user.role == User.ROLE_ADMIN_COUNTRY:
         return True
+    if not user.get_scoped_centers().filter(pk=ticket.asset.center_id).exists():
+        return False
     if ticket.center_id and ticket.center_id != ticket.asset.center_id:
         return False
     return bool(

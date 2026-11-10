@@ -30,7 +30,7 @@
     <div class="card-head"><h2 class="card-title">امضا و دسترسی</h2></div>
     <div class="card-body">
       {% if user.signature %}
-        <p><img src="{{ user.signature.url }}" alt="امضا" style="max-width:220px;border:1px solid var(--border);border-radius:8px"></p>
+        <p><img src="{% url 'accounts:signature_file' %}" alt="امضا" style="max-width:220px;border:1px solid var(--border);border-radius:8px"></p>
       {% else %}
         <p class="muted">نمونه امضا ثبت نشده است. برای تاییدهای رسمی می‌توانید تصویر امضای خود را در بخش ویرایش نمایه بارگذاری کنید.</p>
       {% endif %}
