@@ -11,7 +11,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from apps.org.models import OrganizationalUnit
+from apps.org.models import OrganizationalUnit, TreatmentManagement
 
 
 EXPECTED_PROVINCES = 31
@@ -205,6 +205,28 @@ class Command(BaseCommand):
             else:
                 updated_provinces += 1
 
+        # The organizational owner is a distinct unit from the geographic
+        # province/county hierarchy. OneToOneField guarantees one per province.
+        created_managements = 0
+        updated_managements = 0
+        for province in province_units.values():
+            management, management_created = TreatmentManagement.objects.get_or_create(
+                province=province,
+                defaults={
+                    "name": f"مدیریت درمان استان {province.name}",
+                    "code": f"TM-{province.pk}",
+                    "is_active": province.is_active,
+                },
+            )
+            if not management_created:
+                management.name = f"مدیریت درمان استان {province.name}"
+                management.code = f"TM-{province.pk}"
+                management.is_active = province.is_active
+                management.save(update_fields=["name", "code", "is_active", "updated_at"])
+                updated_managements += 1
+            else:
+                created_managements += 1
+
         for row in counties:
             code = f"IR-COUNTY-{row['id']}"
             unit, created = self._upsert_unit(
@@ -229,5 +251,8 @@ class Command(BaseCommand):
         self.stdout.write(
             f"استان: {created_provinces} ایجاد، {updated_provinces} به‌روزرسانی | "
             f"شهرستان: {created_counties} ایجاد، {updated_counties} به‌روزرسانی"
+        )
+        self.stdout.write(
+            f"مدیریت درمان: {created_managements} ایجاد، {updated_managements} به‌روزرسانی"
         )
         self.stdout.write("هیچ مرکز عملیاتی یا رکورد موجودی حذف یا ایجاد نشد.")
