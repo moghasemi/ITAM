@@ -258,6 +258,7 @@ function render(d) {
         <div class="row"><span class="label">سریال مادربرد</span><span class="value">${escapeHtml(d.motherboard.serial || "—")}</span></div>
         <div class="row"><span class="label">BIOS</span><span class="value">${escapeHtml(d.bios.manufacturer)} ${escapeHtml(d.bios.version)}</span></div>
         <div class="row"><span class="label">System UUID</span><span class="value">${escapeHtml(d.system.uuid)}</span></div>
+        <div class="row"><span class="label">سیستم‌عامل</span><span class="value">${escapeHtml(d.os || "—")}</span></div>
       </div>
 
       <div class="card">
