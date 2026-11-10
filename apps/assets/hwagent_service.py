@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
@@ -198,6 +198,8 @@ def apply_hwagent_snapshot(
     """
     if not can_record_snapshot(user, asset):
         raise PermissionDenied("اجازه ثبت اسنپ‌شات HWAgent برای این تجهیز را ندارید.")
+    if asset.snapshots.filter(is_baseline=True, status=SNAPSHOT_PENDING).exists():
+        raise ValidationError("اسنپ‌شات پایه این تجهیز هنوز تایید نشده است؛ تا تعیین تکلیف آن، ثبت نسخه جدید مجاز نیست.")
 
     data = parse_hwagent_json(raw_data)
 
@@ -259,6 +261,8 @@ def apply_hwagent_snapshot(
         previous=reference,
         recorded_by=user,
         recorded_at=timezone.now(),
+        technician_confirmed_by=user,
+        technician_confirmed_at=timezone.now(),
         note=snapshot_note,
         seal_number=seal_number,
         is_from_hwagent=True,
