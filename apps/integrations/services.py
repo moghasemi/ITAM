@@ -431,7 +431,7 @@ def dispatch_event(
     return ok
 
 
-def dispatch_pending(limit: int = 100, user=None) -> dict:
+def dispatch_pending(limit: int = 100, user=None, events=None) -> dict:
     """ارسال هر رخداد به تمام مقصدهای واجد شرایط با retry مستقل."""
     from .models import OutboxDelivery
 
@@ -446,7 +446,8 @@ def dispatch_pending(limit: int = 100, user=None) -> dict:
     if not endpoints:
         return summary
 
-    pending = OutboxEvent.objects.filter(
+    event_queryset = events if events is not None else OutboxEvent.objects.all()
+    pending = event_queryset.filter(
         status__in=[OutboxEvent.STATUS_PENDING, OutboxEvent.STATUS_FAILED]
     ).order_by("created_at")[:limit]
 
@@ -517,9 +518,10 @@ def dispatch_pending(limit: int = 100, user=None) -> dict:
     return summary
 
 
-def requeue_dead_events(user=None) -> int:
+def requeue_dead_events(user=None, events=None) -> int:
     """بازگرداندن رخدادهای متوقف‌شده به صف."""
-    queryset = OutboxEvent.objects.filter(status=OutboxEvent.STATUS_DEAD)
+    event_queryset = events if events is not None else OutboxEvent.objects.all()
+    queryset = event_queryset.filter(status=OutboxEvent.STATUS_DEAD)
     count = queryset.count()
     for event in queryset:
         event.deliveries.filter(status=OutboxEvent.STATUS_DEAD).update(
@@ -539,10 +541,11 @@ def requeue_dead_events(user=None) -> int:
     return count
 
 
-def outbox_statistics() -> dict:
+def outbox_statistics(events=None) -> dict:
     from django.db.models import Count
 
-    rows = OutboxEvent.objects.values("status").annotate(total=Count("id"))
+    event_queryset = events if events is not None else OutboxEvent.objects.all()
+    rows = event_queryset.values("status").annotate(total=Count("id"))
     data = {row["status"]: row["total"] for row in rows}
     return {
         "pending": data.get(OutboxEvent.STATUS_PENDING, 0),
