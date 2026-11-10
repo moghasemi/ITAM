@@ -1,6 +1,6 @@
 # ITAM — Organizational and Geographic Model
 
-Status: approved target architecture; implementation plan  
+Status: approved target architecture; partial schema and authorization implementation in PR #7  
 Date: 2026-11-10
 
 ## Decision
@@ -9,7 +9,7 @@ ITAM must model organizational responsibility independently from geographic loca
 
 ### Organizational hierarchy
 
-`National HQ → Province → Provincial Treatment Management → Treatment Centers`
+`National HQ → Province → Provincial Treatment Management → Treatment Centers` (the Treatment Management ownership is stored as an explicit relational association, not as a geographic parent link).
 
 There must be exactly one `Provincial Treatment Management` unit for each of the 31 provinces. Its stable code should be derived from the province code (for example, `IR-TM-<province-id>`). The unit belongs to exactly one province.
 
@@ -42,20 +42,19 @@ The requested initial target is 413 real treatment centers. This is a project ba
 
 Do not manufacture a 413-row list. Import only named centers supported by a traceable authoritative source. If the complete list cannot be verified, stop the import and report the gap rather than filling missing rows with fabricated data.
 
-The current repository geography loader supplies 31 provinces and 484 counties. It does not yet supply a verified city/locality dataset or the 413 treatment-center directory. These sources must be independently verified before production seeding.
+The repository loader supplies 31 province records and 484 county records. PR #7 adds one `TreatmentManagement` row per province and a separate `Center.treatment_management` ownership relation; existing county → province remains the geographic location relation for compatibility. `Center.city` is still a legacy free-text value: normalized city/locality entities are not implemented. The loader does not supply a verified city/locality dataset or the 413 treatment-center directory. These sources must be independently verified before production seeding.
 
 ## Migration and rollout sequence
 
-1. Add separate geographic province, county and city/locality entities, with stable source codes and source metadata.
-2. Add the one-to-one Treatment Management unit per province.
-3. Add explicit center relations to Treatment Management and geographic entities.
-4. Backfill only deterministic mappings from existing county → province relationships; preserve unresolved records for review.
-5. Update all access scopes and query paths (accounts, contracts, tickets, assets, maintenance, reports, dashboards, forms, admin and templates).
-6. Add database constraints and model/service validation for province consistency and unique Treatment Management per province.
-7. Add regression tests for cross-province isolation, inactive/expired/future contracts, null/ambiguous legacy mappings, and every affected workflow.
-8. Import the verified center dataset with provenance; assert exactly 413 verified real records only after the source list is complete.
-9. Keep synthetic operational demo data restricted to Sistan and Baluchestan and mark every demo record explicitly.
-10. Only after CI and local tests pass, prepare a separately approved local SQLite rebuild. Never reset production data.
+1. **Implemented in PR #7:** add the one-to-one Treatment Management unit per province.
+2. **Implemented in PR #7:** add the explicit `Center.treatment_management` ownership relation and backfill deterministic existing county → province mappings.
+3. **Implemented in PR #7:** update province-bound contract coverage and contractor, asset, ticket and maintenance scope paths to use Treatment Management ownership.
+4. **Implemented in PR #7:** create/update the 31 Treatment Management units through the Iran geography loader and add regression tests for ownership, province matching and loader idempotence.
+5. Still required: add normalized geographic city/locality entities and source metadata; retain legacy free-text city until verified mappings are available.
+6. Still required: audit every remaining report, dashboard, template and reconciliation path for legacy geographic traversals.
+7. Still required: import the verified center dataset with provenance; assert exactly 413 verified real records only after the source list is complete.
+8. Keep synthetic operational demo data restricted to Sistan and Baluchestan and mark every demo record explicitly.
+9. Only after CI and local tests pass, prepare a separately approved local SQLite rebuild. Never reset production data.
 
 ## Compatibility and safety
 
@@ -63,4 +62,4 @@ The current repository geography loader supplies 31 provinces and 484 counties. 
 - Do not drop legacy fields/relations in the same migration that introduces the new schema. Use an expand → backfill → switch consumers → validate → contract sequence.
 - Do not use reconciliation auto-apply to assign ambiguous centers.
 - Keep all existing reconciliation CSV files untouched.
-- This document records the target architecture; it does not claim that the schema, center directory, or migration has already been implemented.
+- This document distinguishes completed schema work from outstanding geographic normalization and center-directory sourcing. PR #7 is not ready to merge until CI and local validation pass.
