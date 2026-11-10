@@ -149,7 +149,7 @@ class VisitCreateView(ProvinceAdminRequiredMixin, PageContextMixin, CreateView):
         centers = user.get_scoped_centers()
         if not user.is_admin_country and not (
             contract.province_id
-            and centers.filter(parent_unit__parent_id=contract.province_id).exists()
+            and centers.filter(treatment_management__province_id=contract.province_id).exists()
         ):
             raise PermissionDenied("قرارداد خارج از دامنه استان مجاز شماست.")
         if not user.is_admin_province:
@@ -197,7 +197,7 @@ class VisitUpdateView(ProvinceAdminRequiredMixin, PageContextMixin, UpdateView):
             centers = user.get_scoped_centers()
             if not user.is_admin_country and not (
                 contract.province_id
-                and centers.filter(parent_unit__parent_id=contract.province_id).exists()
+                and centers.filter(treatment_management__province_id=contract.province_id).exists()
             ):
                 raise PermissionDenied("قرارداد خارج از دامنه استان مجاز شماست.")
             if not user.is_admin_province:
