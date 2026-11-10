@@ -59,6 +59,18 @@ jobs:
               throw "PowerShell syntax validation failed: $path"
             }
           }
+      - name: Validate HWAgent browser JavaScript
+        shell: pwsh
+        run: |
+          $html = Get-Content "HWAgent/index.html" -Raw
+          $scriptMatches = [regex]::Matches($html, '(?is)<script\\b[^>]*>(.*?)</script>')
+          $inlineScript = $scriptMatches | Where-Object { $_.Groups[1].Value.Trim().Length -gt 0 } | Select-Object -First 1
+          if (-not $inlineScript) {
+            throw "HWAgent inline JavaScript block was not found."
+          }
+          $tempScript = Join-Path $env:RUNNER_TEMP "hwagent-inline.js"
+          Set-Content -Path $tempScript -Value $inlineScript.Groups[1].Value -NoNewline
+          node --check $tempScript
       - name: Guard production server launcher
         shell: pwsh
         run: |
