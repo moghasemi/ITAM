@@ -64,17 +64,28 @@ class AssetForm(StyledModelForm):
 
         self.fields["category"].queryset = AssetCategory.objects.filter(is_active=True)
         # قرارداد باید صریحاً یکی از مراکز مجاز کاربر را در دامنه پوشش داشته باشد.
-        self.fields["contract"].queryset = Contract.objects.filter(
-            centers__in=scoped_centers
-        ).select_related("contractor").distinct().order_by("-start_date")
+        scoped_province_ids = scoped_centers.values("parent_unit__parent_id")
+        if self.user and self.user.has_role("technician"):
+            contract_queryset = self.user.get_active_contractor_contracts()
+        else:
+            contract_queryset = Contract.objects.filter(province_id__in=scoped_province_ids)
+        self.fields["contract"].queryset = contract_queryset.select_related(
+            "contractor", "province"
+        ).distinct().order_by("-start_date")
         self.fields["department"].queryset = Department.objects.filter(center__in=scoped_centers, is_active=True)
         self.fields["location"].queryset = Location.objects.filter(center__in=scoped_centers, is_active=True)
         if selected_center_id:
             self.fields["department"].queryset = self.fields["department"].queryset.filter(center_id=selected_center_id)
             self.fields["location"].queryset = self.fields["location"].queryset.filter(center_id=selected_center_id)
-            self.fields["contract"].queryset = self.fields["contract"].queryset.filter(
-                centers__pk=selected_center_id
-            ).distinct()
+            selected_center = Center.objects.filter(pk=selected_center_id).select_related(
+                "parent_unit"
+            ).first()
+            if selected_center and selected_center.parent_unit_id:
+                self.fields["contract"].queryset = self.fields["contract"].queryset.filter(
+                    province_id=selected_center.parent_unit.parent_id
+                )
+            else:
+                self.fields["contract"].queryset = Contract.objects.none()
 
         self.fields["custodian"].queryset = self.fields["custodian"].queryset.filter(
             is_active=True, center__in=scoped_centers
@@ -121,8 +132,8 @@ class AssetForm(StyledModelForm):
             if related and center and related.center_id != center.pk:
                 self.add_error(field_name, "این گزینه باید متعلق به مرکز انتخاب‌شده باشد.")
         contract = cleaned.get("contract")
-        if contract and center and not contract.is_provincial and not contract.centers.filter(pk=center.pk).exists():
-            self.add_error("contract", "قرارداد انتخاب‌شده به مرکز انتخاب‌شده تعلق ندارد.")
+        if contract and center and not contract.covers_center(center):
+            self.add_error("contract", "قرارداد انتخاب‌شده به استان مرکز انتخاب‌شده تعلق ندارد.")
         custodian = cleaned.get("custodian")
         if custodian and center and custodian.center_id != center.pk:
             self.add_error("custodian", "امانت‌دار باید از کاربران همان مرکز باشد.")
@@ -158,9 +169,12 @@ class AssetFilterForm(StyledForm):
         self.fields["center"].queryset = scoped
         self.fields["department"].queryset = Department.objects.filter(center__in=scoped)
         self.fields["location"].queryset = Location.objects.filter(center__in=scoped)
-        self.fields["contract"].queryset = Contract.objects.filter(
-            centers__in=scoped
-        ).distinct()
+        if user and user.has_role("technician"):
+            self.fields["contract"].queryset = user.get_active_contractor_contracts()
+        else:
+            self.fields["contract"].queryset = Contract.objects.filter(
+                province_id__in=scoped.values("parent_unit__parent_id")
+            ).distinct()
 
     q = forms.CharField(label="جستجو", required=False)
     center = forms.ModelChoiceField(label="مرکز", required=False, queryset=Center.objects.all())

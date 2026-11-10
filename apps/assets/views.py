@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count, Q
-from django.http import HttpResponse, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 import json
+import mimetypes
 import time
 import hashlib
 from datetime import datetime, timezone as dt_timezone
@@ -53,6 +55,7 @@ from .models import (
     AssetRelationship,
     ComponentType,
     HardwareSnapshot,
+    SnapshotItem,
     AgentCredential,
     AgentNonce,
     AgentSyncAuditLog,
@@ -380,6 +383,7 @@ class SnapshotDetailView(AnyRoleRequiredMixin, BaseDetailView):
         return context
 
 
+@login_required
 def snapshot_submit(request, pk: int):
     """ارسال اسنپ‌شات برای تایید کارشناس IT."""
     snapshot = get_object_or_404(HardwareSnapshot.objects.select_related("asset"), pk=pk)
@@ -402,11 +406,14 @@ def snapshot_submit(request, pk: int):
     return redirect("assets:snapshot_detail", pk=pk)
 
 
+@login_required
 def snapshot_approve(request, pk: int):
     """تایید و قفل اسنپ‌شات توسط کارشناس IT."""
     snapshot = get_object_or_404(HardwareSnapshot.objects.select_related("asset"), pk=pk)
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("تایید اسنپ‌شات فقط توسط کارشناس فناوری اطلاعات مرکز انجام می‌شود.")
+    if not visible_assets(request.user).filter(pk=snapshot.asset_id).exists():
+        raise PermissionDenied("این اسنپ‌شات متعلق به مرکز مجاز شما نیست.")
     if request.method == "POST":
         from .services import approve_snapshot
 
@@ -418,11 +425,14 @@ def snapshot_approve(request, pk: int):
     return redirect("assets:snapshot_detail", pk=pk)
 
 
+@login_required
 def snapshot_reject(request, pk: int):
     """برگشت اسنپ‌شات به ثبت‌کننده."""
     snapshot = get_object_or_404(HardwareSnapshot.objects.select_related("asset"), pk=pk)
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("این اقدام فقط برای کارشناس فناوری اطلاعات مرکز است.")
+    if not visible_assets(request.user).filter(pk=snapshot.asset_id).exists():
+        raise PermissionDenied("این اسنپ‌شات متعلق به مرکز مجاز شما نیست.")
     if request.method == "POST":
         from .services import reject_snapshot
 
@@ -431,11 +441,15 @@ def snapshot_reject(request, pk: int):
     return redirect("assets:snapshot_detail", pk=pk)
 
 
+@login_required
 def snapshot_pending_list(request):
     """کارتابل اسنپ‌شات‌های در انتظار تایید."""
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("دسترسی ندارید.")
-    snapshots = HardwareSnapshot.objects.filter(status="pending").select_related("asset", "recorded_by")
+    snapshots = HardwareSnapshot.objects.filter(
+        status="pending",
+        asset__in=visible_assets(request.user),
+    ).select_related("asset", "recorded_by")
     return render(
         request,
         "assets/snapshot_pending.html",
@@ -478,10 +492,86 @@ class AttachmentCreateView(RepairStaffRequiredMixin, PageContextMixin, CreateVie
         return reverse("assets:detail", args=[self.asset.pk])
 
 
+@login_required
+def attachment_download(request, pk: int):
+    """Serve an attachment only after checking access to its owning asset."""
+    attachment = get_object_or_404(
+        AssetAttachment.objects.select_related("asset"),
+        pk=pk,
+    )
+    if not visible_assets(request.user).filter(pk=attachment.asset_id).exists():
+        raise PermissionDenied("این پیوست متعلق به دارایی خارج از دامنه مجاز شماست.")
+    if not attachment.file:
+        raise Http404("فایل پیوست موجود نیست.")
+    filename = attachment.file.name.rsplit("/", 1)[-1]
+    content_type, _ = mimetypes.guess_type(filename)
+    response = FileResponse(
+        attachment.file.open("rb"),
+        as_attachment=True,
+        filename=filename,
+        content_type=content_type or "application/octet-stream",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@login_required
+def snapshot_file(request, pk: int, kind: str):
+    """Serve snapshot photos only to users who can view the owning asset."""
+    snapshot = get_object_or_404(
+        HardwareSnapshot.objects.select_related("asset"),
+        pk=pk,
+    )
+    if not visible_assets(request.user).filter(pk=snapshot.asset_id).exists():
+        raise PermissionDenied("این فایل متعلق به دارایی خارج از دامنه مجاز شماست.")
+    allowed_fields = {"case_photo", "seal_photo"}
+    if kind not in allowed_fields:
+        raise Http404("نوع فایل معتبر نیست.")
+    file_field = getattr(snapshot, kind)
+    if not file_field:
+        raise Http404("فایل تصویر موجود نیست.")
+    filename = file_field.name.rsplit("/", 1)[-1]
+    content_type, _ = mimetypes.guess_type(filename)
+    response = FileResponse(
+        file_field.open("rb"),
+        as_attachment=False,
+        filename=filename,
+        content_type=content_type or "application/octet-stream",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@login_required
+def snapshot_item_photo(request, pk: int):
+    """Serve an individual component photo through the snapshot's asset scope."""
+    item = get_object_or_404(
+        SnapshotItem.objects.select_related("snapshot__asset"),
+        pk=pk,
+    )
+    if not visible_assets(request.user).filter(pk=item.snapshot.asset_id).exists():
+        raise PermissionDenied("این عکس متعلق به دارایی خارج از دامنه مجاز شماست.")
+    if not item.photo:
+        raise Http404("فایل تصویر موجود نیست.")
+    filename = item.photo.name.rsplit("/", 1)[-1]
+    content_type, _ = mimetypes.guess_type(filename)
+    response = FileResponse(
+        item.photo.open("rb"),
+        as_attachment=False,
+        filename=filename,
+        content_type=content_type or "application/octet-stream",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@login_required
 def attachment_delete(request, pk: int):
     attachment = get_object_or_404(AssetAttachment.objects.select_related("asset"), pk=pk)
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("حذف پیوست فقط توسط کارشناس IT امکان‌پذیر است.")
+    if not visible_assets(request.user).filter(pk=attachment.asset_id).exists():
+        raise PermissionDenied("این پیوست متعلق به دارایی خارج از دامنه مجاز شماست.")
     asset_pk = attachment.asset_id
     if request.method == "POST":
         label = str(attachment)

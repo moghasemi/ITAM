@@ -35,10 +35,11 @@ class VisitFilterForm(StyledForm):
             return
         if user.is_admin_country:
             contracts = Contract.objects.all()
+        elif user.has_role("technician"):
+            contracts = user.get_active_contractor_contracts()
         else:
-            contracts = Contract.objects.filter(
-                centers__in=user.get_scoped_centers()
-            ).distinct()
+            province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
+            contracts = Contract.objects.filter(province_id__in=province_ids).distinct()
         self.fields["contractor"].queryset = Contractor.objects.filter(
             pk__in=contracts.values("contractor_id")
         )
@@ -66,10 +67,11 @@ class VisitForm(StyledModelForm):
             return
         if user.is_admin_country:
             contracts = Contract.objects.all()
+        elif user.has_role("technician"):
+            contracts = user.get_active_contractor_contracts()
         else:
-            contracts = Contract.objects.filter(
-                centers__in=user.get_scoped_centers()
-            ).distinct()
+            province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
+            contracts = Contract.objects.filter(province_id__in=province_ids).distinct()
         self.fields["contract"].queryset = contracts.select_related(
             "contractor"
         ).order_by("-start_date")

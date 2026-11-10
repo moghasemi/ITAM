@@ -1,10 +1,14 @@
 """نماهای کاربران: ورود، نمایه و مدیریت کاربران."""
 from __future__ import annotations
 
+import mimetypes
+
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView, PasswordChangeView
 from django.core.exceptions import PermissionDenied
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DetailView, UpdateView
@@ -54,6 +58,24 @@ class ProfileView(LoginRequiredMixin, PageContextMixin, DetailView):
 
     def get_object(self, queryset=None):
         return self.request.user
+
+
+@login_required
+def signature_file(request):
+    """A user's signature is private to that authenticated user."""
+    user = request.user
+    if not user.signature:
+        raise Http404("امضای ثبت‌شده‌ای وجود ندارد.")
+    filename = user.signature.name.rsplit("/", 1)[-1]
+    content_type, _ = mimetypes.guess_type(filename)
+    response = FileResponse(
+        user.signature.open("rb"),
+        as_attachment=False,
+        filename=filename,
+        content_type=content_type or "application/octet-stream",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 class ProfileUpdateView(LoginRequiredMixin, PageContextMixin, UpdateView):

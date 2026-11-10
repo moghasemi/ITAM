@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 
 from apps.core.validators import validate_image_file
 
@@ -153,6 +154,34 @@ class User(AbstractUser):
     def is_admin_it(self) -> bool:
         return self.is_superuser or self.has_role(self.ROLE_ADMIN_COUNTRY, self.ROLE_ADMIN_PROVINCE, self.ROLE_ADMIN_COUNTY, self.ROLE_ADMIN_IT)
 
+    def get_active_contractor_contracts(self):
+        """قراردادهای جاری پیمانکار؛ قرارداد منقضی/معلق هرگز scope عملیاتی نمی‌دهد."""
+        from apps.org.models import Contract, OrganizationalUnit
+        if (
+            not getattr(self, "is_authenticated", False)
+            or not self.is_active
+            or self.role != self.ROLE_TECHNICIAN
+            or not self.contractor_id
+            or not self.contractor.is_active
+        ):
+            return Contract.objects.none()
+        today = timezone.localdate()
+        return self.contractor.contracts.filter(
+            status=Contract.STATUS_ACTIVE,
+            start_date__lte=today,
+            end_date__gte=today,
+            province__unit_type=OrganizationalUnit.UNIT_PROVINCE,
+            province__is_active=True,
+        )
+
+    def _active_center_scope(self, queryset):
+        """Exclude centers beneath inactive counties/provinces from operational access."""
+        return queryset.filter(
+            is_active=True,
+            parent_unit__is_active=True,
+            parent_unit__parent__is_active=True,
+        )
+
     def get_scoped_centers(self):
         """محاسبه دقیق دامنه مراکز مجاز کاربر (Fail-Closed)."""
         from apps.org.models import Center
@@ -162,35 +191,38 @@ class User(AbstractUser):
             return Center.objects.all()
         if self.role == self.ROLE_ADMIN_PROVINCE:
             if self.org_unit:
-                return Center.objects.filter(parent_unit__parent=self.org_unit)
+                if not self.org_unit.is_active:
+                    return Center.objects.none()
+                return self._active_center_scope(
+                    Center.objects.filter(parent_unit__parent=self.org_unit)
+                )
             if self.center:
-                if self.center.parent_unit and self.center.parent_unit.parent:
-                    return Center.objects.filter(parent_unit__parent=self.center.parent_unit.parent)
-                # مسیر سازگار موقت منحصراً برای مراکزی که هنوز به شهرستان متصل نشده‌اند
-                return Center.objects.filter(province=self.center.province)
+                province = (self.center.parent_unit.parent if self.center.parent_unit_id and self.center.parent_unit.parent_id else None)
+                if province and province.is_active:
+                    return self._active_center_scope(
+                        Center.objects.filter(parent_unit__parent=province)
+                    )
+                return Center.objects.none()
             return Center.objects.none()
         if self.role == self.ROLE_ADMIN_COUNTY:
             if self.org_unit:
-                return Center.objects.filter(parent_unit=self.org_unit)
-            if self.center:
-                return Center.objects.filter(pk=self.center_id)
+                if not self.org_unit.is_active or not self.org_unit.parent_id or not self.org_unit.parent.is_active:
+                    return Center.objects.none()
+                return self._active_center_scope(Center.objects.filter(parent_unit=self.org_unit))
+            if self.center and self.center.parent_unit_id and self.center.parent_unit.parent_id and self.center.parent_unit.parent.is_active:
+                return self._active_center_scope(Center.objects.filter(pk=self.center_id))
             return Center.objects.none()
-        if self.role in (self.ROLE_ADMIN_IT, self.ROLE_MANAGER):
+        if self.role in (self.ROLE_ADMIN_IT, self.ROLE_MANAGER, self.ROLE_REQUESTER):
             if self.center_id:
-                return Center.objects.filter(pk=self.center_id)
+                return self._active_center_scope(Center.objects.filter(pk=self.center_id))
             return Center.objects.none()
         if self.role == self.ROLE_TECHNICIAN:
-            if self.contractor_id:
-                from apps.org.models import Contract
-                active_contracts = self.contractor.contracts.filter(status=Contract.STATUS_ACTIVE)
-                if active_contracts.filter(is_provincial=True).exists():
-                    return Center.objects.all()
-                return Center.objects.filter(contracts__in=active_contracts).distinct()
-            return Center.objects.none()
-        if self.role == self.ROLE_REQUESTER:
-            if self.center_id:
-                return Center.objects.filter(pk=self.center_id)
-            return Center.objects.none()
+            province_ids = self.get_active_contractor_contracts().values_list(
+                "province_id", flat=True
+            )
+            return self._active_center_scope(
+                Center.objects.filter(parent_unit__parent_id__in=province_ids)
+            ).distinct()
         return Center.objects.none()
 
     @property

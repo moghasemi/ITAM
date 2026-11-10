@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -74,9 +74,14 @@ def visible_tickets(user, center=None):
         if not user.contractor_id:
             return queryset.none()
         centers = user.get_scoped_centers()
+        active_contracts = user.get_active_contractor_contracts()
         qs = queryset.filter(
-            Q(assigned_contractor_id=user.contractor_id) | Q(assigned_technician=user) |
-            Q(contract__contractor_id=user.contractor_id)
+            contract__in=active_contracts,
+            contract__province_id=F("asset__center__parent_unit__parent_id"),
+        ).filter(
+            Q(assigned_contractor_id=user.contractor_id)
+            | Q(assigned_technician=user)
+            | Q(contract__contractor_id=user.contractor_id)
         ).filter(Q(center__in=centers) | Q(asset__center__in=centers))
         if center:
             qs = qs.filter(Q(center=center) | Q(asset__center=center))
@@ -104,11 +109,19 @@ def can_manage_ticket(user, ticket: Ticket) -> bool:
     if user.has_role(User.ROLE_ADMIN_IT):
         return True
     if user.has_role(User.ROLE_TECHNICIAN):
+        if (
+            not user.contractor_id
+            or not ticket.contract_id
+            or ticket.contract.contractor_id != user.contractor_id
+            or not ticket.contract.is_current
+            or not ticket.asset.center_id
+            or not ticket.contract.covers_center(ticket.asset.center)
+        ):
+            return False
         if ticket.assigned_technician_id == user.pk:
             return True
         return bool(
-            user.contractor_id
-            and ticket.assigned_contractor_id
+            ticket.assigned_contractor_id
             and user.contractor_id == ticket.assigned_contractor_id
         )
     return False

@@ -5,7 +5,7 @@ import datetime as dt
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -41,21 +41,49 @@ def visible_visits(user):
         return queryset.none()
     if user.is_superuser or user.role == User.ROLE_ADMIN_COUNTRY:
         return queryset
-    if user.role in (User.ROLE_ADMIN_PROVINCE, User.ROLE_ADMIN_COUNTY):
+    if user.role == User.ROLE_ADMIN_PROVINCE:
+        centers = user.get_scoped_centers()
+        province_ids = centers.values("parent_unit__parent_id")
+        return queryset.filter(
+            Q(center__in=centers) | Q(contract__province_id__in=province_ids)
+        ).distinct()
+    if user.role == User.ROLE_ADMIN_COUNTY:
         centers = user.get_scoped_centers()
         return queryset.filter(
-            Q(center__in=centers) | Q(contract__centers__in=centers)
+            Q(center__in=centers)
+            | Q(
+                checks__asset__center__in=centers,
+                checks__asset__center__parent_unit__parent_id=F("contract__province_id"),
+            )
         ).distinct()
     if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
         centers = user.get_scoped_centers()
         if not centers.exists():
             return queryset.none()
-        return queryset.filter(center__in=centers)
+        return queryset.filter(
+            Q(center__in=centers)
+            | Q(
+                checks__asset__center__in=centers,
+                checks__asset__center__parent_unit__parent_id=F("contract__province_id"),
+            )
+        ).distinct()
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id:
             return queryset.none()
+        centers = user.get_scoped_centers()
+        active_contracts = user.get_active_contractor_contracts()
         return queryset.filter(
-            contractor_id=user.contractor_id, center__in=user.get_scoped_centers()
+            contractor_id=user.contractor_id,
+            contract__in=active_contracts,
+        ).filter(
+            Q(
+                center__in=centers,
+                center__parent_unit__parent_id=F("contract__province_id"),
+            )
+            | Q(
+                center__isnull=True,
+                contract__province_id__in=active_contracts.values("province_id"),
+            )
         )
     return queryset.none()
 
@@ -66,24 +94,54 @@ def visible_checks(user, visit: MaintenanceVisit):
     checks = visit.checks.select_related("asset", "asset__category", "asset__location")
     if user.is_superuser or user.role == User.ROLE_ADMIN_COUNTRY:
         return checks
-    return checks.filter(asset__center__in=user.get_scoped_centers())
+    return checks.filter(
+        asset__center__in=user.get_scoped_centers(),
+        asset__center__parent_unit__parent_id=F("visit__contract__province_id"),
+    )
+
+
+def can_confirm_visit(user, visit: MaintenanceVisit) -> bool:
+    """اجازه تایید نهایی بازدید برای مدیر IT در محدوده مراکز دارای چک‌لیست."""
+    if not getattr(user, "is_authenticated", False) or not user.has_role(User.ROLE_ADMIN_IT):
+        return False
+    if not visible_visits(user).filter(pk=visit.pk).exists():
+        return False
+    if user.is_admin_country:
+        return True
+    return visible_checks(user, visit).exists()
 
 
 def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if user.is_admin_country:
+        return True
     if not visible_visits(user).filter(pk=visit.pk).exists():
         return False
     if user.is_admin_province:
         centers = user.get_scoped_centers()
         if visit.center_id:
-            return centers.filter(pk=visit.center_id).exists()
-        return visit.contract.centers.filter(pk__in=centers).exists()
+            return (
+                centers.filter(pk=visit.center_id).exists()
+                and visit.contract.covers_center(visit.center)
+            )
+        return bool(
+            visit.contract_id
+            and visit.contract.province_id
+            and centers.filter(parent_unit__parent_id=visit.contract.province_id).exists()
+        )
     if user.has_role(User.ROLE_ADMIN_IT):
         return user.get_scoped_centers().filter(pk=visit.center_id).exists()
     if user.has_role(User.ROLE_TECHNICIAN):
+        centers = user.get_scoped_centers()
+        if not user.contractor_id or visit.contract.contractor_id != user.contractor_id:
+            return False
+        if visit.center_id:
+            return centers.filter(pk=visit.center_id).exists()
         return bool(
-            user.contractor_id
-            and visit.contract.contractor_id == user.contractor_id
-            and user.get_scoped_centers().filter(pk=visit.center_id).exists()
+            visit.contract.is_current
+            and visit.contract.province_id
+            and centers.filter(parent_unit__parent_id=visit.contract.province_id).exists()
         )
     return False
 
@@ -107,15 +165,11 @@ def generate_visits(contract, *, user=None, populate=True) -> dict:
     if not contract.visit_interval_days:
         raise ValidationError("دوره بازدید برای این قرارداد تعریف نشده است.")
 
-    centers = list(contract.centers.all())
-    if contract.is_provincial:
-        visit_center = None  # استان‌گسترده؛ فقط مدیر استان می‌تواند این بازدید را مدیریت کند.
-    elif len(centers) == 1:
-        visit_center = centers[0]
-    else:
-        raise ValidationError(
-            "برای برنامه‌ریزی بازدید، قرارداد غیر استانی باید دقیقاً به یک مرکز متصل باشد."
-        )
+    if not contract.province_id:
+        raise ValidationError("استان قرارداد تعیین نشده است؛ ابتدا پرونده قرارداد را تکمیل کنید.")
+    if not contract.province_id or contract.province.unit_type != "province":
+        raise ValidationError("استان قرارداد معتبر نیست.")
+    visit_center = None  # قرارداد به یک استان تعلق دارد و بازدید در سطح استان ثبت می‌شود.
 
     total = contract.planned_visit_count()
     created = 0
@@ -168,7 +222,10 @@ def generate_visits(contract, *, user=None, populate=True) -> dict:
 
 def populate_checks(visit: MaintenanceVisit, only_missing: bool = True) -> int:
     """ساخت برگه بازدید برای دارایی‌های قرارداد."""
-    assets = Asset.objects.filter(contract=visit.contract).exclude(status="retired")
+    assets = Asset.objects.filter(
+        contract=visit.contract,
+        center__parent_unit__parent_id=visit.contract.province_id,
+    ).exclude(status="retired")
     existing_ids = set()
     if only_missing:
         existing_ids = set(visit.checks.values_list("asset_id", flat=True))
@@ -292,8 +349,10 @@ def complete_visit(visit: MaintenanceVisit, user, *, report_text="", recommendat
 @transaction.atomic
 def confirm_visit(visit: MaintenanceVisit, user, note: str = ""):
     """تایید بازدید توسط کارشناس فناوری اطلاعات مرکز."""
-    if not user.has_role(User.ROLE_ADMIN_IT) or not can_manage_visit(user, visit):
+    if not can_confirm_visit(user, visit):
         raise PermissionDenied("تایید بازدید فقط توسط کارشناس فناوری اطلاعات مجاز همان دامنه انجام می‌شود.")
+    if visit.status != VISIT_DONE:
+        raise ValidationError("بازدید باید ابتدا توسط پیمانکار تکمیل شود.")
     visit.it_confirmed_by = user
     visit.it_confirmed_at = timezone.now()
     visit.it_note = note[:300]
@@ -309,8 +368,12 @@ def save_check(check: VisitAssetCheck, user, *, condition=None, actions_taken=No
     """ثبت نتیجه بازدید یک تجهیز."""
     if not can_manage_visit(user, check.visit):
         raise PermissionDenied("اجازه ثبت نتیجه این برگه بازدید را ندارید.")
-    if not user.get_scoped_centers().filter(pk=check.asset.center_id).exists():
-        raise PermissionDenied("این تجهیز خارج از دامنه مراکز مجاز شماست.")
+    if (
+        not check.asset.center_id
+        or not user.get_scoped_centers().filter(pk=check.asset.center_id).exists()
+        or not check.visit.contract.covers_center(check.asset.center)
+    ):
+        raise PermissionDenied("این تجهیز خارج از دامنه استان/مراکز مجاز قرارداد است.")
     if condition:
         check.condition = condition
     if actions_taken is not None:

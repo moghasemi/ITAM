@@ -15,7 +15,7 @@
     <table class="table">
       <thead>
         <tr>
-          <th>شماره قرارداد</th><th>پیمانکار</th><th>عنوان</th><th>بازه قرارداد</th>
+          <th>شماره قرارداد</th><th>پیمانکار</th><th>استان</th><th>عنوان</th><th>بازه قرارداد</th>
           <th>دوره بازدید</th><th>دارایی‌ها</th><th>درخواست‌ها</th><th>روز باقی‌مانده</th><th>وضعیت</th><th></th>
         </tr>
       </thead>
@@ -24,6 +24,7 @@
         <tr class="{% if contract.status == 'active' and contract.days_remaining < 0 %}is-danger{% endif %}">
           <td><a href="{% url 'org:contract_detail' contract.pk %}">{{ contract.number }}</a></td>
           <td>{{ contract.contractor.name }}</td>
+          <td>{{ contract.province.name }}</td>
           <td>{{ contract.title }}</td>
           <td class="nowrap">{{ contract.jalali_range }}</td>
           <td>{{ contract.visit_interval_days|fa }} روز</td>
@@ -45,7 +46,7 @@
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="10">{% include "partials/empty.html" with text="قراردادی ثبت نشده است." %}</td></tr>
+        <tr><td colspan="11">{% include "partials/empty.html" with text="قراردادی ثبت نشده است." %}</td></tr>
       {% endfor %}
       </tbody>
     </table>

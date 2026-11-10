@@ -40,11 +40,20 @@ class ReportFilterForm(StyledForm):
             self.fields["contractor"].queryset = Contractor.objects.none()
             self.fields["department"].queryset = Department.objects.none()
             return
-        if user.is_admin_province:
+        if user.is_admin_country:
+            return
+        if user.has_role("technician"):
+            scoped_contracts = user.get_active_contractor_contracts()
+            self.fields["contract"].queryset = scoped_contracts
+            self.fields["contractor"].queryset = Contractor.objects.filter(
+                pk__in=scoped_contracts.values("contractor_id")
+            )
+            self.fields["department"].queryset = Department.objects.none()
             return
         scoped_centers = user.get_scoped_centers()
+        province_ids = scoped_centers.values("parent_unit__parent_id")
         scoped_contracts = Contract.objects.filter(
-            centers__in=scoped_centers
+            province_id__in=province_ids
         ).distinct()
         self.fields["contract"].queryset = scoped_contracts
         self.fields["contractor"].queryset = Contractor.objects.filter(
