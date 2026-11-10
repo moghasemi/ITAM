@@ -1,7 +1,7 @@
 """Regression tests for maintenance access boundaries."""
 import datetime as dt
 
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.utils import timezone
