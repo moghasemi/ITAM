@@ -316,19 +316,19 @@ python manage.py dispatch_outbox --requeue-dead
 این مراحل فقط برای محیط توسعه/نمایش محلی هستند؛ سرور توسعه Django را روی شبکه سازمان باز نکنید.
 
 ```powershell
-cd D:\\itam
+cd D:\itam
 py -3.12 -m venv .venv
-.\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt
-Copy-Item deploy\\.env.sqlite.example .env
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item deploy\.env.sqlite.example .env
 ```
 
 در فایل `.env` یک `ITAM_SECRET_KEY` تصادفی و اختصاصی قرار دهید. سپس:
 
 ```powershell
-.\\.venv\\Scripts\\python.exe manage.py check
-.\\.venv\\Scripts\\python.exe manage.py migrate
-.\\.venv\\Scripts\\python.exe manage.py seed_demo --admin-password "<strong-unique-password>"
-.\\.venv\\Scripts\\python.exe manage.py runserver 127.0.0.1:8000
+.\.venv\Scripts\python.exe manage.py check
+.\.venv\Scripts\python.exe manage.py migrate
+.\.venv\Scripts\python.exe manage.py seed_demo --admin-password "<strong-unique-password>"
+.\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8000
 ```
 
 نشانی: `http://127.0.0.1:8000/`. فرمان `seed_demo` فقط برای دیتابیس آزمایشی است و نباید روی پایگاه عملیاتی اجرا شود. گذرواژه را خودتان انتخاب کنید؛ هیچ حساب یا گذرواژه پیش‌فرضی وجود ندارد.
