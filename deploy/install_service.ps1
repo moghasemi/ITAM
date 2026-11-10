@@ -10,7 +10,6 @@
 param(
     [string]$ProjectPath = (Resolve-Path "$PSScriptRoot\..").Path,
     [string]$PythonPath  = "",
-    [int]   $Port        = 8000,
     [string]$TaskUser    = "SYSTEM",
     [switch]$SkipServerTask,
     [switch]$SkipScheduledJobs
@@ -115,12 +114,8 @@ if (-not $SkipScheduledJobs) {
 
 Write-Host "پورت برنامه روی Loopback است؛ برای دسترسی شبکه، TLS Reverse Proxy را جداگانه پیکربندی کنید." -ForegroundColor Yellow
 
-$addresses = Get-NetIPAddress -AddressFamily IPv4 |
-    Where-Object { $_.IPAddress -notlike "127.*" -and $_.PrefixOrigin -ne "WellKnown" } |
-    Select-Object -ExpandProperty IPAddress
-
 Write-Host "`n================= نصب کامل شد =================" -ForegroundColor Green
 Write-Host "نشانی دسترسی از داخل شبکه اداره:"
-Write-Host "    http://127.0.0.1:$Port/  (فقط روی خود سرور)" -ForegroundColor White
+Write-Host "    http://127.0.0.1:8000/  (فقط روی خود سرور)" -ForegroundColor White
 Write-Host "`nبرای دسترسی کاربران شبکه، Reverse Proxy با HTTPS تنظیم کنید و نام میزبان را در ITAM_ALLOWED_HOSTS قرار دهید."
-Write-Host "تا QR برچسب تجهیزات درست ساخته شود.`n"
+
