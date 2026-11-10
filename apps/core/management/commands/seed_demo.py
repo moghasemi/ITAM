@@ -185,16 +185,20 @@ class Command(BaseCommand):
             departments[code] = department
 
         locations = {}
-        for building, floor, room in [
-            ("ساختمان مرکزی", "همکف", "اتاق ۱۰۱"),
-            ("ساختمان مرکزی", "طبقه اول", "اتاق ۲۰۳"),
-            ("ساختمان مرکزی", "طبقه دوم", "اتاق ۳۰۵"),
-            ("ساختمان معاونت", "همکف", "اتاق ۱۱۲"),
+        for center_ref, building, floor, room in [
+            (center_hq, "ساختمان ستاد", "همکف", "اتاق ۱۰۱"),
+            (center_hq, "ساختمان ستاد", "طبقه اول", "اتاق ۲۰۳"),
+            (center_saveh, "ساختمان مرکز زابل", "همکف", "اتاق ۱۰۱"),
+            (center_khomein, "ساختمان مرکز ایرانشهر", "همکف", "اتاق ۱۰۱"),
         ]:
             location, _ = Location.objects.get_or_create(
-                name=room, building=building, floor=floor, room=room
+                center=center_ref,
+                name=room,
+                building=building,
+                floor=floor,
+                room=room,
             )
-            locations[(building, room)] = location
+            locations[(center_ref.pk, room)] = location
 
         self.stdout.write(self.style.MIGRATE_HEADING("۵) پیمانکار و قرارداد"))
         contractor, _ = Contractor.objects.get_or_create(
@@ -368,18 +372,25 @@ class Command(BaseCommand):
             is_case = index / 2 != index // 2
             code = "PC" if is_case else "PRN"
             asset_tag = f"{'۱۰۲' if False else '102'}{index:05d}"
+            center_ref = centers_list[(index - 1) % len(centers_list)]
+            department_ref = next(
+                (item for item in department_list if item.center_id == center_ref.pk), None
+            )
+            location_ref = next(
+                (item for item in location_list if item.center_id == center_ref.pk), None
+            )
             asset, _ = Asset.objects.get_or_create(
                 asset_tag=asset_tag,
                 defaults={
                     "title": f"{'کیس اداری' if is_case else 'چاپگر لیزری'} شماره {index}",
                     "category": categories[code],
-                    "center": centers_list[(index - 1) % len(centers_list)],
+                    "center": center_ref,
                     "brand": random.choice(brands) if is_case else "HP",
                     "model_name": "OptiPlex 3080" if is_case else "LaserJet P1102",
                     "serial_number": f"SN{random.randint(100000, 999999)}{index}",
                     "contract": contract,
-                    "department": department_list[index % len(department_list)],
-                    "location": location_list[index % len(location_list)],
+                    "department": department_ref,
+                    "location": location_ref,
                     "custodian": requester if index % 3 == 0 else None,
                     "status": "active",
                     "hostname": f"PC-{index:03d}" if is_case else "",
