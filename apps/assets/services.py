@@ -79,7 +79,7 @@ def visible_assets(user, center=None):
         qs = queryset.filter(
             contract__in=active_contracts,
             center__in=scoped_centers,
-            contract__province_id=F("center__parent_unit__parent_id"),
+            contract__province_id=F("center__treatment_management__province_id"),
         )
         if center:
             qs = qs.filter(center=center)
