@@ -33,6 +33,15 @@ class Command(BaseCommand):
         province_ids_with_management = set(
             TreatmentManagement.objects.values_list("province_id", flat=True)
         )
+        for management in TreatmentManagement.objects.select_related("province").iterator():
+            if management.province.unit_type != OrganizationalUnit.UNIT_PROVINCE:
+                issues.append({
+                    "severity": "error",
+                    "code": "invalid_treatment_management_province",
+                    "object": f"TreatmentManagement:{management.pk}:{management.code}",
+                    "message": "مدیریت درمان به واحدی متصل است که از نوع استان نیست.",
+                })
+
         for province in OrganizationalUnit.objects.filter(
             unit_type=OrganizationalUnit.UNIT_PROVINCE
         ).only("pk", "name"):
