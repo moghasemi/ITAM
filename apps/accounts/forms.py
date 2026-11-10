@@ -6,7 +6,7 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, Us
 from django.contrib.auth.password_validation import validate_password
 
 from apps.core.forms import StyledModelForm, apply_widget_classes
-from apps.org.models import Center, Contractor, Department
+from apps.org.models import Center, Contract, Contractor, Department, OrganizationalUnit
 
 from .models import User
 
@@ -97,7 +97,25 @@ class UserForm(StyledModelForm):
             self.fields["center"].queryset = Center.objects.filter(is_active=True)
 
         self.fields["department"].queryset = Department.objects.filter(is_active=True)
-        self.fields["contractor"].queryset = Contractor.objects.filter(is_active=True)
+        contractors = Contractor.objects.filter(is_active=True)
+        if self.current_user and self.current_user.role == User.ROLE_ADMIN_PROVINCE:
+            province = None
+            if self.current_user.org_unit_id and self.current_user.org_unit.unit_type == OrganizationalUnit.UNIT_PROVINCE:
+                province = self.current_user.org_unit
+            elif self.current_user.center_id and self.current_user.center.treatment_management_id:
+                province = self.current_user.center.treatment_management.province
+            if province:
+                today = __import__("django.utils.timezone", fromlist=["timezone"]).localdate()
+                active_contracts = Contract.objects.filter(
+                    province=province,
+                    status=Contract.STATUS_ACTIVE,
+                    start_date__lte=today,
+                    end_date__gte=today,
+                )
+                contractors = contractors.filter(contracts__in=active_contracts).distinct()
+            else:
+                contractors = contractors.none()
+        self.fields["contractor"].queryset = contractors
         if not self.instance.pk:
             self.fields["password1"].required = True
             self.fields["password2"].required = True
@@ -123,6 +141,27 @@ class UserForm(StyledModelForm):
         contractor = cleaned.get("contractor")
         if role == User.ROLE_TECHNICIAN and not contractor:
             raise forms.ValidationError({"contractor": "برای کارشناس پیمانکار، انتخاب شرکت الزامی است."})
+        if (
+            role == User.ROLE_TECHNICIAN
+            and self.current_user
+            and self.current_user.role == User.ROLE_ADMIN_PROVINCE
+        ):
+            province = None
+            if self.current_user.org_unit_id and self.current_user.org_unit.unit_type == OrganizationalUnit.UNIT_PROVINCE:
+                province = self.current_user.org_unit
+            elif self.current_user.center_id and self.current_user.center.treatment_management_id:
+                province = self.current_user.center.treatment_management.province
+            today = __import__("django.utils.timezone", fromlist=["timezone"]).localdate()
+            if not province or not contractor.contracts.filter(
+                province=province,
+                status=Contract.STATUS_ACTIVE,
+                start_date__lte=today,
+                end_date__gte=today,
+            ).exists():
+                self.add_error(
+                    "contractor",
+                    "پیمانکار باید در استان محل مسئولیت شما قرارداد فعال داشته باشد.",
+                )
 
         if self.current_user and not self.current_user.is_superuser and self.current_user.role != User.ROLE_ADMIN_COUNTRY:
             if self.current_user.role == User.ROLE_ADMIN_IT and role in (
@@ -143,6 +182,15 @@ class UserForm(StyledModelForm):
         password = self.cleaned_data.get("password1")
         if password:
             user.set_password(password)
+        if (
+            user.role == User.ROLE_TECHNICIAN
+            and self.current_user
+            and self.current_user.role == User.ROLE_ADMIN_PROVINCE
+        ):
+            if self.current_user.org_unit_id and self.current_user.org_unit.unit_type == OrganizationalUnit.UNIT_PROVINCE:
+                user.org_unit = self.current_user.org_unit
+            elif self.current_user.center_id and self.current_user.center.treatment_management_id:
+                user.org_unit = self.current_user.center.treatment_management.province
         if commit:
             user.save()
         return user
