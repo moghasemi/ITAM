@@ -14,7 +14,7 @@ def backfill_treatment_management(apps, schema_editor):
             province_id=province.pk,
             defaults={
                 "name": f"مدیریت درمان استان {province.name}",
-                "code": f"TM-{province.pk}",
+                "code": f"TM-{province.code}",
                 "is_active": province.is_active,
             },
         )
