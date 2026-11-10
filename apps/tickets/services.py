@@ -57,17 +57,17 @@ def visible_tickets(user, center=None):
 
     if user.role in (User.ROLE_ADMIN_PROVINCE, User.ROLE_ADMIN_COUNTY):
         centers = user.get_scoped_centers()
-        qs = queryset.filter(Q(center__in=centers) | Q(asset__center__in=centers))
+        qs = queryset.filter(asset__center__in=centers)
         if center:
-            qs = qs.filter(Q(center=center) | Q(asset__center=center))
+            qs = qs.filter(asset__center=center)
         return qs.distinct()
 
     if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
         if not user.center_id:
             return queryset.none()
-        qs = queryset.filter(Q(center_id=user.center_id) | Q(asset__center_id=user.center_id))
+        qs = queryset.filter(asset__center_id=user.center_id)
         if center:
-            qs = qs.filter(Q(center=center) | Q(asset__center=center))
+            qs = qs.filter(asset__center=center)
         return qs
 
     if user.has_role(User.ROLE_TECHNICIAN):
@@ -82,9 +82,9 @@ def visible_tickets(user, center=None):
             Q(assigned_contractor_id=user.contractor_id)
             | Q(assigned_technician=user)
             | Q(contract__contractor_id=user.contractor_id)
-        ).filter(Q(center__in=centers) | Q(asset__center__in=centers))
+        ).filter(asset__center__in=centers)
         if center:
-            qs = qs.filter(Q(center=center) | Q(asset__center=center))
+            qs = qs.filter(asset__center=center)
         return qs.distinct()
 
     condition = Q(reported_by=user)
@@ -92,10 +92,7 @@ def visible_tickets(user, center=None):
         condition |= Q(asset__department_id=user.department_id)
     if not user.center_id:
         return queryset.none()
-    condition &= (
-        Q(center_id=user.center_id) | Q(asset__center_id=user.center_id)
-        | Q(center__isnull=True, asset__center__isnull=True)
-    )
+    condition &= Q(asset__center_id=user.center_id)
     return queryset.filter(condition).distinct()
 
 def can_manage_ticket(user, ticket: Ticket) -> bool:
@@ -130,12 +127,12 @@ def can_manage_ticket(user, ticket: Ticket) -> bool:
 def can_confirm_as_user(user, ticket: Ticket) -> bool:
     if not getattr(user, "is_authenticated", False):
         return False
-    if not user.is_admin_province and not user.get_scoped_centers().filter(
+    if not ticket.asset.center_id or not user.get_scoped_centers().filter(
         pk=ticket.asset.center_id
     ).exists():
         return False
-    if user.has_role(User.ROLE_ADMIN_IT):
-        return True
+    # User confirmation must come from the requester/custodian/department,
+    # never from an IT role acting as the user in the approval workflow.
     if ticket.reported_by_id and ticket.reported_by_id == user.pk:
         return True
     if ticket.asset.custodian_id and ticket.asset.custodian_id == user.pk:

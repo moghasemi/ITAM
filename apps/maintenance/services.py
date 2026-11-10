@@ -45,12 +45,19 @@ def visible_visits(user):
         centers = user.get_scoped_centers()
         province_ids = centers.values("parent_unit__parent_id")
         return queryset.filter(
-            Q(center__in=centers) | Q(contract__province_id__in=province_ids)
+            Q(
+                center__in=centers,
+                center__parent_unit__parent_id=F("contract__province_id"),
+            )
+            | Q(center__isnull=True, contract__province_id__in=province_ids)
         ).distinct()
     if user.role == User.ROLE_ADMIN_COUNTY:
         centers = user.get_scoped_centers()
         return queryset.filter(
-            Q(center__in=centers)
+            Q(
+                center__in=centers,
+                center__parent_unit__parent_id=F("contract__province_id"),
+            )
             | Q(
                 checks__asset__center__in=centers,
                 checks__asset__center__parent_unit__parent_id=F("contract__province_id"),
@@ -61,7 +68,10 @@ def visible_visits(user):
         if not centers.exists():
             return queryset.none()
         return queryset.filter(
-            Q(center__in=centers)
+            Q(
+                center__in=centers,
+                center__parent_unit__parent_id=F("contract__province_id"),
+            )
             | Q(
                 checks__asset__center__in=centers,
                 checks__asset__center__parent_unit__parent_id=F("contract__province_id"),

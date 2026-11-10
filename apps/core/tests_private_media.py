@@ -5,8 +5,9 @@ from django.http import Http404
 from django.test import RequestFactory, TestCase, override_settings
 
 from apps.accounts.models import User
-from apps.assets.models import Asset, AssetAttachment, AssetCategory
-from apps.org.models import Center, OrganizationalUnit
+from apps.assets.models import Asset, AssetAttachment, AssetCategory, HardwareSnapshot
+from apps.maintenance.models import MaintenanceVisit, VisitAssetCheck
+from apps.org.models import Center, Contract, Contractor, OrganizationalUnit
 from apps.core.views import private_media
 
 
@@ -71,3 +72,92 @@ class PrivateMediaAuthorizationTests(TestCase):
         request.user = self.user_b
         with self.assertRaises(Http404):
             private_media(request, self.attachment.file.name)
+
+
+    def test_technician_cannot_download_misbound_hardware_or_visit_photos(self):
+        import datetime as dt
+        from django.utils import timezone
+
+        province_b = OrganizationalUnit.objects.create(
+            name="استان رسانه دوم", code="MEDIA-PROV-B",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE,
+            parent=self.center_a.parent_unit.parent.parent,
+        )
+        county_b = OrganizationalUnit.objects.create(
+            name="شهرستان رسانه دوم", code="MEDIA-COUNTY-C",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=province_b,
+        )
+        center_c = Center.objects.create(
+            name="مرکز رسانه ج", code="MEDIA-CENTER-C", parent_unit=county_b
+        )
+        contractor = Contractor.objects.create(name="پیمانکار رسانه")
+        today = timezone.localdate()
+        contract_a = Contract.objects.create(
+            contractor=contractor, province=self.center_a.parent_unit.parent,
+            number="MEDIA-CONTRACT-A", title="قرارداد استان الف",
+            start_date=today - dt.timedelta(days=5),
+            end_date=today + dt.timedelta(days=30),
+        )
+        Contract.objects.create(
+            contractor=contractor, province=province_b,
+            number="MEDIA-CONTRACT-B", title="قرارداد استان ب",
+            start_date=today - dt.timedelta(days=5),
+            end_date=today + dt.timedelta(days=30),
+        )
+        technician = User.objects.create_user(
+            username="media-multi-province-tech", password="test-password",
+            role=User.ROLE_TECHNICIAN, contractor=contractor,
+        )
+        misbound_asset = Asset.objects.create(
+            asset_tag="MEDIA-MISBOUND", title="دارایی با قرارداد استان دیگر",
+            category=self.attachment.asset.category,
+            center=center_c, contract=contract_a,
+        )
+        snapshot = HardwareSnapshot.objects.create(
+            asset=misbound_asset,
+            case_photo=SimpleUploadedFile("case.jpg", b"private-case-photo"),
+        )
+        visit = MaintenanceVisit.objects.create(
+            number="MEDIA-VISIT-A", contract=contract_a, contractor=contractor,
+            scheduled_date=today,
+        )
+        check = VisitAssetCheck.objects.create(
+            visit=visit, asset=misbound_asset,
+            photo=SimpleUploadedFile("visit.jpg", b"private-visit-photo"),
+        )
+
+        for path in [snapshot.case_photo.name, check.photo.name]:
+            request = RequestFactory().get(f"/media/{path}")
+            request.user = technician
+            with self.assertRaises(Http404):
+                private_media(request, path)
+
+    def test_province_admin_cannot_download_signature_from_another_province(self):
+        province_a = self.center_a.parent_unit.parent
+        province_b = OrganizationalUnit.objects.create(
+            name="استان امضای دوم", code="MEDIA-SIGN-PROV-B",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE,
+            parent=province_a.parent,
+        )
+        county_b = OrganizationalUnit.objects.create(
+            name="شهرستان امضای دوم", code="MEDIA-SIGN-COUNTY-B",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=province_b,
+        )
+        center_b = Center.objects.create(
+            name="مرکز امضای دوم", code="MEDIA-SIGN-CENTER-B", parent_unit=county_b
+        )
+        province_admin = User.objects.create_user(
+            username="media-province-admin", password="test-password",
+            role=User.ROLE_ADMIN_PROVINCE, org_unit=province_a,
+        )
+        owner = User.objects.create_user(
+            username="media-signature-owner", password="test-password",
+            role=User.ROLE_REQUESTER, center=center_b,
+        )
+        owner.signature = SimpleUploadedFile("signature.png", b"private-signature")
+        owner.save(update_fields=["signature"])
+
+        request = RequestFactory().get(f"/media/{owner.signature.name}")
+        request.user = province_admin
+        with self.assertRaises(Http404):
+            private_media(request, owner.signature.name)

@@ -10,6 +10,8 @@ from __future__ import annotations
 import datetime as dt
 import random
 
+from django.conf import settings
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
@@ -71,14 +73,20 @@ class Command(BaseCommand):
         parser.add_argument("--admin-password", required=True, help="گذرواژه یکتای کاربران نمونه")
         parser.add_argument("--assets", type=int, default=12, help="تعداد دارایی نمونه")
         parser.add_argument("--no-demo-tickets", action="store_true", help="بدون ساخت درخواست نمونه")
-        parser.add_argument("--reset", action="store_true", help="پاک‌کردن داده‌های نمونه قبلی")
 
     @transaction.atomic
     def handle(self, *args, **options):
+        if (not settings.DEBUG and not settings.RUNNING_TESTS) or not settings.DATABASES["default"]["ENGINE"].endswith("sqlite3"):
+            raise CommandError("seed_demo فقط در محیط توسعه DEBUG=True و پایگاه SQLite مجاز است.")
         password = options["admin_password"]
         asset_count = options["assets"]
+        if asset_count < 1:
+            raise CommandError("--assets باید حداقل ۱ باشد.")
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۱) تنظیمات سامانه"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۱) بارگذاری جغرافیای ایران"))
+        call_command("load_iran_geography")
+
+        self.stdout.write(self.style.MIGRATE_HEADING("۲) تنظیمات سامانه"))
         setting = SystemSetting.load()
         setting.org_name = setting.org_name or "اداره کل"
         setting.site_name = setting.site_name or "سامانه مدیریت دارایی و نگهداری فناوری اطلاعات"
@@ -87,7 +95,7 @@ class Command(BaseCommand):
         setting.save()
         self.stdout.write(f"   سازمان: {setting.org_name}")
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۲) تعطیلات نمونه"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۳) تعطیلات نمونه"))
         for title, month, day in [
             ("نوروز", 1, 1), ("نوروز", 1, 2), ("نوروز", 1, 3), ("نوروز", 1, 4),
             ("روز جمهوری اسلامی", 1, 12), ("سیزده‌بدر", 1, 13),
@@ -101,69 +109,65 @@ class Command(BaseCommand):
                 defaults={"title": title, "is_recurring_annual": True},
             )
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۳) ساختار سازمانی چهارسطحی و مراکز استان"))
-        ou_national, _ = OrganizationalUnit.objects.get_or_create(
-            code="OU-NAT-MOH",
-            defaults={"name": "ستاد کشوری مدیریت فاوا", "unit_type": OrganizationalUnit.UNIT_NATIONAL},
-        )
-        ou_markazi, _ = OrganizationalUnit.objects.get_or_create(
-            code="OU-PRV-MARKAZI",
-            defaults={"name": "دانشگاه علوم پزشکی استان مرکزی", "unit_type": OrganizationalUnit.UNIT_PROVINCE, "parent": ou_national},
-        )
-        ou_arak, _ = OrganizationalUnit.objects.get_or_create(
-            code="OU-CNTY-ARAK",
-            defaults={"name": "شبکه بهداشت و درمان شهرستان اراک", "unit_type": OrganizationalUnit.UNIT_COUNTY, "parent": ou_markazi},
-        )
-        ou_saveh, _ = OrganizationalUnit.objects.get_or_create(
-            code="OU-CNTY-SAVEH",
-            defaults={"name": "شبکه بهداشت و درمان شهرستان ساوه", "unit_type": OrganizationalUnit.UNIT_COUNTY, "parent": ou_markazi},
-        )
-        ou_khomein, _ = OrganizationalUnit.objects.get_or_create(
-            code="OU-CNTY-KHOMEIN",
-            defaults={"name": "شبکه بهداشت و درمان شهرستان خمین", "unit_type": OrganizationalUnit.UNIT_COUNTY, "parent": ou_markazi},
-        )
+        self.stdout.write(self.style.MIGRATE_HEADING("۴) اتصال مراکز نمونه به جغرافیای رسمی"))
+        ou_sistan = OrganizationalUnit.objects.get(code="IR-PROV-111", is_active=True)
+        ou_zahedan = OrganizationalUnit.objects.get(code="IR-COUNTY-1110005", is_active=True)
+        ou_zabol = OrganizationalUnit.objects.get(code="IR-COUNTY-1110004", is_active=True)
+        ou_iranshahr = OrganizationalUnit.objects.get(code="IR-COUNTY-1110001", is_active=True)
         center_hq, _ = Center.objects.get_or_create(
             code="HQ-01",
             defaults={
                 "name": "مرکز ستاد مدیریت فناوری اطلاعات استان",
-                "province": "مرکزی",
-                "parent_unit": ou_arak,
-                "city": "اراک",
+                "province": "سیستان و بلوچستان",
+                "parent_unit": ou_zahedan,
+                "city": "زاهدان",
                 "manager_name": "مهندس صادقی (مدیر فناوری اطلاعات استان)",
                 "it_lead_name": "علی محمدی",
                 "is_headquarters": True,
-                "phone": "086-33445566",
-                "address": "اراک، میدان شهدا، ساختمان ستاد مرکزی",
+                "phone": "054-33445566",
+                "address": "زاهدان، ساختمان ستاد مدیریت فناوری اطلاعات",
             },
         )
         center_saveh, _ = Center.objects.get_or_create(
             code="C-02",
             defaults={
-                "name": "مرکز فناوری اطلاعات ساوه",
-                "province": "مرکزی",
-                "parent_unit": ou_saveh,
-                "city": "ساوه",
+                "name": "مرکز فناوری اطلاعات زابل",
+                "province": "سیستان و بلوچستان",
+                "parent_unit": ou_zabol,
+                "city": "زابل",
                 "manager_name": "حسین اکبری",
                 "it_lead_name": "مهرداد کاظمی",
                 "is_headquarters": False,
-                "phone": "086-42223344",
-                "address": "ساوه، بلوار طالقانی، اداره تابعه",
+                "phone": "054-42223344",
+                "address": "زابل، مرکز فناوری اطلاعات شهرستان",
             },
         )
         center_khomein, _ = Center.objects.get_or_create(
             code="C-03",
             defaults={
-                "name": "مرکز فناوری اطلاعات خمین",
-                "province": "مرکزی",
-                "parent_unit": ou_khomein,
-                "city": "خمین",
+                "name": "مرکز فناوری اطلاعات ایرانشهر",
+                "province": "سیستان و بلوچستان",
+                "parent_unit": ou_iranshahr,
+                "city": "ایرانشهر",
                 "manager_name": "سعید مرادی",
                 "it_lead_name": "پیمان خسروی",
                 "is_headquarters": False,
-                "phone": "086-46667788",
-                "address": "خمین، خیابان امام، اداره تابعه",
+                "phone": "054-46667788",
+                "address": "ایرانشهر، مرکز فناوری اطلاعات شهرستان",
             },
         )
+        # Reconcile pre-existing demo centers when the seed is run more than once.
+        for center, county, city in [
+            (center_hq, ou_zahedan, "زاهدان"),
+            (center_saveh, ou_zabol, "زابل"),
+            (center_khomein, ou_iranshahr, "ایرانشهر"),
+        ]:
+            center.parent_unit = county
+            center.province = "سیستان و بلوچستان"
+            center.city = city
+            center.is_active = True
+            center.save()
+
         centers_list = [center_hq, center_saveh, center_khomein]
         self.stdout.write(f"   مراکز استان: {center_hq.name}، {center_saveh.name}، {center_khomein.name}")
 
@@ -172,8 +176,8 @@ class Command(BaseCommand):
             ("حوزه ریاست و مدیریت استان", "100", "محمد رضایی", center_hq),
             ("معاونت اداری و مالی ستاد", "200", "زهرا کریمی", center_hq),
             ("واحد فناوری اطلاعات ستاد", "210", "علی محمدی", center_hq),
-            ("امور کارکنان مرکز ساوه", "300", "مهرداد کاظمی", center_saveh),
-            ("فناوری و اداری مرکز خمین", "400", "پیمان خسروی", center_khomein),
+            ("امور کارکنان مرکز زابل", "300", "مهرداد کاظمی", center_saveh),
+            ("فناوری و اداری مرکز ایرانشهر", "400", "پیمان خسروی", center_khomein),
         ]:
             department, _ = Department.objects.get_or_create(
                 name=name, center=center_ref, defaults={"code": code, "manager_name": manager}
@@ -181,18 +185,22 @@ class Command(BaseCommand):
             departments[code] = department
 
         locations = {}
-        for building, floor, room in [
-            ("ساختمان مرکزی", "همکف", "اتاق ۱۰۱"),
-            ("ساختمان مرکزی", "طبقه اول", "اتاق ۲۰۳"),
-            ("ساختمان مرکزی", "طبقه دوم", "اتاق ۳۰۵"),
-            ("ساختمان معاونت", "همکف", "اتاق ۱۱۲"),
+        for center_ref, building, floor, room in [
+            (center_hq, "ساختمان ستاد", "همکف", "اتاق ۱۰۱"),
+            (center_hq, "ساختمان ستاد", "طبقه اول", "اتاق ۲۰۳"),
+            (center_saveh, "ساختمان مرکز زابل", "همکف", "اتاق ۱۰۱"),
+            (center_khomein, "ساختمان مرکز ایرانشهر", "همکف", "اتاق ۱۰۱"),
         ]:
             location, _ = Location.objects.get_or_create(
-                name=room, building=building, floor=floor, room=room
+                center=center_ref,
+                name=room,
+                building=building,
+                floor=floor,
+                room=room,
             )
-            locations[(building, room)] = location
+            locations[(center_ref.pk, room)] = location
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۴) پیمانکار و قرارداد"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۵) پیمانکار و قرارداد"))
         contractor, _ = Contractor.objects.get_or_create(
             name="شرکت پشتیبان فناوری پارس",
             defaults={
@@ -206,11 +214,15 @@ class Command(BaseCommand):
             },
         )
 
+        contractor.is_active = True
+        contractor.save(update_fields=["is_active", "updated_at"])
+
         today = timezone.localdate()
         contract, created = Contract.objects.get_or_create(
             number="1403/IT/07",
             defaults={
                 "contractor": contractor,
+                "province": ou_sistan,
                 "title": "نگهداری و تعمیر تجهیزات رایانه‌ای و چاپگرها",
                 "start_date": today - dt.timedelta(days=60),
                 "end_date": today + dt.timedelta(days=305),
@@ -221,6 +233,14 @@ class Command(BaseCommand):
                 "status": Contract.STATUS_ACTIVE,
             },
         )
+        contract.province = ou_sistan
+        contract.is_provincial = True
+        contract.start_date = today - dt.timedelta(days=60)
+        contract.end_date = today + dt.timedelta(days=305)
+        contract.status = Contract.STATUS_ACTIVE
+        contract.save(update_fields=[
+            "province", "is_provincial", "start_date", "end_date", "status", "updated_at"
+        ])
         if created:
             self.stdout.write(f"   قرارداد {contract.number} ایجاد شد")
         for priority, response, resolve in [
@@ -235,11 +255,11 @@ class Command(BaseCommand):
                 defaults={"response_minutes": response, "resolve_minutes": resolve},
             )
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۵) کاربران و سطوح دسترسی استانی"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۶) کاربران و سطوح دسترسی استانی"))
         admin_province, _ = User.objects.get_or_create(
             username="admin.province",
             defaults={
-                "org_unit": ou_markazi,
+                "org_unit": ou_sistan,
                 "first_name": "سهراب",
                 "last_name": "صادقی",
                 "role": User.ROLE_ADMIN_PROVINCE,
@@ -252,6 +272,12 @@ class Command(BaseCommand):
                 "is_superuser": False,
             },
         )
+        admin_province.role = User.ROLE_ADMIN_PROVINCE
+        admin_province.org_unit = ou_sistan
+        admin_province.center = center_hq
+        admin_province.is_active = True
+        admin_province.is_staff = True
+        admin_province.is_superuser = False
         admin_province.set_password(password)
         admin_province.save()
 
@@ -269,6 +295,11 @@ class Command(BaseCommand):
                 "is_staff": True,
             },
         )
+        admin_it.role = User.ROLE_ADMIN_IT
+        admin_it.center = center_hq
+        admin_it.is_active = True
+        admin_it.is_staff = True
+        admin_it.is_superuser = False
         admin_it.set_password(password)
         admin_it.save()
 
@@ -283,6 +314,11 @@ class Command(BaseCommand):
                 "job_title": "کارشناس پشتیبانی",
             },
         )
+        technician.role = User.ROLE_TECHNICIAN
+        technician.contractor = contractor
+        technician.is_active = True
+        technician.is_staff = False
+        technician.is_superuser = False
         technician.set_password(password)
         technician.save()
 
@@ -292,10 +328,16 @@ class Command(BaseCommand):
                 "first_name": "محمد",
                 "last_name": "رضایی",
                 "role": User.ROLE_MANAGER,
+                "center": center_hq,
                 "department": departments["100"],
                 "job_title": "رئیس اداره",
             },
         )
+        manager.role = User.ROLE_MANAGER
+        manager.center = center_hq
+        manager.is_active = True
+        manager.is_staff = False
+        manager.is_superuser = False
         manager.set_password(password)
         manager.save()
 
@@ -305,17 +347,23 @@ class Command(BaseCommand):
                 "first_name": "زهرا",
                 "last_name": "کریمی",
                 "role": User.ROLE_REQUESTER,
+                "center": center_hq,
                 "department": departments["200"],
                 "phone": "09127778899",
                 "personnel_code": "20112",
             },
         )
+        requester.role = User.ROLE_REQUESTER
+        requester.center = center_hq
+        requester.is_active = True
+        requester.is_staff = False
+        requester.is_superuser = False
         requester.set_password(password)
         requester.save()
 
         self.stdout.write(f"   کاربران ساخته شد (گذرواژه: {password})")
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۶) گونه‌ها و قطعات"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۷) گونه‌ها و قطعات"))
         categories = {}
         for name, code, icon, tracking in CATEGORIES:
             category, _ = AssetCategory.objects.get_or_create(
@@ -341,7 +389,7 @@ class Command(BaseCommand):
             )
             components[code] = component_type
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۷) دارایی‌ها"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۸) دارایی‌ها"))
         random.seed(1403)
         brands = ["DELL", "HP", "ASUS", "Lenovo", "Acer"]
         created_assets = []
@@ -352,19 +400,26 @@ class Command(BaseCommand):
             is_case = index / 2 != index // 2
             code = "PC" if is_case else "PRN"
             asset_tag = f"{'۱۰۲' if False else '102'}{index:05d}"
+            center_ref = centers_list[(index - 1) % len(centers_list)]
+            department_ref = next(
+                (item for item in department_list if item.center_id == center_ref.pk), None
+            )
+            location_ref = next(
+                (item for item in location_list if item.center_id == center_ref.pk), None
+            )
             asset, _ = Asset.objects.get_or_create(
                 asset_tag=asset_tag,
                 defaults={
                     "title": f"{'کیس اداری' if is_case else 'چاپگر لیزری'} شماره {index}",
                     "category": categories[code],
-                    "center": centers_list[(index - 1) % len(centers_list)],
+                    "center": center_ref,
                     "brand": random.choice(brands) if is_case else "HP",
                     "model_name": "OptiPlex 3080" if is_case else "LaserJet P1102",
                     "serial_number": f"SN{random.randint(100000, 999999)}{index}",
                     "contract": contract,
-                    "department": department_list[index % len(department_list)],
-                    "location": location_list[index % len(location_list)],
-                    "custodian": requester if index % 3 == 0 else None,
+                    "department": department_ref,
+                    "location": location_ref,
+                    "custodian": requester if center_ref.pk == center_hq.pk and index % 3 == 0 else None,
                     "status": "active",
                     "hostname": f"PC-{index:03d}" if is_case else "",
                     "ip_address": f"10.10.20.{100 + index}" if is_case else None,
@@ -386,12 +441,12 @@ class Command(BaseCommand):
 
         self.stdout.write(f"   {len(created_assets)} دارایی ثبت شد")
 
-        self.stdout.write(self.style.MIGRATE_HEADING("۸) بازدیدهای دوره‌ای"))
+        self.stdout.write(self.style.MIGRATE_HEADING("۹) بازدیدهای دوره‌ای"))
         result = generate_visits(contract, user=admin_it)
         self.stdout.write(f"   {result['created']} نوبت بازدید ساخته شد")
 
         if not options["no_demo_tickets"]:
-            self.stdout.write(self.style.MIGRATE_HEADING("۹) اسنپ‌شات سخت‌افزار و درخواست‌های نمونه"))
+            self.stdout.write(self.style.MIGRATE_HEADING("۱۰) اسنپ‌شات سخت‌افزار و درخواست‌های نمونه"))
             self._demo_hardware(created_assets, admin_it, technician, components)
             self._demo_tickets(created_assets, admin_it, technician, requester)
 
@@ -459,7 +514,7 @@ class Command(BaseCommand):
 
     def _demo_tickets(self, assets, admin_it, technician, requester):
         """ساخت درخواست‌های نمونه در وضعیت‌های مختلف."""
-        if Ticket.objects.exists():
+        if Ticket.objects.filter(title__startswith="[ITAM DEMO]").exists():
             return
         now = timezone.now()
 
@@ -467,7 +522,7 @@ class Command(BaseCommand):
         asset = assets[0]
         ticket = create_ticket(
             asset=asset,
-            title="روشن نشدن کیس",
+            title="[ITAM DEMO] روشن نشدن کیس",
             description="کاربر اعلام کرد کیس پس از قطع برق روشن نمی‌شود و چراغ پاور چشمک می‌زند.",
             priority=PRIORITY_HIGH,
             user=requester,
@@ -517,7 +572,7 @@ class Command(BaseCommand):
         asset2 = assets[1] if len(assets) > 1 else assets[0]
         ticket2 = create_ticket(
             asset=asset2,
-            title="کیفیت پایین چاپ و خط افتادن روی کاغذ",
+            title="[ITAM DEMO] کیفیت پایین چاپ و خط افتادن روی کاغذ",
             description="چاپگر خطوط عمودی روی کاغذ ایجاد می‌کند و تونر زود تمام می‌شود.",
             priority=PRIORITY_MEDIUM,
             user=requester,
@@ -536,7 +591,7 @@ class Command(BaseCommand):
         asset3 = assets[2] if len(assets) > 2 else assets[0]
         create_ticket(
             asset=asset3,
-            title="کندی شدید سیستم و ری‌استارت ناگهانی",
+            title="[ITAM DEMO] کندی شدید سیستم و ری‌استارت ناگهانی",
             description="سیستم هنگام کار با نرم‌افزار اداری ری‌استارت می‌شود و صدای فن زیاد است.",
             priority=PRIORITY_LOW,
             user=requester,

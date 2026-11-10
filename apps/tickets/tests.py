@@ -31,6 +31,7 @@ from .models import Ticket, TicketAttachment, TicketEvent, TicketPause
 from .services import (
     acknowledge,
     can_confirm_as_it,
+    can_confirm_as_user,
     can_manage_ticket,
     visible_tickets,
     confirm_by_it,
@@ -299,6 +300,50 @@ class TicketWorkflowTests(TestCase):
         self.assertEqual(ticket.status, STATUS_IN_PROGRESS)
         self.assertIsNone(ticket.resolved_declared_at)
 
+
+    def test_it_role_cannot_impersonate_requester_for_user_confirmation(self):
+        ticket = self._create()
+        Ticket.objects.filter(pk=ticket.pk).update(status=STATUS_RESOLVED)
+        ticket.refresh_from_db()
+        self.assertFalse(can_confirm_as_user(self.it_expert, ticket))
+        with self.assertRaises(PermissionDenied):
+            confirm_by_user(ticket, self.it_expert, "تایید به جای کاربر")
+
+    def test_province_admin_cannot_confirm_user_step_for_another_province(self):
+        national = self.center.parent_unit.parent.parent
+        province_b = OrganizationalUnit.objects.create(
+            name="استان تایید دوم", code="TEST-CONFIRM-PROV-B",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national,
+        )
+        county_b = OrganizationalUnit.objects.create(
+            name="شهرستان تایید دوم", code="TEST-CONFIRM-COUNTY-B",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=province_b,
+        )
+        center_b = Center.objects.create(
+            name="مرکز تایید دوم", code="TEST-CONFIRM-CENTER-B", parent_unit=county_b,
+        )
+        contract_b = Contract.objects.create(
+            contractor=self.contractor, province=province_b,
+            number="C-CONFIRM-B", title="قرارداد استان دوم",
+            start_date=timezone.localdate() - dt.timedelta(days=5),
+            end_date=timezone.localdate() + dt.timedelta(days=30),
+        )
+        asset_b = Asset.objects.create(
+            asset_tag="A-CONFIRM-B", category=self.category,
+            contract=contract_b, center=center_b, status="active",
+        )
+        ticket_b = self._create(asset=asset_b)
+        Ticket.objects.filter(pk=ticket_b.pk).update(status=STATUS_RESOLVED)
+        ticket_b.refresh_from_db()
+        province_admin = User.objects.create_user(
+            username="province-admin-confirm-test", password="pass12345",
+            role=User.ROLE_ADMIN_PROVINCE,
+            org_unit=self.center.parent_unit.parent,
+        )
+        self.assertFalse(can_confirm_as_user(province_admin, ticket_b))
+        with self.assertRaises(PermissionDenied):
+            confirm_by_user(ticket_b, province_admin, "تایید خارج از استان")
+
     def test_it_cannot_bypass_required_user_confirmation(self):
         ticket = self._create()
         acknowledge(ticket, self.technician)
@@ -380,7 +425,9 @@ class TicketWorkflowTests(TestCase):
             asset_tag="A-OTHER", category=self.category, center=other_center, status="active"
         )
         self._create()
-        self._create(asset=other_asset)
+        misbound_ticket = self._create(asset=other_asset)
+        # A stale/incorrect Ticket.center must never override the asset's real center.
+        Ticket.objects.filter(pk=misbound_ticket.pk).update(center=self.center)
         provincial_admin = User.objects.create_user(
             username="provincial-admin", password="pass12345",
             role=User.ROLE_ADMIN_PROVINCE,
@@ -390,6 +437,9 @@ class TicketWorkflowTests(TestCase):
             visible_tickets(provincial_admin).values_list("asset__center_id", flat=True)
         )
         self.assertEqual(visible_centers, {self.center.pk})
+        self.assertFalse(visible_tickets(provincial_admin).filter(
+            pk=misbound_ticket.pk
+        ).exists())
 
     def test_center_admin_without_center_sees_no_tickets(self):
         from .services import visible_tickets

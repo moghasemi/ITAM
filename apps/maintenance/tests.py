@@ -191,6 +191,23 @@ class ProvincialMaintenanceScopeTests(TestCase):
         ).exists())
         self.assertFalse(can_manage_visit(technician, misbound_visit))
 
+        # A visit whose center is local but whose contract belongs to another
+        # province must also be hidden from provincial and center IT users.
+        misbound_local_center_visit = MaintenanceVisit.objects.create(
+            number="MNT-VISIT-MISBOUND-LOCAL-CENTER",
+            contract=second_contract,
+            contractor=self.contractor,
+            center=self.center,
+            sequence_number=3,
+            scheduled_date=timezone.localdate(),
+        )
+        self.assertFalse(visible_visits(self.provincial_admin).filter(
+            pk=misbound_local_center_visit.pk
+        ).exists())
+        self.assertFalse(visible_visits(self.center_it).filter(
+            pk=misbound_local_center_visit.pk
+        ).exists())
+
     def test_center_it_cannot_open_visit_scheduling_page(self):
         client = Client()
         client.force_login(self.center_it)
