@@ -42,6 +42,9 @@
         <tr class="{% if item.is_headquarters %}is-starred{% endif %}">
           <td>
             <strong>{{ item.name }}</strong>
+            {% if item.is_demo %}
+              <span class="badge badge-warning" style="margin-right:6px;">داده نمونه</span>
+            {% endif %}
             {% if item.is_headquarters %}
               <span class="badge badge-primary" style="margin-right:6px;">ستاد استان</span>
             {% endif %}
