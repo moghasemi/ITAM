@@ -77,7 +77,7 @@ def visible_tickets(user, center=None):
         active_contracts = user.get_active_contractor_contracts()
         qs = queryset.filter(
             contract__in=active_contracts,
-            contract__province_id=F("asset__center__parent_unit__parent_id"),
+            contract__province_id=F("asset__center__treatment_management__province_id"),
         ).filter(
             Q(assigned_contractor_id=user.contractor_id)
             | Q(assigned_technician=user)
