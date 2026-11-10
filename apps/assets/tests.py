@@ -906,6 +906,48 @@ class SnapshotAccessBoundaryTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertTrue(self.attachment_b.file.storage.exists(self.attachment_b.file.name))
 
+    def test_snapshot_photo_download_is_limited_to_visible_asset(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        own = self._make_snapshot(self.asset_a, "pending")
+        own.case_photo = SimpleUploadedFile("case-a.jpg", b"image-a", content_type="image/jpeg")
+        own.save(update_fields=["case_photo", "updated_at"])
+        foreign = self._make_snapshot(self.asset_b, "pending")
+        foreign.case_photo = SimpleUploadedFile("case-b.jpg", b"image-b", content_type="image/jpeg")
+        foreign.save(update_fields=["case_photo", "updated_at"])
+
+        own_response = self.client.get(
+            reverse("assets:snapshot_file", args=[own.pk, "case_photo"])
+        )
+        foreign_response = self.client.get(
+            reverse("assets:snapshot_file", args=[foreign.pk, "case_photo"])
+        )
+        self.assertEqual(own_response.status_code, 200)
+        self.assertEqual(foreign_response.status_code, 403)
+
+    def test_snapshot_item_photo_download_is_limited_to_visible_asset(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        own = self._make_snapshot(self.asset_a, "pending")
+        own_item = own.items.first()
+        own_item.photo = SimpleUploadedFile("own-item.jpg", b"own", content_type="image/jpeg")
+        own_item.save(update_fields=["photo", "updated_at"])
+        foreign = self._make_snapshot(self.asset_b, "pending")
+        foreign_item = foreign.items.first()
+        foreign_item.photo = SimpleUploadedFile(
+            "foreign-item.jpg", b"foreign", content_type="image/jpeg"
+        )
+        foreign_item.save(update_fields=["photo", "updated_at"])
+
+        own_response = self.client.get(
+            reverse("assets:snapshot_item_photo", args=[own_item.pk])
+        )
+        foreign_response = self.client.get(
+            reverse("assets:snapshot_item_photo", args=[foreign_item.pk])
+        )
+        self.assertEqual(own_response.status_code, 200)
+        self.assertEqual(foreign_response.status_code, 403)
+
     def test_anonymous_user_is_denied_pending_snapshot_list(self):
         from django.test import Client
 
