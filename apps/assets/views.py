@@ -407,6 +407,8 @@ def snapshot_approve(request, pk: int):
     snapshot = get_object_or_404(HardwareSnapshot.objects.select_related("asset"), pk=pk)
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("تایید اسنپ‌شات فقط توسط کارشناس فناوری اطلاعات مرکز انجام می‌شود.")
+    if not visible_assets(request.user).filter(pk=snapshot.asset_id).exists():
+        raise PermissionDenied("این اسنپ‌شات متعلق به مرکز مجاز شما نیست.")
     if request.method == "POST":
         from .services import approve_snapshot
 
@@ -423,6 +425,8 @@ def snapshot_reject(request, pk: int):
     snapshot = get_object_or_404(HardwareSnapshot.objects.select_related("asset"), pk=pk)
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("این اقدام فقط برای کارشناس فناوری اطلاعات مرکز است.")
+    if not visible_assets(request.user).filter(pk=snapshot.asset_id).exists():
+        raise PermissionDenied("این اسنپ‌شات متعلق به مرکز مجاز شما نیست.")
     if request.method == "POST":
         from .services import reject_snapshot
 
@@ -435,7 +439,10 @@ def snapshot_pending_list(request):
     """کارتابل اسنپ‌شات‌های در انتظار تایید."""
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("دسترسی ندارید.")
-    snapshots = HardwareSnapshot.objects.filter(status="pending").select_related("asset", "recorded_by")
+    snapshots = HardwareSnapshot.objects.filter(
+        status="pending",
+        asset__in=visible_assets(request.user),
+    ).select_related("asset", "recorded_by")
     return render(
         request,
         "assets/snapshot_pending.html",
