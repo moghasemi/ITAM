@@ -36,7 +36,8 @@ def assign_unambiguous_provinces(apps, schema_editor):
             province_ids.add(province.pk)
         if unambiguous and len(province_ids) == 1:
             contract.province_id = province_ids.pop()
-            contract.save(using=db, update_fields=["province"])
+            contract.is_provincial = True
+            contract.save(using=db, update_fields=["province", "is_provincial"])
 
 
 class Migration(migrations.Migration):
@@ -53,6 +54,7 @@ class Migration(migrations.Migration):
                 null=True,
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="contracts",
+                limit_choices_to={"unit_type": "province"},
                 to="org.organizationalunit",
                 verbose_name="استان محل اجرای قرارداد",
             ),
