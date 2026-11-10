@@ -9,7 +9,7 @@ from .models import Center, Contract, Contractor, Department, Location, Organiza
 
 
 class CenterForm(StyledModelForm):
-    """فرم ثبت و ویرایش مرکز اداری / شهرستان با الزام اتصال به واحد شهرستانی."""
+    """فرم ثبت و ویرایش مرکز با الزام اتصال به شهرستان جغرافیایی."""
 
     class Meta:
         model = Center
@@ -41,14 +41,14 @@ class CenterForm(StyledModelForm):
 
         self.fields["parent_unit"].queryset = county_qs
         self.fields["parent_unit"].required = True
-        self.fields["parent_unit"].help_text = "انتخاب واحد سازمانی شهرستانی (County) بالادست الزامی است."
+        self.fields["parent_unit"].help_text = "انتخاب شهرستان جغرافیایی بالادست الزامی است."
 
     def clean_parent_unit(self):
         parent_unit = self.cleaned_data.get("parent_unit")
         if not parent_unit:
-            raise forms.ValidationError("اتصال مرکز به واحد سازمانی شهرستانی الزامی است.")
+            raise forms.ValidationError("اتصال مرکز به شهرستان جغرافیایی الزامی است.")
         if parent_unit.unit_type != OrganizationalUnit.UNIT_COUNTY:
-            raise forms.ValidationError("مرکز فقط می‌تواند به یک واحد سازمانی از نوع شهرستانی (County) متصل شود.")
+            raise forms.ValidationError("مرکز فقط می‌تواند به یک شهرستان جغرافیایی متصل شود.")
         return parent_unit
 
 
