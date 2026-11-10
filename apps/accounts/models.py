@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 
 from apps.core.validators import validate_image_file
 
@@ -183,7 +184,7 @@ class User(AbstractUser):
             if not self.contractor_id or not self.contractor.is_active or not self.is_active:
                 return Center.objects.none()
             from apps.org.models import Contract, OrganizationalUnit
-            today = __import__("django.utils.timezone", fromlist=["timezone"]).localdate()
+            today = timezone.localdate()
             province_ids = self.contractor.contracts.filter(
                 status=Contract.STATUS_ACTIVE,
                 start_date__lte=today,
