@@ -27,6 +27,7 @@ def _read_prefix(file_obj, length=64):
 
 
 def _zip_has_required_member(file_obj, required_member):
+    position = 0
     try:
         position = file_obj.tell()
         file_obj.seek(0)
