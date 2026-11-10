@@ -214,13 +214,13 @@ class Command(BaseCommand):
                 province=province,
                 defaults={
                     "name": f"مدیریت درمان استان {province.name}",
-                    "code": f"TM-{province.pk}",
+                    "code": f"TM-{province.code}",
                     "is_active": province.is_active,
                 },
             )
             if not management_created:
                 management.name = f"مدیریت درمان استان {province.name}"
-                management.code = f"TM-{province.pk}"
+                management.code = f"TM-{province.code}"
                 management.is_active = province.is_active
                 management.save(update_fields=["name", "code", "is_active", "updated_at"])
                 updated_managements += 1
