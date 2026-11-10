@@ -163,7 +163,8 @@ class Command(BaseCommand):
             unit.code = code
             unit.name = name
             unit.parent = parent
-            unit.is_active = is_active
+            # Existing activation is operational state, not seed data.
+            # Re-running the loader must never silently deactivate/reactivate units.
 
         unit.save()
         return unit, created
