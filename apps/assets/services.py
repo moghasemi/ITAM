@@ -486,11 +486,17 @@ def approve_snapshot(snapshot: HardwareSnapshot, user):
     snapshot = HardwareSnapshot.objects.select_for_update().select_related("asset").get(pk=snapshot.pk)
     if snapshot.status != SNAPSHOT_PENDING:
         raise ValidationError("فقط اسنپ‌شات در انتظار بررسی قابل تایید است.")
-    if not getattr(user, "is_authenticated", False) or not user.has_role(User.ROLE_ADMIN_IT):
-        raise PermissionDenied("تایید اسنپ‌شات فقط برای کارشناس IT مجاز است.")
-    if not visible_assets(user).filter(pk=snapshot.asset_id).exists():
-        raise PermissionDenied("این اسنپ‌شات خارج از حوزه دسترسی کارشناس IT است.")
     setting = SystemSetting.load()
+    can_self_finalize = (
+        not setting.baseline_requires_it_confirm
+        and can_record_snapshot(user, snapshot.asset)
+    )
+    if not getattr(user, "is_authenticated", False) or (
+        not user.has_role(User.ROLE_ADMIN_IT) and not can_self_finalize
+    ):
+        raise PermissionDenied("تایید اسنپ‌شات فقط برای کارشناس IT مجاز است؛ مگر اینکه تایید مستقل صریحاً غیرفعال شده باشد.")
+    if not visible_assets(user).filter(pk=snapshot.asset_id).exists():
+        raise PermissionDenied("این اسنپ‌شات خارج از حوزه دسترسی کاربر است.")
     if setting.baseline_requires_it_confirm and snapshot.technician_confirmed_by_id == user.pk:
         raise ValidationError("ثبت‌کننده و تاییدکننده اسنپ‌شات باید دو کاربر متفاوت باشند.")
     reference = snapshot.previous or reference_snapshot(snapshot.asset, exclude=snapshot)
