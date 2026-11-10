@@ -154,6 +154,26 @@ class User(AbstractUser):
     def is_admin_it(self) -> bool:
         return self.is_superuser or self.has_role(self.ROLE_ADMIN_COUNTRY, self.ROLE_ADMIN_PROVINCE, self.ROLE_ADMIN_COUNTY, self.ROLE_ADMIN_IT)
 
+    def get_active_contractor_contracts(self):
+        """قراردادهای جاری پیمانکار؛ قرارداد منقضی/معلق هرگز scope عملیاتی نمی‌دهد."""
+        from apps.org.models import Contract, OrganizationalUnit
+        if (
+            not getattr(self, "is_authenticated", False)
+            or not self.is_active
+            or self.role != self.ROLE_TECHNICIAN
+            or not self.contractor_id
+            or not self.contractor.is_active
+        ):
+            return Contract.objects.none()
+        today = timezone.localdate()
+        return self.contractor.contracts.filter(
+            status=Contract.STATUS_ACTIVE,
+            start_date__lte=today,
+            end_date__gte=today,
+            province__unit_type=OrganizationalUnit.UNIT_PROVINCE,
+            province__is_active=True,
+        )
+
     def get_scoped_centers(self):
         """محاسبه دقیق دامنه مراکز مجاز کاربر (Fail-Closed)."""
         from apps.org.models import Center
@@ -181,17 +201,9 @@ class User(AbstractUser):
                 return Center.objects.filter(pk=self.center_id)
             return Center.objects.none()
         if self.role == self.ROLE_TECHNICIAN:
-            if not self.contractor_id or not self.contractor.is_active or not self.is_active:
-                return Center.objects.none()
-            from apps.org.models import Contract, OrganizationalUnit
-            today = timezone.localdate()
-            province_ids = self.contractor.contracts.filter(
-                status=Contract.STATUS_ACTIVE,
-                start_date__lte=today,
-                end_date__gte=today,
-                province__unit_type=OrganizationalUnit.UNIT_PROVINCE,
-                province__is_active=True,
-            ).values_list("province_id", flat=True)
+            province_ids = self.get_active_contractor_contracts().values_list(
+                "province_id", flat=True
+            )
             return Center.objects.filter(
                 parent_unit__parent_id__in=province_ids
             ).distinct()
