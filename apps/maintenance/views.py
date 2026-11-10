@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from django.contrib import messages
+from django.db import transaction
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
@@ -158,6 +159,7 @@ class VisitCreateView(ProvinceAdminRequiredMixin, PageContextMixin, CreateView):
             raise ValidationError("استان قرارداد تعیین نشده است.")
         visit.center = None
 
+    @transaction.atomic
     def form_valid(self, form):
         try:
             self._bind_visit_center(form.instance)
