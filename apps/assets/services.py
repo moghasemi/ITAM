@@ -105,11 +105,8 @@ def can_edit_asset(user, asset: Asset) -> bool:
         scoped = user.get_scoped_centers()
         return bool(asset.center and scoped.filter(pk=asset.center_id).exists())
     if user.has_role(User.ROLE_ADMIN_IT):
-        if user.center_id and asset.center_id:
-            return user.center_id == asset.center_id
-        if not user.center_id and not asset.center_id:
-            return True
-        return False
+        # کارشناس IT بدون مرکز مشخص، یا دارایی فاقد مرکز، هرگز مجوز ضمنی نمی‌گیرد.
+        return bool(user.center_id and asset.center_id and user.center_id == asset.center_id)
     return False
 
 
@@ -126,11 +123,8 @@ def can_record_snapshot(user, asset: Asset) -> bool:
         scoped = user.get_scoped_centers()
         return bool(asset.center and scoped.filter(pk=asset.center_id).exists())
     if user.has_role(User.ROLE_ADMIN_IT):
-        if user.center_id and asset.center_id:
-            return user.center_id == asset.center_id
-        if not user.center_id and not asset.center_id:
-            return True
-        return False
+        # نبود مرکز در هر یک از دو طرف باید به رد دسترسی منجر شود.
+        return bool(user.center_id and asset.center_id and user.center_id == asset.center_id)
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id or not asset.center_id or not asset.contract_id:
             return False
