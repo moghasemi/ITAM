@@ -147,6 +147,50 @@ class ProvincialMaintenanceScopeTests(TestCase):
         response = client.get(reverse("maintenance:visit_update", args=[foreign_visit.pk]))
         self.assertEqual(response.status_code, 404)
 
+    def test_technician_cannot_access_visit_or_check_misbound_to_another_contract_province(self):
+        second_contract = Contract.objects.create(
+            contractor=self.contractor,
+            province=self.other_center.parent_unit.parent,
+            number="MNT-CONTRACT-2",
+            title="Second province contract",
+            is_provincial=True,
+            start_date=timezone.localdate() - dt.timedelta(days=10),
+            end_date=timezone.localdate() + dt.timedelta(days=100),
+            visit_interval_days=30,
+        )
+        technician = User.objects.create_user(
+            username="maintenance-multi-province-tech",
+            password="TestPass!9382",
+            role=User.ROLE_TECHNICIAN,
+            contractor=self.contractor,
+        )
+        # The technician legitimately has active contracts in both provinces.
+        self.assertTrue(technician.get_active_contractor_contracts().filter(
+            pk__in=[self.contract.pk, second_contract.pk]
+        ).count() == 2)
+
+        # A check for a Province Two asset must not be attached to a Province One visit.
+        self.assertFalse(visible_checks(technician, self.visit).filter(
+            pk=self.foreign_check.pk
+        ).exists())
+        with self.assertRaises(PermissionDenied):
+            save_check(self.foreign_check, technician, notes="cross-province tampering")
+
+        # Even with both provinces in the technician's center scope, the visit's
+        # center must belong to the same province as its contract.
+        misbound_visit = MaintenanceVisit.objects.create(
+            number="MNT-VISIT-MISBOUND",
+            contract=self.contract,
+            contractor=self.contractor,
+            center=self.other_center,
+            sequence_number=2,
+            scheduled_date=timezone.localdate(),
+        )
+        self.assertFalse(visible_visits(technician).filter(
+            pk=misbound_visit.pk
+        ).exists())
+        self.assertFalse(can_manage_visit(technician, misbound_visit))
+
     def test_center_it_cannot_open_visit_scheduling_page(self):
         client = Client()
         client.force_login(self.center_it)
