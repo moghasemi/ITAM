@@ -31,6 +31,7 @@ from .models import Ticket, TicketAttachment, TicketEvent, TicketPause
 from .services import (
     acknowledge,
     can_confirm_as_it,
+    can_confirm_as_user,
     can_manage_ticket,
     visible_tickets,
     confirm_by_it,
@@ -298,6 +299,46 @@ class TicketWorkflowTests(TestCase):
         ticket.refresh_from_db()
         self.assertEqual(ticket.status, STATUS_IN_PROGRESS)
         self.assertIsNone(ticket.resolved_declared_at)
+
+
+    def test_it_role_cannot_impersonate_requester_for_user_confirmation(self):
+        ticket = self._create()
+        self.assertFalse(can_confirm_as_user(self.it_expert, ticket))
+        with self.assertRaises(PermissionDenied):
+            confirm_by_user(ticket, self.it_expert, "تایید به جای کاربر")
+
+    def test_province_admin_cannot_confirm_user_step_for_another_province(self):
+        national = self.center.parent_unit.parent.parent
+        province_b = OrganizationalUnit.objects.create(
+            name="استان تایید دوم", code="TEST-CONFIRM-PROV-B",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national,
+        )
+        county_b = OrganizationalUnit.objects.create(
+            name="شهرستان تایید دوم", code="TEST-CONFIRM-COUNTY-B",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=province_b,
+        )
+        center_b = Center.objects.create(
+            name="مرکز تایید دوم", code="TEST-CONFIRM-CENTER-B", parent_unit=county_b,
+        )
+        contract_b = Contract.objects.create(
+            contractor=self.contractor, province=province_b,
+            number="C-CONFIRM-B", title="قرارداد استان دوم",
+            start_date=timezone.localdate() - dt.timedelta(days=5),
+            end_date=timezone.localdate() + dt.timedelta(days=30),
+        )
+        asset_b = Asset.objects.create(
+            asset_tag="A-CONFIRM-B", category=self.category,
+            contract=contract_b, center=center_b, status="active",
+        )
+        ticket_b = self._create(asset=asset_b)
+        province_admin = User.objects.create_user(
+            username="province-admin-confirm-test", password="pass12345",
+            role=User.ROLE_ADMIN_PROVINCE,
+            org_unit=self.center.parent_unit.parent,
+        )
+        self.assertFalse(can_confirm_as_user(province_admin, ticket_b))
+        with self.assertRaises(PermissionDenied):
+            confirm_by_user(ticket_b, province_admin, "تایید خارج از استان")
 
     def test_it_cannot_bypass_required_user_confirmation(self):
         ticket = self._create()
