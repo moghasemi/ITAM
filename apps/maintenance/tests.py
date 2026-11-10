@@ -239,3 +239,51 @@ class ProvincialMaintenanceScopeTests(TestCase):
         )
         self.assertFalse(visible_visits(other_it).filter(pk=self.visit.pk).exists())
         self.assertFalse(can_confirm_visit(other_it, self.visit))
+
+
+
+    def test_missed_visit_notifications_are_center_scoped(self):
+        from .services import mark_missed_visits
+
+        second_center = Center.objects.create(
+            name="Maintenance Center One-B",
+            code="MNT-CENTER1-B",
+            parent_unit=self.center.parent_unit,
+        )
+        self.contract.centers.add(second_center)
+        it_a = User.objects.create_user(
+            username="maintenance-it-a", password="pass12345",
+            role=User.ROLE_ADMIN_IT, center=self.center,
+        )
+        it_b = User.objects.create_user(
+            username="maintenance-it-b", password="pass12345",
+            role=User.ROLE_ADMIN_IT, center=second_center,
+        )
+        yesterday = timezone.localdate() - dt.timedelta(days=1)
+        visit_a = MaintenanceVisit.objects.create(
+            number="MNT-MISSED-A", contract=self.contract, contractor=self.contractor,
+            center=self.center, sequence_number=10,
+            scheduled_date=yesterday - dt.timedelta(days=5),
+            scheduled_end_date=yesterday,
+        )
+        visit_b = MaintenanceVisit.objects.create(
+            number="MNT-MISSED-B", contract=self.contract, contractor=self.contractor,
+            center=second_center, sequence_number=11,
+            scheduled_date=yesterday - dt.timedelta(days=5),
+            scheduled_end_date=yesterday,
+        )
+
+        mark_missed_visits()
+
+        self.assertTrue(it_a.notifications.filter(
+            title=f"بازدید {visit_a.number} انجام نشد"
+        ).exists())
+        self.assertFalse(it_b.notifications.filter(
+            title=f"بازدید {visit_a.number} انجام نشد"
+        ).exists())
+        self.assertTrue(it_b.notifications.filter(
+            title=f"بازدید {visit_b.number} انجام نشد"
+        ).exists())
+        self.assertFalse(it_a.notifications.filter(
+            title=f"بازدید {visit_b.number} انجام نشد"
+        ).exists())
