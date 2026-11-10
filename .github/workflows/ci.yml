@@ -41,3 +41,31 @@ jobs:
         run: python manage.py makemigrations --check --dry-run
       - name: Test suite
         run: python manage.py test --verbosity 2
+
+  deploy-script-validation:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PowerShell deployment scripts
+        shell: pwsh
+        run: |
+          $paths = @("deploy/install_service.ps1", "deploy/backup.ps1")
+          foreach ($path in $paths) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | Format-List
+              throw "PowerShell syntax validation failed: $path"
+            }
+          }
+      - name: Guard production server launcher
+        shell: pwsh
+        run: |
+          $launcher = Get-Content "deploy/run_server.bat" -Raw
+          if ($launcher -match "runserver|ITAM_ALLOWED_HOSTS=\*|migrate --noinput") {
+            throw "Production launcher contains an unsafe fallback or implicit migration."
+          }
+          if ($launcher -notmatch "127\.0\.0\.1" -or $launcher -notmatch "waitress") {
+            throw "Production launcher must use Waitress on loopback."
+          }
