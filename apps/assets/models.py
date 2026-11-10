@@ -492,8 +492,10 @@ class HardwareSnapshot(TimeStampedModel):
         setting = SystemSetting.load()
         if self.status != SNAPSHOT_PENDING:
             raise ValidationError("فقط اسنپ‌شات در انتظار بررسی قابل قفل‌شدن است.")
-        if not getattr(user, "is_authenticated", False) or not user.has_role("admin_it"):
-            raise ValidationError("قفل اسنپ‌شات فقط توسط کارشناس IT مجاز است.")
+        if not getattr(user, "is_authenticated", False) or (
+            setting.baseline_requires_it_confirm and not user.has_role("admin_it")
+        ):
+            raise ValidationError("قفل اسنپ‌شات فقط توسط کارشناس IT مجاز است؛ مگر اینکه تایید مستقل صریحاً غیرفعال شده باشد.")
         if setting.baseline_requires_it_confirm:
             if not self.technician_confirmed_by_id:
                 raise ValidationError("اسنپ‌شات باید ابتدا توسط ثبت‌کننده تایید و ارسال شود.")
