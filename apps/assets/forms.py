@@ -65,9 +65,13 @@ class AssetForm(StyledModelForm):
         self.fields["category"].queryset = AssetCategory.objects.filter(is_active=True)
         # قرارداد باید صریحاً یکی از مراکز مجاز کاربر را در دامنه پوشش داشته باشد.
         scoped_province_ids = scoped_centers.values("parent_unit__parent_id")
-        self.fields["contract"].queryset = Contract.objects.filter(
-            province_id__in=scoped_province_ids
-        ).select_related("contractor", "province").distinct().order_by("-start_date")
+        if self.user and self.user.has_role("technician"):
+            contract_queryset = self.user.get_active_contractor_contracts()
+        else:
+            contract_queryset = Contract.objects.filter(province_id__in=scoped_province_ids)
+        self.fields["contract"].queryset = contract_queryset.select_related(
+            "contractor", "province"
+        ).distinct().order_by("-start_date")
         self.fields["department"].queryset = Department.objects.filter(center__in=scoped_centers, is_active=True)
         self.fields["location"].queryset = Location.objects.filter(center__in=scoped_centers, is_active=True)
         if selected_center_id:
@@ -165,9 +169,12 @@ class AssetFilterForm(StyledForm):
         self.fields["center"].queryset = scoped
         self.fields["department"].queryset = Department.objects.filter(center__in=scoped)
         self.fields["location"].queryset = Location.objects.filter(center__in=scoped)
-        self.fields["contract"].queryset = Contract.objects.filter(
-            province_id__in=scoped.values("parent_unit__parent_id")
-        ).distinct()
+        if user and user.has_role("technician"):
+            self.fields["contract"].queryset = user.get_active_contractor_contracts()
+        else:
+            self.fields["contract"].queryset = Contract.objects.filter(
+                province_id__in=scoped.values("parent_unit__parent_id")
+            ).distinct()
 
     q = forms.CharField(label="جستجو", required=False)
     center = forms.ModelChoiceField(label="مرکز", required=False, queryset=Center.objects.all())
