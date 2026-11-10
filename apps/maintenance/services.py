@@ -76,7 +76,14 @@ def visible_visits(user):
             contractor_id=user.contractor_id,
             contract__in=active_contracts,
         ).filter(
-            Q(center__in=centers) | Q(center__isnull=True, contract__province_id__in=active_contracts.values("province_id"))
+            Q(
+                center__in=centers,
+                center__parent_unit__parent_id=F("contract__province_id"),
+            )
+            | Q(
+                center__isnull=True,
+                contract__province_id__in=active_contracts.values("province_id"),
+            )
         )
     return queryset.none()
 
@@ -87,7 +94,10 @@ def visible_checks(user, visit: MaintenanceVisit):
     checks = visit.checks.select_related("asset", "asset__category", "asset__location")
     if user.is_superuser or user.role == User.ROLE_ADMIN_COUNTRY:
         return checks
-    return checks.filter(asset__center__in=user.get_scoped_centers())
+    return checks.filter(
+        asset__center__in=user.get_scoped_centers(),
+        asset__center__parent_unit__parent_id=F("visit__contract__province_id"),
+    )
 
 
 def can_confirm_visit(user, visit: MaintenanceVisit) -> bool:
@@ -111,7 +121,10 @@ def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
     if user.is_admin_province:
         centers = user.get_scoped_centers()
         if visit.center_id:
-            return centers.filter(pk=visit.center_id).exists()
+            return (
+                centers.filter(pk=visit.center_id).exists()
+                and visit.contract.covers_center(visit.center)
+            )
         return bool(
             visit.contract_id
             and visit.contract.province_id
@@ -355,8 +368,12 @@ def save_check(check: VisitAssetCheck, user, *, condition=None, actions_taken=No
     """ثبت نتیجه بازدید یک تجهیز."""
     if not can_manage_visit(user, check.visit):
         raise PermissionDenied("اجازه ثبت نتیجه این برگه بازدید را ندارید.")
-    if not user.get_scoped_centers().filter(pk=check.asset.center_id).exists():
-        raise PermissionDenied("این تجهیز خارج از دامنه مراکز مجاز شماست.")
+    if (
+        not check.asset.center_id
+        or not user.get_scoped_centers().filter(pk=check.asset.center_id).exists()
+        or not check.visit.contract.covers_center(check.asset.center)
+    ):
+        raise PermissionDenied("این تجهیز خارج از دامنه استان/مراکز مجاز قرارداد است.")
     if condition:
         check.condition = condition
     if actions_taken is not None:
