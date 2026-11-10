@@ -299,6 +299,7 @@ class Command(BaseCommand):
         admin_it.center = center_hq
         admin_it.is_active = True
         admin_it.is_staff = True
+        admin_it.is_superuser = False
         admin_it.set_password(password)
         admin_it.save()
 
