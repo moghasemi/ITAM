@@ -379,10 +379,15 @@ def notify(users, title, message, url, level="info"):
 # ---------------------------------------------------------------------------
 # گردش کار
 # ---------------------------------------------------------------------------
+@transaction.atomic
 def create_ticket(*, asset: Asset, title: str, description: str, priority: str, user,
                   reporter_name: str = "", reporter_phone: str = "", failure_type: str = "",
                   reported_at=None) -> Ticket:
-    """ثبت درخواست خرابی توسط اداره (شروع ساعت SLA)."""
+    """ثبت درخواست خرابی؛ زمان SLA از ساعت سرور گرفته می‌شود، نه ورودی کاربر."""
+    is_authenticated = bool(getattr(user, "is_authenticated", False))
+    if is_authenticated and not user.is_admin_it:
+        reporter_name = user.display_name
+        reporter_phone = user.phone
     ticket = Ticket(
         asset=asset,
         title=title,
@@ -392,7 +397,8 @@ def create_ticket(*, asset: Asset, title: str, description: str, priority: str, 
         reported_by=user if getattr(user, "is_authenticated", False) else None,
         reporter_name=reporter_name or (user.display_name if user and user.is_authenticated else ""),
         reporter_phone=reporter_phone or (getattr(user, "phone", "") if user else ""),
-        reported_at=reported_at or timezone.now(),
+        # reported_at is intentionally ignored: clients cannot backdate or future-date SLA.
+        reported_at=timezone.now(),
         status=STATUS_REPORTED,
     )
     ticket.save()
