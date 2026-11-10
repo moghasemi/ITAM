@@ -9,6 +9,29 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
+def load_environment_file(path: Path) -> None:
+    """Load simple KEY=VALUE settings from the project .env without overriding OS env."""
+    if not path.is_file():
+        return
+    for raw_line in path.read_text(encoding="utf-8-sig").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key or key in os.environ:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1]
+        os.environ[key] = value
+
+
+# Task Scheduler and Windows services do not inherit an interactive user's
+# shell variables. Load the protected project .env before reading settings.
+load_environment_file(BASE_DIR / ".env")
+
 # ---------------------------------------------------------------------------
 # وابستگی‌های همراه پروژه (vendor) — برای اجرای بدون اینترنت
 # ---------------------------------------------------------------------------
