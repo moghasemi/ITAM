@@ -49,7 +49,8 @@ $debugValue = $envSettings["ITAM_DEBUG"]
 if ($debugValue -notin @("0", "false", "False", "no", "No")) {
     throw "نصب سرویس عملیاتی فقط با ITAM_DEBUG=0 مجاز است."
 }
-if ($envSettings["ITAM_DB_ENGINE"].ToLowerInvariant() -notin @("postgres", "postgresql")) {
+$dbEngine = [string]$envSettings["ITAM_DB_ENGINE"]
+if ($dbEngine.ToLowerInvariant() -notin @("postgres", "postgresql")) {
     throw "نصب سرویس عملیاتی فقط با PostgreSQL مجاز است؛ SQLite صرفاً برای دموی محلی است."
 }
 $secret = $envSettings["ITAM_SECRET_KEY"]
