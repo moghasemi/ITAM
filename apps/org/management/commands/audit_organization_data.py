@@ -30,6 +30,20 @@ class Command(BaseCommand):
         ).order_by("pk")
 
         center_count = centers.count()
+        province_ids_with_management = set(
+            TreatmentManagement.objects.values_list("province_id", flat=True)
+        )
+        for province in OrganizationalUnit.objects.filter(
+            unit_type=OrganizationalUnit.UNIT_PROVINCE
+        ).only("pk", "name"):
+            if province.pk not in province_ids_with_management:
+                issues.append({
+                    "severity": "error",
+                    "code": "missing_province_treatment_management",
+                    "object": f"Province:{province.pk}:{province.name}",
+                    "message": "برای استان واحد مدیریت درمان تعریف نشده است.",
+                })
+
         for center in centers.iterator():
             label = f"Center:{center.pk}:{center.code or center.name}"
             county = center.parent_unit
