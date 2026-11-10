@@ -44,6 +44,8 @@ class Command(BaseCommand):
             )
 
         backup_dir = Path(options["backup_dir"]).resolve()
+        if backup_dir == project_root or backup_dir.is_relative_to(project_root):
+            raise CommandError("مسیر پشتیبان باید خارج از پوشه پروژه باشد.")
         backup_dir.mkdir(parents=True, exist_ok=True)
         timestamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         backup_path = backup_dir / f"itam-before-demo-rebuild-{timestamp}.sqlite3"
