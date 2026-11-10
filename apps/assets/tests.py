@@ -894,6 +894,24 @@ class SnapshotAccessBoundaryTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_technician_cannot_view_asset_misbound_to_another_province_even_with_second_contract(self):
+        province_b = self.center_b.parent_unit.parent
+        today = timezone.localdate()
+        Contract.objects.create(
+            contractor=self.contractor,
+            province=province_b,
+            number="SNAP-ACCESS-PROV-B",
+            title="قرارداد فعال استان ب",
+            start_date=today - dt.timedelta(days=5),
+            end_date=today + dt.timedelta(days=30),
+            status=Contract.STATUS_ACTIVE,
+        )
+        # The technician now has active contracts in both provinces, but this
+        # asset is still bound to province A's contract while located in B.
+        self.assertFalse(
+            visible_assets(self.technician).filter(pk=self.asset_b.pk).exists()
+        )
+
     def test_technician_cannot_view_or_snapshot_asset_with_expired_contract(self):
         self.assertFalse(visible_assets(self.technician).filter(pk=self.asset_expired.pk).exists())
         self.assertFalse(can_record_snapshot(self.technician, self.asset_expired))
