@@ -71,6 +71,9 @@ function Get-HardwareSnapshot {
     } catch {
         $physicalDisks = @(Get-CimInstance Win32_DiskDrive -ErrorAction SilentlyContinue)
     }
+    if ($physicalDisks.Count -eq 0) {
+        $physicalDisks = @(Get-CimInstance Win32_DiskDrive -ErrorAction SilentlyContinue)
+    }
 
     $snap = [ordered]@{
         computerName = $env:COMPUTERNAME
