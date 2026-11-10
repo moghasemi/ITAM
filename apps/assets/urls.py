@@ -28,6 +28,7 @@ urlpatterns = [
     path("<int:pk>/edit/", views.AssetUpdateView.as_view(), name="update"),
     path("<int:pk>/qr.svg", views.asset_qr_image, name="qr_image"),
     path("<int:asset_pk>/attachments/add/", views.AttachmentCreateView.as_view(), name="attachment_create"),
+    path("attachments/<int:pk>/download/", views.attachment_download, name="attachment_download"),
     path("attachments/<int:pk>/delete/", views.attachment_delete, name="attachment_delete"),
     # اسنپ‌شات سخت‌افزاری
     path("<int:asset_pk>/snapshot/start/", views.snapshot_start, name="snapshot_start"),
