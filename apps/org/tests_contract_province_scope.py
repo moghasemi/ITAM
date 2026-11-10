@@ -1,6 +1,7 @@
 from datetime import timedelta
 
-from django.test import TestCase
+from django.test import Client, TestCase
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -138,3 +139,29 @@ class TechnicianProvinceContractScopeTests(TestCase):
         self.assertTrue(contract.covers_center(self.center_a1))
         self.assertFalse(contract.covers_center(self.center_b))
         self.assertFalse(contract.covers_center(None))
+
+    def test_province_admin_cannot_open_foreign_contract_or_contractor_edit_pages(self):
+        from django.urls import reverse
+        from apps.org.models import Contractor
+
+        admin = User.objects.create_user(
+            username="province-admin-scope-test",
+            password="Strong-Test-Password-2026!",
+            role=User.ROLE_ADMIN_PROVINCE,
+            org_unit=self.province_a,
+        )
+        foreign_contractor = Contractor.objects.create(name="پیمانکار صرفاً استان ب")
+        foreign_contract = self.make_contract(
+            "CON-FOREIGN-EDIT", self.province_b, contractor=foreign_contractor
+        )
+        client = Client()
+        client.force_login(admin)
+
+        contract_response = client.get(
+            reverse("org:contract_update", args=[foreign_contract.pk])
+        )
+        contractor_response = client.get(
+            reverse("org:contractor_update", args=[foreign_contractor.pk])
+        )
+        self.assertEqual(contract_response.status_code, 404)
+        self.assertEqual(contractor_response.status_code, 404)
