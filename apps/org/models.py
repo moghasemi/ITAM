@@ -127,6 +127,11 @@ class Center(TimeStampedModel):
         default=False,
         help_text="مرکز اصلی فناوری اطلاعات و ستاد مدیریت استان",
     )
+    is_demo = models.BooleanField(
+        "داده نمونه",
+        default=False,
+        help_text="این مرکز داده آزمایشی است و نباید با مرکز واقعی اشتباه گرفته شود.",
+    )
     is_active = models.BooleanField("فعال", default=True)
     parent_unit = models.ForeignKey(
         "OrganizationalUnit",
