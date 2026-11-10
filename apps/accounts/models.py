@@ -180,13 +180,21 @@ class User(AbstractUser):
                 return Center.objects.filter(pk=self.center_id)
             return Center.objects.none()
         if self.role == self.ROLE_TECHNICIAN:
-            if self.contractor_id:
-                from apps.org.models import Contract
-                active_contracts = self.contractor.contracts.filter(status=Contract.STATUS_ACTIVE)
-                if active_contracts.filter(is_provincial=True).exists():
-                    return Center.objects.all()
-                return Center.objects.filter(contracts__in=active_contracts).distinct()
-            return Center.objects.none()
+            if not self.contractor_id or not self.contractor.is_active or not self.is_active:
+                return Center.objects.none()
+            from apps.org.models import Contract, OrganizationalUnit
+            today = __import__("django.utils.timezone", fromlist=["timezone"]).localdate()
+            province_ids = self.contractor.contracts.filter(
+                status=Contract.STATUS_ACTIVE,
+                start_date__lte=today,
+                end_date__gte=today,
+                province__unit_type=OrganizationalUnit.UNIT_PROVINCE,
+                province__is_active=True,
+            ).values_list("province_id", flat=True)
+            return Center.objects.filter(
+                parent_unit__parent_id__in=province_ids
+            ).distinct()
+            
         if self.role == self.ROLE_REQUESTER:
             if self.center_id:
                 return Center.objects.filter(pk=self.center_id)
