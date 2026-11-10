@@ -63,3 +63,26 @@ The repository loader supplies 31 province records and 484 county records. PR #7
 - Do not use reconciliation auto-apply to assign ambiguous centers.
 - Keep all existing reconciliation CSV files untouched.
 - This document distinguishes completed schema work from outstanding geographic normalization and center-directory sourcing. PR #7 is not ready to merge until CI and local validation pass.
+
+
+## Public count evidence and provenance (reviewed 2026-11-10)
+
+The count of treatment centers is not yet a reliable import key or proof of a complete directory:
+
+- The Social Security Organization newsroom reported **413 treatment centers** in its 1404 performance summary: https://newsroom.tamin24.ir/news/tshrh-trh-aamlt-gdd-dr-hozh-tmn-gtmaa/
+- A separate 1404 report quoting the organization's latest statistics reported **408 owned treatment centers**, broken down as 75 hospitals, 329 outpatient centers and 4 limited-surgery centers: https://tamin24.ir/news/31298
+
+These public figures conflict. They may reflect different reporting dates, definitions, or revisions; the repository must not silently choose one or synthesize missing entries. The product owner's requested 413-row baseline remains a target pending an authoritative, name-level directory from the organization.
+
+The current `data/iran_admin/provinces.json` and `counties.json` files contain province/county labels and IDs, but do not carry a source URL, source publication date, retrieval timestamp, or verification metadata. Treat them as operational seed data, not as a fully provenance-verified official geographic registry. No city/locality file or named 413-center directory is present in this branch.
+
+## Read-only data audit
+
+PR #7 adds:
+
+```powershell
+python manage.py audit_organization_data
+python manage.py audit_organization_data --format json
+```
+
+The command checks center county/province/management relationships, missing management assignments, inactive management warnings, demo-code consistency, missing legacy city labels, and contract province validity. It is read-only: it does not infer mappings, update records, or repair errors. A non-zero command exit means one or more critical inconsistencies were found and must be reviewed before any rebuild or import.
