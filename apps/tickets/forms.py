@@ -86,8 +86,10 @@ class TicketFilterForm(StyledForm):
         elif user.is_admin_country:
             pass
         else:
-            province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
-            contracts = Contract.objects.filter(province_id__in=province_ids).distinct()
+            from apps.tickets.services import visible_tickets
+            contracts = Contract.objects.filter(
+                pk__in=visible_tickets(user).values("contract_id")
+            ).distinct()
             self.fields["contract"].queryset = contracts
             self.fields["contractor"].queryset = Contractor.objects.filter(
                 pk__in=contracts.values("contractor_id")
