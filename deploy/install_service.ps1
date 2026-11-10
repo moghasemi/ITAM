@@ -4,7 +4,7 @@
 #
 #  اجرا در PowerShell با دسترسی Administrator:
 #      .\install_service.ps1
-      .\install_service.ps1 -ProjectPath "D:\itam"
+#      .\install_service.ps1 -ProjectPath "D:\itam"
 # ==========================================================================
 [CmdletBinding()]
 param(
