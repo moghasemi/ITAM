@@ -58,7 +58,7 @@ class IndependentRepairer(TimeStampedModel):
         verbose_name = "تعمیرکار مستقل"
         verbose_name_plural = "تعمیرکاران مستقل"
         ordering = ("name",)
-        indexes = [models.Index(fields=("province", "is_active"))]
+        indexes = [models.Index(fields=("province", "is_active"), name="maint_repairer_prov_active_idx")]
 
     def __str__(self):
         return self.name
@@ -166,8 +166,8 @@ class RepairRequest(TimeStampedModel):
         verbose_name_plural = "درخواست‌های تعمیر مستقل"
         ordering = ("-created_at",)
         indexes = [
-            models.Index(fields=("center", "status")),
-            models.Index(fields=("repairer", "created_at")),
+            models.Index(fields=("center", "status"), name="maint_repair_center_status_idx"),
+            models.Index(fields=("repairer", "created_at"), name="maint_repair_repairer_date_idx"),
         ]
 
     def __str__(self):
@@ -406,7 +406,7 @@ class GeneralITRequest(TimeStampedModel):
         verbose_name = "درخواست عمومی فناوری اطلاعات"
         verbose_name_plural = "درخواست‌های عمومی فناوری اطلاعات"
         ordering = ("-created_at",)
-        indexes = [models.Index(fields=("center", "status"))]
+        indexes = [models.Index(fields=("center", "status"), name="maint_repair_center_status_idx")]
 
     def __str__(self):
         return f"{self.number} — {self.title}"
