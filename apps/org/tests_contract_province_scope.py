@@ -158,6 +158,7 @@ class TechnicianProvinceContractScopeTests(TestCase):
 
     def test_contract_cannot_cover_a_center_in_another_province(self):
         contract = self.make_contract("CON-COVER", self.province_a)
+        self.assign(contract, self.center_a1)
         self.assertTrue(contract.covers_center(self.center_a1))
         self.assertFalse(contract.covers_center(self.center_b))
         self.assertFalse(contract.covers_center(None))
