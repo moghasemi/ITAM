@@ -349,6 +349,17 @@ def referral_list(request):
             )
         else:
             rows = rows.filter(recipient_user=request.user)
+    scoped_center_ids = set(request.user.get_scoped_centers().values_list("pk", flat=True))
+    rows = list(rows)
+    for row in rows:
+        row.can_resolve = (
+            request.user.is_admin_country
+            or row.recipient_user_id == request.user.pk
+            or (
+                request.user.is_admin_province
+                and row.center_id in scoped_center_ids
+            )
+        )
     return render(request, "maintenance/workflow_list.html", {
         "page_title": "ارجاع‌های عمومی",
         "kind": "referrals",
