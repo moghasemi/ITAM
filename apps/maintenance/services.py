@@ -92,20 +92,38 @@ def visible_visits(user):
         if not centers.exists():
             return queryset.none()
         active_contracts = user.get_active_contractor_contracts()
+        today = timezone.localdate()
+        center_assignment_active = (
+            Q(center__contractor_assignments__end_date__isnull=True)
+            | Q(center__contractor_assignments__end_date__gte=today)
+        )
+        check_assignment_active = (
+            Q(checks__asset__center__contractor_assignments__end_date__isnull=True)
+            | Q(checks__asset__center__contractor_assignments__end_date__gte=today)
+        )
+        center_visits = (
+            Q(
+                center__in=centers,
+                center__contractor_assignments__contract_id=F("contract_id"),
+                center__contractor_assignments__status="active",
+                center__contractor_assignments__start_date__lte=today,
+            )
+            & center_assignment_active
+        )
+        checked_visits = (
+            Q(
+                center__isnull=True,
+                checks__asset__center__in=centers,
+                checks__asset__center__contractor_assignments__contract_id=F("contract_id"),
+                checks__asset__center__contractor_assignments__status="active",
+                checks__asset__center__contractor_assignments__start_date__lte=today,
+            )
+            & check_assignment_active
+        )
         return queryset.filter(
             contractor_id=user.contractor_id,
             contract__in=active_contracts,
-        ).filter(
-            Q(
-                center__in=centers,
-                center__treatment_management__province_id=F("contract__province_id"),
-            )
-            | Q(
-                center__isnull=True,
-                checks__asset__center__in=centers,
-                checks__asset__center__treatment_management__province_id=F("contract__province_id"),
-            )
-        ).distinct()
+        ).filter(center_visits | checked_visits).distinct()
     return queryset.none()
 
 
