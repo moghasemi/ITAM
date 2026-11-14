@@ -50,7 +50,7 @@ from .repair_services import (
 
 
 def _require_it_staff(user):
-    if not user.is_authenticated or not user.has_role(User.ROLE_ADMIN_IT):
+    if not user.is_authenticated or (user.role != User.ROLE_ADMIN_IT and not user.is_admin_country and not user.is_admin_province):
         raise PermissionDenied("این بخش فقط برای مدیران و کارشناسان فناوری اطلاعات مجاز است.")
 
 
@@ -210,7 +210,7 @@ def repair_detail(request, pk: int):
         "decision_form": RepairDecisionForm(),
         "completion_form": RepairCompletionForm(),
         "can_decide": province_admin,
-        "can_complete": center_expert,
+        "can_complete": center_expert and (request.user.role == User.ROLE_ADMIN_IT or request.user.is_admin_country),
         "can_reply": feedback is not None and visible_repair_feedback(request.user).filter(pk=feedback.pk).exists(),
         "active_menu": "repairs",
     })
@@ -331,7 +331,7 @@ def referral_list(request):
     if not request.user.is_authenticated:
         raise PermissionDenied("ورود به سامانه الزامی است.")
     rows = GeneralReferral.objects.select_related("center", "repair_request", "created_by")
-    can_create = request.user.has_role(User.ROLE_ADMIN_IT)
+    can_create = request.user.role == User.ROLE_ADMIN_IT or request.user.is_admin_province
     if not request.user.is_admin_country:
         from django.db.models import Q
         if can_create:
@@ -437,7 +437,7 @@ def it_request_create(request):
 @login_required
 def it_request_detail(request, pk: int):
     obj = get_object_or_404(_visible_it_requests(request.user), pk=pk)
-    can_manage = request.user.has_role(User.ROLE_ADMIN_IT) and request.user.get_scoped_centers().filter(pk=obj.center_id).exists()
+    can_manage = request.user.role == User.ROLE_ADMIN_IT and request.user.get_scoped_centers().filter(pk=obj.center_id).exists()
     can_manager_review = request.user.role == User.ROLE_MANAGER and request.user.center_id == obj.center_id
     can_province_resolve = request.user.is_admin_province
     return render(request, "maintenance/it_request_detail.html", {
