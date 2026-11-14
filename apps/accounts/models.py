@@ -237,11 +237,19 @@ class User(AbstractUser):
                 return self._active_center_scope(Center.objects.filter(pk=self.center_id))
             return Center.objects.none()
         if self.role == self.ROLE_TECHNICIAN:
-            province_ids = self.get_active_contractor_contracts().values_list(
-                "province_id", flat=True
-            )
+            # A provincial contract alone does not grant access to every center.
+            # The contractor must have an explicit, current center assignment.
+            from django.db.models import Q
+            from apps.org.models import ContractCenterAssignment
+
+            today = timezone.localdate()
+            assignments = ContractCenterAssignment.objects.filter(
+                contract__in=self.get_active_contractor_contracts(),
+                status=ContractCenterAssignment.STATUS_ACTIVE,
+                start_date__lte=today,
+            ).filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
             return self._active_center_scope(
-                Center.objects.filter(treatment_management__province_id__in=province_ids)
+                Center.objects.filter(pk__in=assignments.values("center_id"))
             ).distinct()
         return Center.objects.none()
 
