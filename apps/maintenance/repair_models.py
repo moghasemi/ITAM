@@ -335,7 +335,7 @@ class GeneralReferral(TimeStampedModel):
     outcome = models.TextField("نتیجه پیگیری", blank=True)
     instruction = models.TextField("دستور / اقدام ثبت‌شده", blank=True)
     attachment = models.FileField(
-        "مستند اولیه ارجاع", upload_to="referrals/%Y/%m/",
+        "مستند پیوست", upload_to="referrals/%Y/%m/",
         validators=[validate_document_file], blank=True,
     )
     resolution_attachment = models.FileField(
