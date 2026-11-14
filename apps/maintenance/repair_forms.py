@@ -126,9 +126,9 @@ class ReferralCreateForm(StyledModelForm):
         self.fields["repair_request"].queryset = RepairRequest.objects.filter(center__in=centers)
         recipients = User.objects.filter(is_active=True).exclude(pk=user.pk)
         if not user.is_admin_country:
-            province_ids = centers.values_list(
-                "treatment_management__province_id", flat=True
-            ).distinct()
+            province_ids = centers.filter(
+                treatment_management__province_id__isnull=False
+            ).values_list("treatment_management__province_id", flat=True).distinct()
             recipients = recipients.filter(
                 Q(org_unit_id__in=province_ids)
                 | Q(org_unit__parent_id__in=province_ids)
