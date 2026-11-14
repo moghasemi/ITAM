@@ -393,20 +393,32 @@ def resolve_repair_cost_dispute(*, repair, decision, note, actor):
         repair.cost_increase_approved_at = timezone.now()
         repair.status = RepairRequest.STATUS_RESOLVED
         action = "cost_increase_approved"
+        notification_title = "افزایش هزینه تعمیر تایید شد"
+        notification_level = "success"
     elif decision == "settled":
         repair.status = RepairRequest.STATUS_RESOLVED
         action = "cost_dispute_settled"
+        notification_title = "اختلاف هزینه تعمیر تسویه شد"
+        notification_level = "success"
+    elif decision == "reject_increase":
+        # The repair itself remains recorded, but the excess amount stays open
+        # as a dispute until a later approval or documented settlement.
+        action = "cost_increase_rejected"
+        notification_title = "افزایش هزینه تعمیر تایید نشد؛ پرونده باز ماند"
+        notification_level = "warning"
     else:
         raise ValidationError("تصمیم اختلاف هزینه نامعتبر است.")
-    repair.save(update_fields=[
-        "cost_dispute_resolution", "cost_increase_approved_by",
-        "cost_increase_approved_at", "status", "updated_at",
-    ])
+    update_fields = ["cost_dispute_resolution", "updated_at"]
+    if decision != "reject_increase":
+        update_fields.extend([
+            "cost_increase_approved_by", "cost_increase_approved_at", "status",
+        ])
+    repair.save(update_fields=update_fields)
     _record_repair_event(repair, action, note.strip(), actor, previous)
     Notification.push(
-        repair.requested_by, "اختلاف هزینه تعمیر تعیین تکلیف شد",
+        repair.requested_by, notification_title,
         f"{repair.number}: {note.strip()}",
-        url=repair.get_absolute_url(), level="success",
+        url=repair.get_absolute_url(), level=notification_level,
     )
     return repair
 
