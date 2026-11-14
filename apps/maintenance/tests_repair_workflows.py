@@ -9,7 +9,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.assets.models import Asset, AssetCategory
 from apps.maintenance.repair_models import (
-    GeneralITRequest, IndependentRepairer, RepairFeedback,
+    GeneralITRequest, IndependentRepairer, RepairFeedback, RepairerProfileEvent,
     RepairRequest, RepairerStatusEvent,
 )
 from apps.maintenance.repair_services import (
