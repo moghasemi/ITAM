@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from django.contrib import messages
+from django.db.models import Avg, Count
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
@@ -25,7 +26,7 @@ from .repair_forms import (
 )
 from .repair_models import (
     GeneralITRequest, GeneralReferral, IndependentRepairer, RepairFeedback,
-    RepairRequest,
+    RepairerProfileEvent, RepairRequest,
 )
 from .repair_services import (
     add_feedback_reply,
@@ -56,7 +57,12 @@ def _require_it_staff(user):
 @login_required
 def repairer_list(request):
     _require_it_staff(request.user)
-    rows = visible_repairers(request.user).prefetch_related("status_events")
+    rows = visible_repairers(request.user).annotate(
+        repair_count=Count("repair_requests", distinct=True),
+        average_quality=Avg("feedback__work_quality"),
+        average_speed=Avg("feedback__completion_speed"),
+        average_cost_fairness=Avg("feedback__cost_fairness"),
+    ).prefetch_related("status_events", "profile_events")
     return render(request, "maintenance/workflow_list.html", {
         "page_title": "تعمیرکاران مستقل",
         "kind": "repairers",
@@ -82,6 +88,15 @@ def repairer_create(request):
         if not request.user.is_admin_country and obj.province_id not in allowed_provinces:
             raise PermissionDenied("استان انتخاب‌شده خارج از حوزه مجاز شماست.")
         obj.save()
+        RepairerProfileEvent.objects.create(
+            repairer=obj, action="created", previous_values={},
+            new_values={
+                "name": obj.name, "kind": obj.kind, "national_id": obj.national_id,
+                "phone": obj.phone, "email": obj.email, "address": obj.address,
+                "specialties": obj.specialties, "notes": obj.notes,
+            },
+            actor=request.user,
+        )
         messages.success(request, "تعمیرکار مستقل ثبت شد.")
         return redirect("maintenance:repairer_list")
     return render(request, "maintenance/workflow_form.html", {
@@ -95,10 +110,18 @@ def repairer_update(request, pk: int):
     obj = get_object_or_404(visible_repairers(request.user), pk=pk)
     form = IndependentRepairerForm(request.POST or None, instance=obj, user=request.user)
     if request.method == "POST" and form.is_valid():
+        fields = ("name", "kind", "national_id", "phone", "email", "address", "specialties", "notes")
+        previous = {field: getattr(obj, field) for field in fields}
         changed = form.save(commit=False)
         changed.updated_by = request.user
         changed.save()
-        messages.success(request, "مشخصات تعمیرکار ذخیره شد؛ سوابق درخواست‌ها با تصویر زمان ارجاع حفظ شده‌اند.")
+        current = {field: getattr(changed, field) for field in fields}
+        if previous != current:
+            RepairerProfileEvent.objects.create(
+                repairer=changed, action="updated",
+                previous_values=previous, new_values=current, actor=request.user,
+            )
+        messages.success(request, "مشخصات تعمیرکار ذخیره شد؛ نسخه قبلی و جدید در تاریخچه ممیزی حفظ شد.")
         return redirect("maintenance:repairer_list")
     return render(request, "maintenance/workflow_form.html", {
         "page_title": "ویرایش تعمیرکار مستقل", "form": form, "active_menu": "repairs",
@@ -293,7 +316,10 @@ def referral_list(request):
     _require_it_staff(request.user)
     rows = GeneralReferral.objects.select_related("center", "repair_request", "created_by")
     if not request.user.is_admin_country:
-        rows = rows.filter(center__in=request.user.get_scoped_centers())
+        from django.db.models import Q
+        rows = rows.filter(
+            Q(center__in=request.user.get_scoped_centers()) | Q(recipient_user=request.user)
+        )
     return render(request, "maintenance/workflow_list.html", {
         "page_title": "ارجاع‌های عمومی",
         "kind": "referrals",
@@ -329,7 +355,7 @@ def referral_create(request):
 @login_required
 def referral_resolve(request, pk: int):
     referral = get_object_or_404(GeneralReferral.objects.all(), pk=pk)
-    if referral.center_id and not request.user.get_scoped_centers().filter(pk=referral.center_id).exists() and not request.user.is_admin_country:
+    if referral.center_id and not request.user.get_scoped_centers().filter(pk=referral.center_id).exists() and not request.user.is_admin_country and referral.recipient_user_id != request.user.pk:
         raise PermissionDenied("ارجاع خارج از حوزه مجاز شماست.")
     form = ReferralResolveForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
