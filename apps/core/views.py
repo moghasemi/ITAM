@@ -373,7 +373,8 @@ def private_media(request, path: str):
                     and user.get_scoped_centers().filter(pk=referral.center_id).exists()
                 )
                 or (
-                    referral.province_id
+                    not referral.center_id
+                    and referral.province_id
                     and user.get_scoped_centers().filter(
                         treatment_management__province_id=referral.province_id
                     ).exists()
