@@ -129,6 +129,7 @@ class ReferralCreateForm(StyledModelForm):
 class ReferralResolveForm(StyledForm):
     outcome = forms.CharField(label="نتیجه پیگیری", widget=forms.Textarea(attrs={"rows": 3}))
     instruction = forms.CharField(label="دستور / اقدام ثبت‌شده", required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    attachment = forms.FileField(label="مستند نتیجه / دستور", required=False)
 
 
 class GeneralITRequestForm(StyledModelForm):
