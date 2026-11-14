@@ -12,6 +12,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from django.conf import settings
+from django.contrib.auth.password_validation import validate_password
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -135,6 +136,10 @@ class Command(BaseCommand):
         password = options["admin_password"]
         if len(password) < 12:
             raise CommandError("گذرواژه نمونه باید حداقل ۱۲ نویسه داشته باشد.")
+        try:
+            validate_password(password)
+        except Exception as exc:
+            raise CommandError(f"گذرواژه نمونه معیارهای امنیتی را ندارد: {exc}") from exc
         assets_per_center = options["assets_per_center"]
         if assets_per_center < 2 or assets_per_center > 50:
             raise CommandError("--assets-per-center باید بین ۲ و ۵۰ باشد.")
@@ -146,6 +151,8 @@ class Command(BaseCommand):
         if province.name != "سیستان و بلوچستان":
             raise CommandError("کد استان ۱۱۱ با داده مورد انتظار مطابقت ندارد.")
         management = province.treatment_management
+        if not province.is_active or not management.is_active:
+            raise CommandError("استان یا مدیریت درمان سیستان و بلوچستان غیرفعال است؛ فرمان seed وضعیت عملیاتی را تغییر نمی‌دهد.")
         counties = {
             row["id"]: OrganizationalUnit.objects.get(code=f"IR-COUNTY-{row['id']}")
             for row in rows
