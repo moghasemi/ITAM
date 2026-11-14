@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.core.models import AuditLog
+from apps.core.models import AuditLog, Notification
 from apps.assets.models import Asset, AssetCategory
 from apps.maintenance.repair_models import (
     GeneralITRequest, GeneralReferral, IndependentRepairer, RepairFeedback, RepairerProfileEvent,
@@ -529,4 +529,20 @@ class RepairAndReferralWorkflowTests(TestCase):
         request.refresh_from_db()
         self.assertEqual(request.manager_approval, GeneralITRequest.MANAGER_APPROVED)
         self.assertEqual(request.status, GeneralITRequest.STATUS_APPROVED)
+
+    def test_new_general_request_notifies_active_center_it_experts(self):
+        request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_ISSUE,
+            title="اختلال در سامانه",
+            description="کاربر امکان استفاده از سامانه را ندارد.",
+            actor=self.requester,
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.it_expert,
+                title="درخواست جدید فناوری اطلاعات",
+                url=f"/maintenance/requests/{request.pk}/",
+            ).exists()
+        )
 
