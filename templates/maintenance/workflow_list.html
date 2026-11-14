@@ -48,7 +48,11 @@
                 <input type="file" name="attachment" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.rtf,.txt,.csv,.jpg,.jpeg,.png">
                 <button class="btn btn-sm btn-primary">ثبت نتیجه</button>
               </form>
-            {% else %}{{ row.outcome }}{% endif %}</td>
+            {% else %}
+              {{ row.outcome }}
+              {% if row.instruction %}<p>{{ row.instruction }}</p>{% endif %}
+              {% if row.resolution_attachment %}<a href="{{ row.resolution_attachment.url }}">مستند نتیجه / دستور</a>{% endif %}
+            {% endif %}</td>
           </tr>
         {% else %}
           <tr><td><a href="{% url 'maintenance:it_request_detail' row.pk %}">{{ row.number }}</a></td><td>{{ row.title }}</td><td>{{ row.center.name }}</td><td>{{ row.requested_by.display_name }}</td><td>{{ row.assigned_to|default:"—" }}</td><td>{{ row.get_manager_approval_display }}</td><td>{{ row.get_status_display }}</td><td><a class="btn btn-sm btn-secondary" href="{% url 'maintenance:it_request_detail' row.pk %}">جزئیات</a></td></tr>
