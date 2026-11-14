@@ -48,6 +48,16 @@ class UploadContentValidationTests(SimpleTestCase):
         with self.assertRaises(ValidationError):
             validate_document_file(invalid_docx)
 
+    def test_docx_with_excessive_archive_members_is_rejected(self):
+        stream = io.BytesIO()
+        with zipfile.ZipFile(stream, "w") as archive:
+            archive.writestr("word/document.xml", "<document/>")
+            for index in range(1000):
+                archive.writestr(f"word/parts/{index}.xml", "<part/>")
+        upload = SimpleUploadedFile("large-package.docx", stream.getvalue())
+        with self.assertRaises(ValidationError):
+            validate_document_file(upload)
+
     def test_unknown_attachment_extension_is_rejected(self):
         upload = SimpleUploadedFile("payload.exe", b"MZ\x90\x00")
         with self.assertRaises(ValidationError):
