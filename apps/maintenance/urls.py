@@ -31,6 +31,7 @@ urlpatterns = [
     path("repairs/<int:pk>/resubmit/", repair_views.repair_resubmit, name="repair_resubmit"),
     path("repairs/<int:pk>/complete/", repair_views.repair_complete, name="repair_complete"),
     path("repairs/<int:pk>/resolve-cost/", repair_views.repair_cost_resolve, name="repair_cost_resolve"),
+    path("feedback/", repair_views.feedback_list, name="feedback_list"),
     path("feedback/<int:pk>/reply/", repair_views.feedback_reply, name="feedback_reply"),
     path("referrals/", repair_views.referral_list, name="referral_list"),
     path("referrals/add/", repair_views.referral_create, name="referral_create"),
