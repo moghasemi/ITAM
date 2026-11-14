@@ -288,6 +288,27 @@ class RepairAndReferralWorkflowTests(TestCase):
             model_name="GeneralReferral", object_id=str(referral.pk), action="resolve"
         ).exists())
 
+    def test_global_referral_can_only_be_resolved_by_recipient_or_country_admin(self):
+        referral = create_referral(
+            subject="ارجاع سراسری نمونه",
+            description="ارجاع به مسئول مشخص استانی",
+            recipient_role="مسئول مالی",
+            recipient_name="مدیر نمونه",
+            recipient_user=self.manager,
+            actor=self.province_admin,
+        )
+        with self.assertRaises(PermissionDenied):
+            resolve_referral(
+                referral=referral, outcome="نتیجه غیرمجاز",
+                instruction="", actor=self.it_expert,
+            )
+        resolve_referral(
+            referral=referral, outcome="نتیجه ثبت‌شده توسط گیرنده",
+            instruction="", actor=self.manager,
+        )
+        referral.refresh_from_db()
+        self.assertEqual(referral.status, "resolved")
+
     def test_contractor_assignment_is_unique_and_history_is_retained(self):
         contractor = Contractor.objects.create(name="پیمانکار رسمی گردش")
         today = timezone.localdate()
