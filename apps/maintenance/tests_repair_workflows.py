@@ -304,6 +304,11 @@ class RepairAndReferralWorkflowTests(TestCase):
             model_name="GeneralReferral", object_id=str(referral.pk), action="create"
         ).exists())
 
+        with self.assertRaises(PermissionDenied):
+            resolve_referral(
+                referral=referral, outcome="تعیین تکلیف توسط کارشناس مرکز",
+                instruction="", actor=self.it_expert,
+            )
         resolve_referral(
             referral=referral,
             outcome="اعتبار تامین قطعه تایید شد.",
