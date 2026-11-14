@@ -625,7 +625,11 @@ class CountyScopeRegressionTests(TestCase):
             username="unassigned-county-admin", password="Strong-Test-Password-2026!",
             role=User.ROLE_ADMIN_COUNTY,
         )
-        for user in (unassigned_it, unassigned_county):
+        unassigned_province = User.objects.create_user(
+            username="unassigned-province-admin", password="Strong-Test-Password-2026!",
+            role=User.ROLE_ADMIN_PROVINCE,
+        )
+        for user in (unassigned_it, unassigned_county, unassigned_province):
             self.assertFalse(user.get_scoped_centers().exists())
             self.assertFalse(visible_users(user).exists())
             self.assertFalse(visible_tickets(user).exists())
@@ -657,8 +661,8 @@ class CountyScopeRegressionTests(TestCase):
         contract = Contract.objects.create(
             contractor=contractor, province=self.province,
             number="CNTY-CONTRACT", title="قرارداد آزمون",
-            start_date=timezone.localdate() - dt.timedelta(days=1),
-            end_date=timezone.localdate() + dt.timedelta(days=30),
+            start_date=timezone.localdate() - timedelta(days=1),
+            end_date=timezone.localdate() + timedelta(days=30),
         )
         visit = self.MaintenanceVisit.objects.create(
             number="CNTY-VISIT-1", contract=contract, contractor=contractor,
