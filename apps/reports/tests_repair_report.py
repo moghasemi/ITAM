@@ -7,7 +7,10 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.assets.models import Asset, AssetCategory
 from apps.maintenance.repair_models import IndependentRepairer
-from apps.maintenance.repair_services import create_repair_request
+from apps.maintenance.repair_services import (
+    complete_repair_request, create_general_it_request,
+    create_repair_request, decide_repair_request,
+)
 from apps.org.models import Center, OrganizationalUnit
 
 
@@ -58,13 +61,30 @@ class RepairPerformanceReportTests(TestCase):
             fault_description="خرابی نمونه", referral_reason="ارجاع نمونه",
             estimate_amount=Decimal("1200000"), actor=self.expert,
         )
+        repair = decide_repair_request(
+            repair=repair, decision="approve", note="تایید نمونه",
+            actor=self.province_admin,
+        )
+        complete_repair_request(
+            repair=repair, actor=self.expert, outcome="تعمیر نمونه انجام شد",
+            final_cost=Decimal("1200000"), work_quality=5,
+            completion_speed=4, cost_fairness=5, comment="ارزیابی نمونه",
+        )
+        create_general_it_request(
+            center=self.center, request_type="equipment",
+            title="درخواست نمونه", description="شرح درخواست نمونه",
+            actor=self.requester,
+        )
 
         self.client.force_login(self.province_admin)
         response = self.client.get(reverse("reports:repairs"))
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["summary"]["total"], 1)
+        self.assertEqual(response.context["summary"]["general_requests"], 1)
         self.assertEqual(response.context["rows"][0]["request_count"], 1)
         self.assertEqual(response.context["rows"][0]["estimate_total"], Decimal("1200000"))
+        self.assertEqual(response.context["rows"][0]["final_total"], Decimal("1200000"))
+        self.assertEqual(response.context["rows"][0]["avg_quality"], 5.0)
         self.assertContains(response, "تعمیرکار گزارش نمونه")
         self.assertTrue(repair.pk)
