@@ -1,7 +1,8 @@
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from apps.org.models import Center, OrganizationalUnit, TreatmentManagement
+from apps.accounts.models import User
+from apps.org.models import Center, ContractCenterAssignment, OrganizationalUnit, TreatmentManagement
 
 
 class TreatmentManagementSeparationTests(TestCase):
@@ -79,6 +80,14 @@ class TreatmentManagementSeparationTests(TestCase):
             start_date=today,
             end_date=today + timedelta(days=30),
         )
+        actor = User.objects.create_user(
+            username="tm-province-admin", password="TestPass!9382",
+            role=User.ROLE_ADMIN_PROVINCE, org_unit=self.province_a,
+        )
+        ContractCenterAssignment.objects.create(
+            contract=contract, center=center, start_date=today,
+            status=ContractCenterAssignment.STATUS_ACTIVE, assigned_by=actor,
+        )
 
         self.assertTrue(contract.covers_center(center))
         self.assertFalse(contract.covers_center(None))
@@ -100,6 +109,14 @@ class TreatmentManagementSeparationTests(TestCase):
             title="قرارداد مرکز یتیم",
             start_date=today,
             end_date=today + timedelta(days=30),
+        )
+        actor = User.objects.create_user(
+            username="tm-orphan-province-admin", password="TestPass!9382",
+            role=User.ROLE_ADMIN_PROVINCE, org_unit=self.province_a,
+        )
+        ContractCenterAssignment.objects.create(
+            contract=contract, center=center, start_date=today,
+            status=ContractCenterAssignment.STATUS_ACTIVE, assigned_by=actor,
         )
 
         # Simulate a legacy orphan record without invoking Center.save().
