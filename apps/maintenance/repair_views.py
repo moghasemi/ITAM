@@ -384,8 +384,13 @@ def referral_create(request):
 @login_required
 def referral_resolve(request, pk: int):
     referral = get_object_or_404(GeneralReferral.objects.all(), pk=pk)
-    if referral.center_id and not request.user.get_scoped_centers().filter(pk=referral.center_id).exists() and not request.user.is_admin_country and referral.recipient_user_id != request.user.pk:
-        raise PermissionDenied("ارجاع خارج از حوزه مجاز شماست.")
+    if referral.center_id and not request.user.is_admin_country:
+        province_manager = (
+            request.user.is_admin_province
+            and request.user.get_scoped_centers().filter(pk=referral.center_id).exists()
+        )
+        if not (province_manager or referral.recipient_user_id == request.user.pk):
+            raise PermissionDenied("تعیین تکلیف ارجاع فقط برای مدیر استان یا کاربر گیرنده مجاز است.")
     form = ReferralResolveForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
         try:
