@@ -380,7 +380,7 @@ def complete_repair_request(*, repair, outcome, final_cost, actor,
 
 
 @transaction.atomic
-def resolve_repair_cost_dispute(*, repair, decision, note, actor):
+def resolve_repair_cost_dispute(*, repair, decision, note, actor, attachment=None):
     _require_province_admin_for_center(actor, repair.center)
     if repair.status != RepairRequest.STATUS_DISPUTED:
         raise ValidationError("این درخواست اختلاف هزینه باز ندارد.")
@@ -388,6 +388,8 @@ def resolve_repair_cost_dispute(*, repair, decision, note, actor):
         raise ValidationError("ثبت نتیجه و مستند تصمیم الزامی است.")
     previous = repair.status
     repair.cost_dispute_resolution = note.strip()
+    if attachment:
+        repair.cost_dispute_attachment = attachment
     if decision == "approve_increase":
         repair.cost_increase_approved_by = actor
         repair.cost_increase_approved_at = timezone.now()
@@ -409,12 +411,17 @@ def resolve_repair_cost_dispute(*, repair, decision, note, actor):
     else:
         raise ValidationError("تصمیم اختلاف هزینه نامعتبر است.")
     update_fields = ["cost_dispute_resolution", "updated_at"]
+    if attachment:
+        update_fields.append("cost_dispute_attachment")
     if decision != "reject_increase":
         update_fields.extend([
             "cost_increase_approved_by", "cost_increase_approved_at", "status",
         ])
     repair.save(update_fields=update_fields)
-    _record_repair_event(repair, action, note.strip(), actor, previous)
+    _record_repair_event(
+        repair, action, note.strip(), actor, previous,
+        metadata={"decision_attachment": repair.cost_dispute_attachment.name if repair.cost_dispute_attachment else ""},
+    )
     Notification.push(
         repair.requested_by, notification_title,
         f"{repair.number}: {note.strip()}",
@@ -460,7 +467,7 @@ def create_referral(*, subject, description, recipient_role, recipient_name,
 
 
 @transaction.atomic
-def resolve_referral(*, referral, outcome, instruction, actor):
+def resolve_referral(*, referral, outcome, instruction, actor, attachment=None):
     if not actor or not actor.is_authenticated:
         raise PermissionDenied("ورود به سامانه الزامی است.")
     if referral.center_id:
@@ -477,10 +484,13 @@ def resolve_referral(*, referral, outcome, instruction, actor):
     referral.status = GeneralReferral.STATUS_RESOLVED
     referral.outcome = outcome.strip()
     referral.instruction = (instruction or "").strip()
+    if attachment:
+        referral.resolution_attachment = attachment
     referral.resolved_by = actor
     referral.resolved_at = timezone.now()
     referral.save(update_fields=[
         "status", "outcome", "instruction", "resolved_by", "resolved_at", "updated_at",
+        *(["resolution_attachment"] if attachment else []),
     ])
     log_action(
         "resolve", referral,
@@ -488,6 +498,7 @@ def resolve_referral(*, referral, outcome, instruction, actor):
             "status": {"از": GeneralReferral.STATUS_OPEN, "به": GeneralReferral.STATUS_RESOLVED},
             "outcome": {"از": "", "به": referral.outcome},
             "instruction": {"از": "", "به": referral.instruction},
+            "resolution_attachment": {"از": "", "به": referral.resolution_attachment.name if referral.resolution_attachment else ""},
         },
         note="ارجاع عمومی تعیین تکلیف شد.",
         user=actor,
