@@ -61,6 +61,7 @@ class Migration(migrations.Migration):
                 ("outcome", models.TextField(blank=True, verbose_name="نتیجه و اقدامات تعمیر")),
                 ("final_cost", models.DecimalField(blank=True, decimal_places=2, max_digits=14, null=True, verbose_name="هزینه نهایی")),
                 ("final_cost_reason", models.TextField(blank=True, verbose_name="توضیح افزایش هزینه")),
+                ("cost_dispute_resolution", models.TextField(blank=True, verbose_name="نتیجه تعیین تکلیف اختلاف هزینه")),
                 ("completion_attachment", models.FileField(blank=True, upload_to="repairs/completion/%Y/%m/", validators=[apps.core.validators.validate_document_file], verbose_name="پیوست نتیجه تعمیر")),
                 ("cost_increase_approved_at", models.DateTimeField(blank=True, null=True, verbose_name="زمان تایید افزایش هزینه")),
                 ("approved_by", models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name="approved_repair_requests", to=settings.AUTH_USER_MODEL, verbose_name="تاییدکننده استانی")),
@@ -168,4 +169,17 @@ class Migration(migrations.Migration):
             options={"verbose_name": "درخواست عمومی فناوری اطلاعات", "verbose_name_plural": "درخواست‌های عمومی فناوری اطلاعات", "ordering": ("-created_at",)},
         ),
         migrations.AddIndex(model_name="generalitrequest", index=models.Index(fields=["center", "status"], name="maint_itrequest_center_status_idx")),
+        migrations.CreateModel(
+            name="GeneralITRequestEvent",
+            fields=[
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("action", models.CharField(max_length=40, verbose_name="رویداد")),
+                ("note", models.TextField(verbose_name="شرح")),
+                ("metadata", models.JSONField(blank=True, default=dict, verbose_name="اطلاعات تکمیلی")),
+                ("created_at", models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="زمان")),
+                ("actor", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="it_request_events", to=settings.AUTH_USER_MODEL, verbose_name="کاربر عامل")),
+                ("request", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="events", to="maintenance.generalitrequest", verbose_name="درخواست")),
+            ],
+            options={"verbose_name": "رخداد درخواست عمومی IT", "verbose_name_plural": "رخدادهای درخواست عمومی IT", "ordering": ("created_at",)},
+        ),
     ]
