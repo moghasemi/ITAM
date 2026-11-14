@@ -40,18 +40,24 @@ class ReadOnlyAuditAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
-        return request.user.is_superuser
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_superuser or request.user.has_role("admin_it")
 
     def has_delete_permission(self, request, obj=None):
         return False
 
 
 @admin.register(IndependentRepairer)
-class IndependentRepairerAdmin(admin.ModelAdmin):
+class IndependentRepairerAdmin(ReadOnlyAuditAdmin):
     list_display = ("name", "kind", "province", "is_active", "updated_at")
     list_filter = ("province", "kind", "is_active")
     search_fields = ("name", "national_id", "phone")
     readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(RepairRequest)
