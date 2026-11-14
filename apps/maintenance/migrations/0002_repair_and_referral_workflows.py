@@ -41,6 +41,19 @@ class Migration(migrations.Migration):
             index=models.Index(fields=["province", "is_active"], name="maint_repairer_prov_active_idx"),
         ),
         migrations.CreateModel(
+            name="RepairerStatusEvent",
+            fields=[
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("previous_active", models.BooleanField(verbose_name="وضعیت قبلی")),
+                ("new_active", models.BooleanField(verbose_name="وضعیت جدید")),
+                ("reason", models.TextField(verbose_name="دلیل تغییر وضعیت")),
+                ("created_at", models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="زمان")),
+                ("actor", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="repairer_status_events", to=settings.AUTH_USER_MODEL, verbose_name="اقدام‌کننده")),
+                ("repairer", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="status_events", to="maintenance.independentrepairer", verbose_name="تعمیرکار")),
+            ],
+            options={"verbose_name": "تاریخچه وضعیت تعمیرکار", "verbose_name_plural": "تاریخچه وضعیت تعمیرکاران", "ordering": ("-created_at",)},
+        ),
+        migrations.CreateModel(
             name="RepairRequest",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
