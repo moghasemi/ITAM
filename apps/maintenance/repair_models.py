@@ -150,6 +150,7 @@ class RepairRequest(TimeStampedModel):
         "هزینه نهایی", max_digits=14, decimal_places=2, null=True, blank=True,
     )
     final_cost_reason = models.TextField("توضیح افزایش هزینه", blank=True)
+    cost_dispute_resolution = models.TextField("نتیجه تعیین تکلیف اختلاف هزینه", blank=True)
     completion_attachment = models.FileField(
         "پیوست نتیجه تعمیر", upload_to="repairs/completion/%Y/%m/",
         validators=[validate_document_file], blank=True,
@@ -409,3 +410,25 @@ class GeneralITRequest(TimeStampedModel):
 
     def __str__(self):
         return f"{self.number} — {self.title}"
+
+
+class GeneralITRequestEvent(models.Model):
+    """تاریخچه غیرقابل‌حذف گردش درخواست عمومی IT."""
+
+    request = models.ForeignKey(
+        GeneralITRequest, on_delete=models.PROTECT, related_name="events",
+        verbose_name="درخواست",
+    )
+    action = models.CharField("رویداد", max_length=40)
+    note = models.TextField("شرح")
+    metadata = models.JSONField("اطلاعات تکمیلی", default=dict, blank=True)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name="it_request_events", verbose_name="کاربر عامل",
+    )
+    created_at = models.DateTimeField("زمان", auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "رخداد درخواست عمومی IT"
+        verbose_name_plural = "رخدادهای درخواست عمومی IT"
+        ordering = ("created_at",)
