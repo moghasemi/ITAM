@@ -74,11 +74,19 @@ class PrivateMediaAuthorizationTests(TestCase):
         )
         self.referral = GeneralReferral.objects.create(
             subject="ارجاع خصوصی رسانه", description="شرح خصوصی",
-            center=self.center_a, recipient_role="مدیر استان",
+            center=self.center_a, province=province, recipient_role="مدیر استان",
             recipient_name="مسئول نمونه", created_by=self.user_a,
             attachment=SimpleUploadedFile("referral.pdf", b"%PDF-1.4\nreferral"),
             resolution_attachment=SimpleUploadedFile("resolution.pdf", b"%PDF-1.4\nresolution"),
             status=GeneralReferral.STATUS_RESOLVED, outcome="نتیجه خصوصی",
+        )
+        self.province_referral = GeneralReferral.objects.create(
+            subject="ارجاع استانی رسانه", description="موضوع در سطح استان",
+            province=province, recipient_role="مسئول مالی استان",
+            recipient_name="مسئول مالی", recipient_user=self.user_a,
+            created_by=self.user_a,
+            resolution_attachment=SimpleUploadedFile("province-decision.pdf", b"%PDF-1.4\nprovince"),
+            status=GeneralReferral.STATUS_RESOLVED, outcome="نتیجه استانی",
         )
 
     def test_same_center_staff_can_download_owned_asset_attachment(self):
@@ -124,6 +132,14 @@ class PrivateMediaAuthorizationTests(TestCase):
             request.user = self.user_b
             with self.assertRaises(Http404, msg=path):
                 private_media(request, path)
+
+    def test_same_province_staff_can_download_centerless_province_referral_document(self):
+        path = self.province_referral.resolution_attachment.name
+        request = RequestFactory().get(f"/media/{path}")
+        request.user = self.user_b
+        response = private_media(request, path)
+        self.assertEqual(response.status_code, 200)
+        response.close()
 
     def test_technician_cannot_download_misbound_hardware_or_visit_photos(self):
         import datetime as dt
