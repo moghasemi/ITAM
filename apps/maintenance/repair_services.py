@@ -98,7 +98,7 @@ def visible_repair_feedback(user):
     province_ids = user.get_scoped_centers().values("treatment_management__province_id")
     # Provincial IT experts and the provincial IT head can review all feedback
     # in their province; center experts are limited to their assigned centers.
-    if (user.is_admin_province or user.has_role(User.ROLE_ADMIN_IT)) and _province_id_for_user(user):
+    if (user.is_admin_province or user.role == User.ROLE_ADMIN_IT) and _province_id_for_user(user):
         return RepairFeedback.objects.filter(
             center__treatment_management__province_id=_province_id_for_user(user)
         ).select_related("repairer", "center", "author", "repair_request")
@@ -496,6 +496,10 @@ def resolve_referral(*, referral, outcome, instruction, actor):
 def add_feedback_reply(*, feedback, body, actor, parent=None):
     if not body or not body.strip():
         raise ValidationError("متن پاسخ الزامی است.")
+    if not actor or not actor.is_authenticated or not (
+        actor.is_admin_province or actor.role == User.ROLE_ADMIN_IT
+    ):
+        raise PermissionDenied("فقط مدیر استان یا کارشناس فناوری اطلاعات مجاز می‌تواند پاسخ ثبت کند.")
     if not visible_repair_feedback(actor).filter(pk=feedback.pk).exists():
         raise PermissionDenied("این ارزیابی خارج از حوزه مجاز شماست.")
     if parent and parent.feedback_id != feedback.pk:
