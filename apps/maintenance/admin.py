@@ -29,7 +29,7 @@ class VisitAssetCheckAdmin(admin.ModelAdmin):
 from .repair_models import (
     GeneralITRequest, GeneralITRequestEvent, GeneralReferral, IndependentRepairer,
     RepairFeedback, RepairFeedbackReply, RepairRequest, RepairRequestEvent,
-    RepairerStatusEvent,
+    RepairerProfileEvent, RepairerStatusEvent,
 )
 
 
@@ -104,3 +104,9 @@ class GeneralITRequestAdmin(ReadOnlyAuditAdmin):
 @admin.register(GeneralITRequestEvent)
 class GeneralITRequestEventAdmin(ReadOnlyAuditAdmin):
     list_display = ("request", "action", "actor", "created_at")
+
+
+@admin.register(RepairerProfileEvent)
+class RepairerProfileEventAdmin(ReadOnlyAuditAdmin):
+    list_display = ("repairer", "action", "actor", "created_at")
+    list_filter = ("action",)
