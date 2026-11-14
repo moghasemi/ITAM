@@ -166,6 +166,11 @@ class RepairAndReferralWorkflowTests(TestCase):
             actor=self.province_admin,
         )
         self.assertEqual(repair.status, RepairRequest.STATUS_RETURNED)
+        with self.assertRaises(ValidationError):
+            decide_repair_request(
+                repair=repair, decision="approve",
+                note="تصمیم پیش از اصلاح درخواست", actor=self.province_admin,
+            )
         repair = resubmit_repair_request(
             repair=repair, actor=self.it_expert,
             estimate_amount=Decimal("1100000"),
