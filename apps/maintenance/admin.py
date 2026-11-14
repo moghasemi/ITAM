@@ -43,7 +43,7 @@ class ReadOnlyAuditAdmin(admin.ModelAdmin):
         return False
 
     def has_view_permission(self, request, obj=None):
-        return request.user.is_superuser or request.user.has_role("admin_it")
+        return request.user.is_superuser or request.user.is_admin_country or request.user.has_role("admin_it")
 
     def has_delete_permission(self, request, obj=None):
         return False
