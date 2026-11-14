@@ -43,7 +43,9 @@ jobs:
         run: python manage.py test --verbosity 2
 
   deploy-script-validation:
-    runs-on: windows-latest
+    # These steps perform syntax checks only; real Windows installation/sync
+    # remains a separate manual acceptance test on a target machine.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Validate PowerShell deployment scripts
