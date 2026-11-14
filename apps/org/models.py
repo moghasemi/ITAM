@@ -462,7 +462,20 @@ class Contract(TimeStampedModel):
         ):
             return False
 
-        return center_obj.treatment_management.province_id == self.province_id
+        if center_obj.treatment_management.province_id != self.province_id or not self.is_current:
+            return False
+
+        # Provincial contracts cover only centers with a currently active,
+        # explicitly recorded assignment. The legacy centers M2M is historical
+        # data only and must never broaden a provincial contract to every center.
+        today = timezone.localdate()
+        return self.center_assignments.filter(
+            center_id=center_obj.pk,
+            status=ContractCenterAssignment.STATUS_ACTIVE,
+            start_date__lte=today,
+        ).filter(
+            models.Q(end_date__isnull=True) | models.Q(end_date__gte=today)
+        ).exists()
 
     @property
     def duration_days(self) -> int:
