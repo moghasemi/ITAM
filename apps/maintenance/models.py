@@ -295,5 +295,5 @@ class VisitAssetCheck(TimeStampedModel):
 
 from .repair_models import (  # noqa: E402,F401
     GeneralITRequest, GeneralReferral, IndependentRepairer, RepairFeedback,
-    RepairFeedbackReply, RepairRequest, RepairRequestEvent, RepairerStatusEvent,
+    GeneralITRequestEvent, RepairFeedbackReply, RepairRequest, RepairRequestEvent, RepairerStatusEvent,
 )
