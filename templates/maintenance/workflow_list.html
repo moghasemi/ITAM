@@ -42,12 +42,14 @@
         {% elif kind == "referrals" %}
           <tr>
             <td>{{ row.subject }}</td><td>{{ row.center|default:"—" }}</td><td>{{ row.recipient_role }} — {{ row.recipient_name }}{% if row.attachment %}<p><a href="{{ row.attachment.url }}">مستند اولیه</a></p>{% endif %}</td><td>{{ row.get_status_display }}</td><td>{{ row.created_by.display_name }}</td>
-            <td>{% if row.status == "open" %}
+            <td>{% if row.status == "open" and row.can_resolve %}
               <form method="post" enctype="multipart/form-data" action="{% url 'maintenance:referral_resolve' row.pk %}">
                 {% csrf_token %}<textarea name="outcome" required placeholder="نتیجه پیگیری"></textarea><textarea name="instruction" placeholder="دستور / اقدام"></textarea>
                 <input type="file" name="attachment" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.rtf,.txt,.csv,.jpg,.jpeg,.png">
                 <button class="btn btn-sm btn-primary">ثبت نتیجه</button>
               </form>
+            {% elif row.status == "open" %}
+              <span class="text-muted">در انتظار اقدام گیرنده یا مدیر استان</span>
             {% else %}
               {{ row.outcome }}
               {% if row.instruction %}<p>{{ row.instruction }}</p>{% endif %}
