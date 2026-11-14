@@ -74,11 +74,13 @@ def repairer_create(request):
         obj = form.save(commit=False)
         obj.created_by = request.user
         obj.updated_by = request.user
-        if not visible_repairers(request.user).filter(province_id=obj.province_id).exists():
-            if not request.user.is_admin_country and not (
-                request.user.is_admin_province and request.user.org_unit_id == obj.province_id
-            ):
-                raise PermissionDenied("استان انتخاب‌شده خارج از حوزه مجاز شماست.")
+        allowed_provinces = set(
+            request.user.get_scoped_centers().values_list(
+                "treatment_management__province_id", flat=True
+            )
+        )
+        if not request.user.is_admin_country and obj.province_id not in allowed_provinces:
+            raise PermissionDenied("استان انتخاب‌شده خارج از حوزه مجاز شماست.")
         obj.save()
         messages.success(request, "تعمیرکار مستقل ثبت شد.")
         return redirect("maintenance:repairer_list")
