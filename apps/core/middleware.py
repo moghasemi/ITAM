@@ -1,6 +1,8 @@
 """کاربر جاری و نشانی IP در طول پردازش درخواست."""
 from __future__ import annotations
 
+import ipaddress
+
 import threading
 
 _state = threading.local()
@@ -32,9 +34,18 @@ def client_ip(request=None) -> str | None:
     if request is None:
         return None
     forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
+    candidate = (
+        forwarded.split(",", 1)[0].strip()
+        if forwarded
+        else (request.META.get("REMOTE_ADDR", "") or "").strip()
+    )
+    if not candidate:
+        return None
+    try:
+        ipaddress.ip_address(candidate)
+    except ValueError:
+        return None
+    return candidate
 
 
 def client_user_agent(request=None) -> str:
