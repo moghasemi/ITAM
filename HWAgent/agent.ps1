@@ -278,11 +278,11 @@ try {
             $res.Close()
             continue
         }
-        if ($path -eq "/api/sync-to-itam" -and (
+        if ($path -in @("/api/snapshot", "/api/sync-to-itam") -and (
             $req.HttpMethod -ne "POST" -or $origin -notin $allowedOrigins
         )) {
             $res.StatusCode = 403
-            Write-Json $res @{ status = "error"; error = "ارسال فقط از رابط محلی HWAgent مجاز است." }
+            Write-Json $res @{ status = "error"; error = "عملیات تغییردهنده فقط با POST از رابط محلی HWAgent مجاز است." }
             $res.Close()
             continue
         }
