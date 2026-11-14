@@ -347,7 +347,7 @@ class RepairAndReferralWorkflowTests(TestCase):
         referral.refresh_from_db()
         self.assertEqual(referral.status, GeneralReferral.STATUS_RESOLVED)
 
-    def test_global_referral_can_only_be_resolved_by_recipient_or_country_admin(self):
+    def test_province_referral_can_only_be_resolved_by_recipient_or_province_manager(self):
         referral = create_referral(
             subject="ارجاع سراسری نمونه",
             description="ارجاع به مسئول مشخص استانی",
