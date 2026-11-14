@@ -611,3 +611,26 @@ class TicketWorkflowTests(TestCase):
         self.assertEqual(own_response.status_code, 200)
         self.assertEqual(foreign_response.status_code, 403)
 
+    def test_software_and_network_failures_are_not_routed_to_official_hardware_contractor(self):
+        for failure_type in ("software", "network"):
+            with self.subTest(failure_type=failure_type):
+                ticket = self._create(
+                    failure_type=failure_type,
+                    title=f"درخواست {failure_type}",
+                )
+                self.assertEqual(ticket.contract_id, self.contract.pk)
+                self.assertIsNone(ticket.assigned_contractor_id)
+                self.assertFalse(
+                    visible_tickets(self.technician).filter(pk=ticket.pk).exists()
+                )
+                self.assertFalse(can_manage_ticket(self.technician, ticket))
+                self.assertTrue(can_manage_ticket(self.it_expert, ticket))
+
+    def test_hardware_failure_is_routed_to_official_contractor(self):
+        ticket = self._create(failure_type="hardware")
+        self.assertEqual(ticket.assigned_contractor_id, self.contractor.pk)
+        self.assertTrue(
+            visible_tickets(self.technician).filter(pk=ticket.pk).exists()
+        )
+        self.assertTrue(can_manage_ticket(self.technician, ticket))
+
