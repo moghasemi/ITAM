@@ -327,19 +327,24 @@ def feedback_reply(request, pk: int):
 
 @login_required
 def referral_list(request):
-    _require_it_staff(request.user)
+    if not request.user.is_authenticated:
+        raise PermissionDenied("ورود به سامانه الزامی است.")
     rows = GeneralReferral.objects.select_related("center", "repair_request", "created_by")
+    can_create = request.user.has_role(User.ROLE_ADMIN_IT)
     if not request.user.is_admin_country:
         from django.db.models import Q
-        rows = rows.filter(
-            Q(center__in=request.user.get_scoped_centers()) | Q(recipient_user=request.user)
-        )
+        if can_create:
+            rows = rows.filter(
+                Q(center__in=request.user.get_scoped_centers()) | Q(recipient_user=request.user)
+            )
+        else:
+            rows = rows.filter(recipient_user=request.user)
     return render(request, "maintenance/workflow_list.html", {
         "page_title": "ارجاع‌های عمومی",
         "kind": "referrals",
         "rows": rows,
         "active_menu": "referrals",
-        "can_create": True,
+        "can_create": can_create,
     })
 
 
@@ -389,8 +394,10 @@ def _visible_it_requests(user):
         return GeneralITRequest.objects.none()
     if user.is_admin_country:
         return GeneralITRequest.objects.all()
-    if user.role in (User.ROLE_REQUESTER, User.ROLE_MANAGER):
+    if user.role == User.ROLE_REQUESTER:
         return GeneralITRequest.objects.filter(requested_by=user)
+    if user.role == User.ROLE_MANAGER:
+        return GeneralITRequest.objects.filter(center_id=user.center_id)
     return GeneralITRequest.objects.filter(center__in=user.get_scoped_centers()) | GeneralITRequest.objects.filter(requested_by=user)
 
 
