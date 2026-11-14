@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.assets.models import Asset, AssetCategory
-from apps.org.models import Center, Contract, Contractor, OrganizationalUnit
+from apps.org.models import Center, Contract, ContractCenterAssignment, Contractor, OrganizationalUnit
 
 from .forms import VisitForm
 from .models import MaintenanceVisit, VisitAssetCheck
@@ -56,7 +56,17 @@ class ProvincialMaintenanceScopeTests(TestCase):
             end_date=timezone.localdate() + dt.timedelta(days=100),
             visit_interval_days=30,
         )
+        cls.provincial_admin = User.objects.create_user(
+            username="maintenance-provincial-admin", password="TestPass!9382",
+            role=User.ROLE_ADMIN_PROVINCE, org_unit=cls.province,
+        )
         cls.contract.centers.add(cls.center, cls.other_center)
+        ContractCenterAssignment.objects.create(
+            contract=cls.contract, center=cls.center,
+            start_date=timezone.localdate(),
+            status=ContractCenterAssignment.STATUS_ACTIVE,
+            assigned_by=cls.provincial_admin,
+        )
         category = AssetCategory.objects.create(name="Maintenance Test Category", code="MNT")
         cls.asset = Asset.objects.create(
             asset_tag="MNT-ASSET-1", category=category, contract=cls.contract,
@@ -73,10 +83,6 @@ class ProvincialMaintenanceScopeTests(TestCase):
         )
         cls.own_check = VisitAssetCheck.objects.create(visit=cls.visit, asset=cls.asset)
         cls.foreign_check = VisitAssetCheck.objects.create(visit=cls.visit, asset=cls.other_asset)
-        cls.provincial_admin = User.objects.create_user(
-            username="maintenance-provincial-admin", password="TestPass!9382",
-            role=User.ROLE_ADMIN_PROVINCE, org_unit=cls.province,
-        )
         cls.center_it = User.objects.create_user(
             username="maintenance-center-it", password="TestPass!9382",
             role=User.ROLE_ADMIN_IT, center=cls.center,
@@ -157,6 +163,18 @@ class ProvincialMaintenanceScopeTests(TestCase):
             start_date=timezone.localdate() - dt.timedelta(days=10),
             end_date=timezone.localdate() + dt.timedelta(days=100),
             visit_interval_days=30,
+        )
+        province_admin_b = User.objects.create_user(
+            username="maintenance-province-b-admin",
+            password="TestPass!9382",
+            role=User.ROLE_ADMIN_PROVINCE,
+            org_unit=self.other_center.parent_unit.parent,
+        )
+        ContractCenterAssignment.objects.create(
+            contract=second_contract, center=self.other_center,
+            start_date=timezone.localdate(),
+            status=ContractCenterAssignment.STATUS_ACTIVE,
+            assigned_by=province_admin_b,
         )
         technician = User.objects.create_user(
             username="maintenance-multi-province-tech",
@@ -251,6 +269,12 @@ class ProvincialMaintenanceScopeTests(TestCase):
             parent_unit=self.center.parent_unit,
         )
         self.contract.centers.add(second_center)
+        ContractCenterAssignment.objects.create(
+            contract=self.contract, center=second_center,
+            start_date=timezone.localdate(),
+            status=ContractCenterAssignment.STATUS_ACTIVE,
+            assigned_by=self.provincial_admin,
+        )
         it_a = User.objects.create_user(
             username="maintenance-it-a", password="pass12345",
             role=User.ROLE_ADMIN_IT, center=self.center,
