@@ -1,4 +1,5 @@
 import apps.core.validators
+import apps.maintenance.repair_models
 import django.core.validators
 import django.db.models.deletion
 from django.conf import settings
@@ -36,7 +37,7 @@ class Migration(migrations.Migration):
             options={"verbose_name": "تعمیرکار مستقل", "verbose_name_plural": "تعمیرکاران مستقل", "ordering": ("name",)},
         ),
         migrations.AddIndex(
-            model_name="independentre pairer".replace(" ", ""),
+            model_name="independentrepairer",
             index=models.Index(fields=["province", "is_active"], name="maint_repairer_prov_active_idx"),
         ),
         migrations.CreateModel(
@@ -45,7 +46,7 @@ class Migration(migrations.Migration):
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
                 ("created_at", models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="زمان ثبت")),
                 ("updated_at", models.DateTimeField(auto_now=True, verbose_name="آخرین ویرایش")),
-                ("number", models.CharField(default=__import__("apps.maintenance.repair_models", fromlist=["_repair_number"])._repair_number, max_length=32, unique=True, verbose_name="شماره درخواست")),
+                ("number", models.CharField(default=apps.maintenance.repair_models._repair_number, max_length=32, unique=True, verbose_name="شماره درخواست")),
                 ("repairer_name_snapshot", models.CharField(max_length=200, verbose_name="نام تعمیرکار هنگام ارجاع")),
                 ("fault_description", models.TextField(verbose_name="شرح خرابی")),
                 ("referral_reason", models.TextField(verbose_name="دلیل ارجاع")),
@@ -66,8 +67,7 @@ class Migration(migrations.Migration):
                 ("asset", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="independent_repairs", to="assets.asset", verbose_name="دارایی")),
                 ("center", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="repair_requests", to="org.center", verbose_name="مرکز")),
                 ("cost_increase_approved_by", models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name="approved_repair_cost_increases", to=settings.AUTH_USER_MODEL, verbose_name="تاییدکننده افزایش هزینه")),
-                ("estimate_attachment", models.FileField(blank=True, upload_to="repairs/estimates/%Y/%m/", validators=[apps.core.validators.validate_document_file], verbose_name="پیوست برآورد")),
-                ("repairer", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="repair_requests", to="maintenance.independentre pairer".replace(" ", ""), verbose_name="تعمیرکار مستقل")),
+                ("repairer", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="repair_requests", to="maintenance.independentrepairer", verbose_name="تعمیرکار مستقل")),
                 ("requested_by", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="created_repair_requests", to=settings.AUTH_USER_MODEL, verbose_name="کارشناس ارجاع‌دهنده")),
             ],
             options={"verbose_name": "درخواست تعمیر مستقل", "verbose_name_plural": "درخواست‌های تعمیر مستقل", "ordering": ("-created_at",)},
@@ -148,7 +148,7 @@ class Migration(migrations.Migration):
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
                 ("created_at", models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="زمان ثبت")),
                 ("updated_at", models.DateTimeField(auto_now=True, verbose_name="آخرین ویرایش")),
-                ("number", models.CharField(default=__import__("apps.maintenance.repair_models", fromlist=["_request_number"])._request_number, max_length=32, unique=True, verbose_name="شماره درخواست")),
+                ("number", models.CharField(default=apps.maintenance.repair_models._request_number, max_length=32, unique=True, verbose_name="شماره درخواست")),
                 ("request_type", models.CharField(choices=[("equipment", "درخواست تامین تجهیز"), ("replacement", "درخواست جایگزینی تجهیز"), ("issue", "گزارش مسئله / کمبود")], max_length=20, verbose_name="نوع درخواست")),
                 ("title", models.CharField(max_length=200, verbose_name="عنوان")),
                 ("description", models.TextField(verbose_name="شرح درخواست")),
