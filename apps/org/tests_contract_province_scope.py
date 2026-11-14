@@ -1,4 +1,7 @@
 from datetime import timedelta
+from io import StringIO
+
+from django.core.management import call_command
 
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -155,6 +158,18 @@ class TechnicianProvinceContractScopeTests(TestCase):
         self.assign(contract, self.center_a1)
         self.assign(contract, self.center_a2)
         self.assertEqual(self.scoped_ids(), {self.center_a2.pk})
+
+    def test_legacy_contract_assignment_audit_is_read_only(self):
+        contract = self.make_contract("CON-LEGACY-AUDIT", self.province_a)
+        contract.centers.add(self.center_a1)
+        output = StringIO()
+
+        call_command("audit_contract_center_assignments", stdout=output)
+
+        self.assertIn("CON-LEGACY-AUDIT", output.getvalue())
+        self.assertEqual(
+            ContractCenterAssignment.objects.filter(contract=contract).count(), 0
+        )
 
     def test_contract_cannot_cover_a_center_in_another_province(self):
         contract = self.make_contract("CON-COVER", self.province_a)
