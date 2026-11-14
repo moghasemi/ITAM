@@ -339,17 +339,23 @@ def feedback_reply(request, pk: int):
 def referral_list(request):
     if not request.user.is_authenticated:
         raise PermissionDenied("ورود به سامانه الزامی است.")
-    rows = GeneralReferral.objects.select_related("center", "repair_request", "created_by")
+    rows = GeneralReferral.objects.select_related("center", "province", "repair_request", "created_by")
     can_create = request.user.role == User.ROLE_ADMIN_IT or request.user.is_admin_province
     if not request.user.is_admin_country:
         from django.db.models import Q
         if can_create:
+            scoped_centers = request.user.get_scoped_centers()
+            province_ids = scoped_centers.values_list("treatment_management__province_id", flat=True).distinct()
             rows = rows.filter(
-                Q(center__in=request.user.get_scoped_centers()) | Q(recipient_user=request.user)
+                Q(center__in=scoped_centers)
+                | Q(province_id__in=province_ids)
+                | Q(recipient_user=request.user)
             )
         else:
             rows = rows.filter(recipient_user=request.user)
-    scoped_center_ids = set(request.user.get_scoped_centers().values_list("pk", flat=True))
+    scoped_centers = request.user.get_scoped_centers()
+    scoped_center_ids = set(scoped_centers.values_list("pk", flat=True))
+    scoped_province_ids = set(scoped_centers.values_list("treatment_management__province_id", flat=True))
     rows = list(rows)
     for row in rows:
         row.can_resolve = (
@@ -357,7 +363,10 @@ def referral_list(request):
             or row.recipient_user_id == request.user.pk
             or (
                 request.user.is_admin_province
-                and row.center_id in scoped_center_ids
+                and (
+                    row.province_id in scoped_province_ids
+                    or row.center_id in scoped_center_ids
+                )
             )
         )
     return render(request, "maintenance/workflow_list.html", {
@@ -398,16 +407,26 @@ def referral_resolve(request, pk: int):
     if not request.user.is_admin_country:
         from django.db.models import Q
         if request.user.is_admin_province or request.user.role == User.ROLE_ADMIN_IT:
+            scoped_centers = request.user.get_scoped_centers()
+            province_ids = scoped_centers.values_list("treatment_management__province_id", flat=True).distinct()
             referrals = referrals.filter(
-                Q(center__in=request.user.get_scoped_centers()) | Q(recipient_user=request.user)
+                Q(center__in=scoped_centers)
+                | Q(province_id__in=province_ids)
+                | Q(recipient_user=request.user)
             )
         else:
             referrals = referrals.filter(recipient_user=request.user)
     referral = get_object_or_404(referrals, pk=pk)
-    if referral.center_id and not request.user.is_admin_country:
-        province_manager = (
-            request.user.is_admin_province
-            and request.user.get_scoped_centers().filter(pk=referral.center_id).exists()
+    if not request.user.is_admin_country:
+        province_ids = set(request.user.get_scoped_centers().values_list(
+            "treatment_management__province_id", flat=True
+        ))
+        province_manager = request.user.is_admin_province and (
+            referral.province_id in province_ids
+            or (
+                referral.center_id
+                and request.user.get_scoped_centers().filter(pk=referral.center_id).exists()
+            )
         )
         if not (province_manager or referral.recipient_user_id == request.user.pk):
             raise PermissionDenied("تعیین تکلیف ارجاع فقط برای مدیر استان یا کاربر گیرنده مجاز است.")
