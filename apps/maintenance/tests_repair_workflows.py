@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.core.models import AuditLog
 from apps.assets.models import Asset, AssetCategory
 from apps.maintenance.repair_models import (
     GeneralITRequest, IndependentRepairer, RepairFeedback, RepairerProfileEvent,
@@ -18,12 +19,14 @@ from apps.maintenance.repair_services import (
     assign_general_it_request,
     complete_repair_request,
     create_general_it_request,
+    create_referral,
     create_repair_request,
     decide_repair_request,
     end_contractor_assignment,
     escalate_general_it_request,
     manager_decide_general_it_request,
     resolve_general_it_request,
+    resolve_referral,
     resolve_repair_cost_dispute,
     resubmit_repair_request,
     set_repairer_active,
@@ -259,6 +262,31 @@ class RepairAndReferralWorkflowTests(TestCase):
         event = RepairerProfileEvent.objects.get(repairer=self.repairer, action="updated")
         self.assertEqual(event.previous_values["name"], "تعمیرکار نمونه استان")
         self.assertEqual(event.new_values["name"], "تعمیرکار نمونه ویرایش‌شده")
+
+    def test_general_referral_creation_and_resolution_are_audited(self):
+        referral = create_referral(
+            subject="ارجاع نمونه برای تامین قطعه",
+            description="نیازمند بررسی مالی استان",
+            recipient_role="مسئول مالی استان",
+            recipient_name="مسئول مالی نمونه",
+            center=self.center,
+            actor=self.province_admin,
+        )
+        self.assertTrue(AuditLog.objects.filter(
+            model_name="GeneralReferral", object_id=str(referral.pk), action="create"
+        ).exists())
+
+        resolve_referral(
+            referral=referral,
+            outcome="اعتبار تامین قطعه تایید شد.",
+            instruction="پرداخت پس از ارائه فاکتور رسمی انجام شود.",
+            actor=self.province_admin,
+        )
+        referral.refresh_from_db()
+        self.assertEqual(referral.status, GeneralReferral.STATUS_RESOLVED)
+        self.assertTrue(AuditLog.objects.filter(
+            model_name="GeneralReferral", object_id=str(referral.pk), action="resolve"
+        ).exists())
 
     def test_contractor_assignment_is_unique_and_history_is_retained(self):
         contractor = Contractor.objects.create(name="پیمانکار رسمی گردش")
