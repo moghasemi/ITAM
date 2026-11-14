@@ -168,7 +168,7 @@ class Migration(migrations.Migration):
             ],
             options={"verbose_name": "درخواست عمومی فناوری اطلاعات", "verbose_name_plural": "درخواست‌های عمومی فناوری اطلاعات", "ordering": ("-created_at",)},
         ),
-        migrations.AddIndex(model_name="generalitrequest", index=models.Index(fields=["center", "status"], name="maint_itrequest_center_status_idx")),
+        migrations.AddIndex(model_name="generalitrequest", index=models.Index(fields=["center", "status"], name="maint_itreq_center_status_idx")),
         migrations.CreateModel(
             name="GeneralITRequestEvent",
             fields=[
