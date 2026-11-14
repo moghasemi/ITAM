@@ -9,6 +9,7 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.views.generic import CreateView
 
 from apps.core.constants import TICKET_OPEN_STATUSES
 from apps.accounts.permissions import (
