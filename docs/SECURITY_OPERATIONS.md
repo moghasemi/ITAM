@@ -57,7 +57,15 @@ Workflow با Python 3.11 و 3.12 این مراحل را اجرا می‌کند:
 1. نصب وابستگی‌ها
 2. `python manage.py check`
 3. `python manage.py makemigrations --check --dry-run`
-4. `python manage.py test --verbosity 2`
+4. `python manage.py test --verbosity 2` on SQLite with Python 3.11 and 3.12.\n5. The same system checks, migration consistency check and full test suite against PostgreSQL 16 with Python 3.12.
+
+
+## وضعیت آزمون‌های مخزن در 2026-11-14
+
+- اجرای CI روی شاخه اصلاح گردش کار با Python 3.11 و 3.12 موفق شد؛ هر نسخه 253 تست را با نتیجه OK اجرا کرد.
+- اعتبارسنجی نحوی PowerShell و JavaScript عامل HWAgent و guard مربوط به launcher تولید نیز موفق شد.
+- یک job مستقل PostgreSQL 16 به CI افزوده شده است تا migrationها و مجموعه کامل تست‌ها روی پایگاه هدف نیز اجرا شوند؛ نتیجه این job باید پیش از پذیرش PR مربوط بررسی شود.
+- این نتایج جایگزین آزمون میدانی Windows/HWAgent، آزمون TLS و Reverse Proxy، تمرین Backup/Restore یا پذیرش کاربر در محیط واقعی نیستند.
 
 ## مواردی که هنوز نیازمند تکمیل/تأیید عملیاتی هستند
 
