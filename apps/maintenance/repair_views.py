@@ -111,12 +111,13 @@ def repairer_update(request, pk: int):
     form = IndependentRepairerForm(request.POST or None, instance=obj, user=request.user)
     if request.method == "POST" and form.is_valid():
         fields = ("name", "kind", "national_id", "phone", "email", "address", "specialties", "notes")
+        changed_fields = set(form.changed_data).intersection(fields)
         previous = {field: getattr(obj, field) for field in fields}
         changed = form.save(commit=False)
         changed.updated_by = request.user
         changed.save()
         current = {field: getattr(changed, field) for field in fields}
-        if previous != current:
+        if changed_fields:
             RepairerProfileEvent.objects.create(
                 repairer=changed, action="updated",
                 previous_values=previous, new_values=current, actor=request.user,
