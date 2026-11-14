@@ -12,6 +12,7 @@ from django.urls import reverse
 from apps.accounts.models import User
 from apps.core.models import Notification
 from apps.core.utils import log_action
+from apps.core.validators import validate_document_file
 from apps.org.models import ContractCenterAssignment, OrganizationalUnit
 
 from .repair_models import (
@@ -389,6 +390,7 @@ def resolve_repair_cost_dispute(*, repair, decision, note, actor, attachment=Non
     previous = repair.status
     repair.cost_dispute_resolution = note.strip()
     if attachment:
+        validate_document_file(attachment)
         repair.cost_dispute_attachment = attachment
     if decision == "approve_increase":
         repair.cost_increase_approved_by = actor
@@ -485,6 +487,7 @@ def resolve_referral(*, referral, outcome, instruction, actor, attachment=None):
     referral.outcome = outcome.strip()
     referral.instruction = (instruction or "").strip()
     if attachment:
+        validate_document_file(attachment)
         referral.resolution_attachment = attachment
     referral.resolved_by = actor
     referral.resolved_at = timezone.now()
