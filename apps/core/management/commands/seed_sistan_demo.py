@@ -141,8 +141,8 @@ class Command(BaseCommand):
         except Exception as exc:
             raise CommandError(f"گذرواژه نمونه معیارهای امنیتی را ندارد: {exc}") from exc
         assets_per_center = options["assets_per_center"]
-        if assets_per_center < 2 or assets_per_center > 50:
-            raise CommandError("--assets-per-center باید بین ۲ و ۵۰ باشد.")
+        if assets_per_center < 4 or assets_per_center > 50:
+            raise CommandError("--assets-per-center باید بین ۴ و ۵۰ باشد.")
         rows = self._load_centers(options["centers_file"])
 
         self.stdout.write(self.style.MIGRATE_HEADING("۱) بارگذاری جغرافیا و مدیریت درمان"))
@@ -347,6 +347,11 @@ class Command(BaseCommand):
                 )
                 assets.append(asset)
             assets_by_center[code] = assets
+
+        from apps.maintenance.services import generate_visits
+        for contract in contracts.values():
+            if not contract.visits.exists():
+                generate_visits(contract, user=province_admin, populate=True)
 
         self.stdout.write(self.style.MIGRATE_HEADING("۶) تعمیرکاران مستقل و گردش تعمیر"))
         repairer_company, _ = IndependentRepairer.objects.get_or_create(
