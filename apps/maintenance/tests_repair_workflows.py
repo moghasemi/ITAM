@@ -132,6 +132,30 @@ class RepairAndReferralWorkflowTests(TestCase):
         self.assertEqual(repair.status, RepairRequest.STATUS_RESOLVED)
         self.assertEqual(repair.cost_increase_approved_by_id, self.province_admin.pk)
 
+    def test_rejected_cost_increase_keeps_repair_open_as_disputed(self):
+        repair = self._repair()
+        repair = decide_repair_request(
+            repair=repair, decision="approve", note="تایید اولیه",
+            actor=self.province_admin,
+        )
+        repair = complete_repair_request(
+            repair=repair, actor=self.it_expert,
+            outcome="تعمیر انجام شد",
+            final_cost=Decimal("1250000"),
+            final_cost_reason="افزایش قیمت قطعه",
+            work_quality=4, completion_speed=4, cost_fairness=2,
+        )
+        repair = resolve_repair_cost_dispute(
+            repair=repair, decision="reject_increase",
+            note="افزایش هزینه تایید نشد؛ اختلاف مبلغ باید تعیین تکلیف مالی شود.",
+            actor=self.province_admin,
+        )
+        repair.refresh_from_db()
+        self.assertEqual(repair.status, RepairRequest.STATUS_DISPUTED)
+        self.assertEqual(repair.cost_dispute_resolution, "افزایش هزینه تایید نشد؛ اختلاف مبلغ باید تعیین تکلیف مالی شود.")
+        self.assertIsNone(repair.cost_increase_approved_by_id)
+        self.assertTrue(repair.events.filter(action="cost_increase_rejected").exists())
+
     def test_returned_request_can_be_resubmitted_but_final_rejection_cannot(self):
         repair = self._repair()
         repair = decide_repair_request(
