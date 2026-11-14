@@ -138,10 +138,22 @@ def visible_checks(user, visit: MaintenanceVisit):
     )
     if user.is_superuser or user.role == User.ROLE_ADMIN_COUNTRY:
         return checks
-    return checks.filter(
+    checks = checks.filter(
         asset__center__in=user.get_scoped_centers(),
         asset__center__treatment_management__province_id=F("visit__contract__province_id"),
     )
+    if user.role == User.ROLE_TECHNICIAN:
+        from apps.org.models import ContractCenterAssignment
+        today = timezone.localdate()
+        assigned_centers = ContractCenterAssignment.objects.filter(
+            contract=visit.contract,
+            status=ContractCenterAssignment.STATUS_ACTIVE,
+            start_date__lte=today,
+        ).filter(
+            Q(end_date__isnull=True) | Q(end_date__gte=today)
+        ).values("center_id")
+        checks = checks.filter(asset__center_id__in=assigned_centers)
+    return checks
 
 
 def can_confirm_visit(user, visit: MaintenanceVisit) -> bool:
