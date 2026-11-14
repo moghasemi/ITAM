@@ -406,7 +406,7 @@ class GeneralITRequest(TimeStampedModel):
         verbose_name = "درخواست عمومی فناوری اطلاعات"
         verbose_name_plural = "درخواست‌های عمومی فناوری اطلاعات"
         ordering = ("-created_at",)
-        indexes = [models.Index(fields=("center", "status"), name="maint_repair_center_status_idx")]
+        indexes = [models.Index(fields=("center", "status"), name="maint_itreq_center_status_idx")]
 
     def __str__(self):
         return f"{self.number} — {self.title}"
