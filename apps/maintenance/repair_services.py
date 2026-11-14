@@ -481,6 +481,8 @@ def resolve_referral(*, referral, outcome, instruction, actor, attachment=None):
             raise PermissionDenied("ارجاع خارج از حوزه مجاز شماست.")
     elif not (_is_country_admin(actor) or referral.recipient_user_id == actor.pk):
         raise PermissionDenied("ارجاع سراسری فقط توسط کاربر گیرنده یا مدیر کشوری قابل تعیین تکلیف است.")
+    if referral.status != GeneralReferral.STATUS_OPEN:
+        raise ValidationError("ارجاع قبلاً تعیین تکلیف شده و قابل بازنویسی نیست.")
     if not (outcome or "").strip():
         raise ValidationError("ثبت نتیجه پیگیری الزامی است.")
     referral.status = GeneralReferral.STATUS_RESOLVED
