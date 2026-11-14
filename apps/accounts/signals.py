@@ -9,12 +9,14 @@ from django.utils import timezone
 
 from apps.core.middleware import client_ip
 from apps.core.models import AuditLog
+from .rate_limit import clear_login_failures, record_login_failure
 
 
 @receiver(user_logged_in)
 def _on_login(sender, request, user, **kwargs):
     User = sender
     User.objects.filter(pk=user.pk).update(last_seen_at=timezone.now())
+    clear_login_failures(user.get_username())
     AuditLog.objects.create(
         user=user,
         user_label=str(user),
@@ -47,12 +49,14 @@ def _on_logout(sender, request, user, **kwargs):
 @receiver(user_login_failed)
 def _on_login_failed(sender, credentials, request=None, **kwargs):
     username = (credentials or {}).get("username", "")
+    ip_address = client_ip(request) if request else None
+    record_login_failure(username, ip_address)
     AuditLog.objects.create(
         user=None,
         user_label=username or "ناشناس",
         action=AuditLog.ACTION_LOGIN_FAILED,
         model_name="User",
         object_label=username,
-        ip_address=client_ip(request) if request else None,
+        ip_address=ip_address,
         note="تلاش ناموفق برای ورود",
     )
