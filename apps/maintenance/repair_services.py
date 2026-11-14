@@ -82,7 +82,7 @@ def visible_repairers(user):
         return IndependentRepairer.objects.none()
     if _is_country_admin(user):
         return IndependentRepairer.objects.all()
-    if (user.is_admin_province or user.has_role(User.ROLE_ADMIN_IT)) and _province_id_for_user(user):
+    if (user.is_admin_province or user.role == User.ROLE_ADMIN_IT) and _province_id_for_user(user):
         return IndependentRepairer.objects.filter(province_id=_province_id_for_user(user))
     province_ids = user.get_scoped_centers().values("treatment_management__province_id")
     return IndependentRepairer.objects.filter(province_id__in=province_ids).distinct()
@@ -112,7 +112,7 @@ def set_repairer_active(*, repairer, active, reason, actor):
         raise ValidationError("برای فعال یا غیرفعال کردن تعمیرکار، ثبت دلیل الزامی است.")
     if not actor or not actor.is_authenticated:
         raise PermissionDenied("کاربر معتبر لازم است.")
-    if not (actor.is_admin_province or actor.has_role(User.ROLE_ADMIN_IT)):
+    if not (actor.is_admin_province or actor.role == User.ROLE_ADMIN_IT):
         raise PermissionDenied("اجازه مدیریت تعمیرکاران مستقل را ندارید.")
     if not visible_repairers(actor).filter(pk=repairer.pk).exists():
         raise PermissionDenied("تعمیرکار خارج از حوزه مجاز شماست.")
@@ -219,7 +219,7 @@ def _record_repair_event(repair, action, note, actor, previous="", metadata=None
 @transaction.atomic
 def create_repair_request(*, center, asset, repairer, fault_description,
                           referral_reason, estimate_amount, actor, estimate_attachment=None):
-    if not actor or not actor.is_authenticated or not actor.has_role(User.ROLE_ADMIN_IT):
+    if not actor or not actor.is_authenticated or (actor.role != User.ROLE_ADMIN_IT and not actor.is_admin_country):
         raise PermissionDenied("ثبت درخواست تعمیر فقط برای کارشناس فناوری اطلاعات مرکز مجاز است.")
     if not _can_manage_center(actor, center):
         raise PermissionDenied("مرکز خارج از حوزه مجاز شماست.")
@@ -294,7 +294,7 @@ def decide_repair_request(*, repair, decision, note, actor):
 def resubmit_repair_request(*, repair, actor, fault_description=None,
                             referral_reason=None, estimate_amount=None,
                             estimate_attachment=None):
-    if not _can_manage_center(actor, repair.center) or not actor.has_role(User.ROLE_ADMIN_IT):
+    if not _can_manage_center(actor, repair.center) or (actor.role != User.ROLE_ADMIN_IT and not actor.is_admin_country):
         raise PermissionDenied("فقط کارشناس IT همان مرکز می‌تواند درخواست را اصلاح کند.")
     if repair.status != RepairRequest.STATUS_RETURNED:
         raise ValidationError("فقط درخواست عودت‌شده قابل اصلاح و ارسال مجدد است.")
@@ -451,11 +451,13 @@ def create_referral(*, subject, description, recipient_role, recipient_name,
 def resolve_referral(*, referral, outcome, instruction, actor):
     if not actor or not actor.is_authenticated:
         raise PermissionDenied("ورود به سامانه الزامی است.")
+    if referral.recipient_user_id and referral.recipient_user_id != actor.pk and not _is_country_admin(actor):
+        raise PermissionDenied("این ارجاع به کاربر دیگری واگذار شده است.")
     if referral.center_id:
-        if not _is_country_admin(actor) and referral.recipient_user_id != actor.pk and not actor.get_scoped_centers().filter(pk=referral.center_id).exists():
+        if not _is_country_admin(actor) and not actor.get_scoped_centers().filter(pk=referral.center_id).exists():
             raise PermissionDenied("ارجاع خارج از حوزه مجاز شماست.")
-    elif not (_is_country_admin(actor) or _is_province_admin(actor) or actor.has_role(User.ROLE_ADMIN_IT)):
-        raise PermissionDenied("تعیین تکلیف ارجاع سراسری فقط برای مسئولان فناوری اطلاعات مجاز است.")
+    elif not (_is_country_admin(actor) or referral.recipient_user_id == actor.pk):
+        raise PermissionDenied("ارجاع سراسری فقط توسط کاربر گیرنده یا مدیر کشوری قابل تعیین تکلیف است.")
     if not (outcome or "").strip():
         raise ValidationError("ثبت نتیجه پیگیری الزامی است.")
     referral.status = GeneralReferral.STATUS_RESOLVED
@@ -521,7 +523,7 @@ def create_general_it_request(*, center, request_type, title, description, actor
 
 @transaction.atomic
 def assign_general_it_request(*, request, expert, actor):
-    if not actor.has_role(User.ROLE_ADMIN_IT) or not _can_manage_center(actor, request.center):
+    if (actor.role != User.ROLE_ADMIN_IT and not actor.is_admin_country) or not _can_manage_center(actor, request.center):
         raise PermissionDenied("فقط کارشناس IT مجاز همان مرکز می‌تواند درخواست را ارجاع دهد.")
     if expert.role != User.ROLE_ADMIN_IT or not expert.is_active or expert.center_id != request.center_id:
         raise ValidationError("کارشناس انتخاب‌شده باید فعال و متعلق به همان مرکز باشد.")
@@ -579,7 +581,7 @@ def manager_decide_general_it_request(*, request, decision, note, actor):
 
 @transaction.atomic
 def escalate_general_it_request(*, request, actor, bypass_reason=""):
-    if not actor.has_role(User.ROLE_ADMIN_IT) or not _can_manage_center(actor, request.center):
+    if (actor.role != User.ROLE_ADMIN_IT and not actor.is_admin_country) or not _can_manage_center(actor, request.center):
         raise PermissionDenied("فقط کارشناس IT همان مرکز می‌تواند درخواست را به استان ارسال کند.")
     if request.status in (GeneralITRequest.STATUS_REJECTED, GeneralITRequest.STATUS_RESOLVED):
         raise ValidationError("درخواست ردشده یا مختومه قابل ارسال مجدد نیست.")
