@@ -11,7 +11,7 @@ from apps.accounts.models import User
 from apps.core.models import AuditLog
 from apps.assets.models import Asset, AssetCategory
 from apps.maintenance.repair_models import (
-    GeneralITRequest, IndependentRepairer, RepairFeedback, RepairerProfileEvent,
+    GeneralITRequest, GeneralReferral, IndependentRepairer, RepairFeedback, RepairerProfileEvent,
     RepairRequest, RepairerStatusEvent,
 )
 from apps.maintenance.repair_services import (
