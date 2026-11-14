@@ -321,6 +321,11 @@ class GeneralReferral(TimeStampedModel):
         "org.Center", on_delete=models.PROTECT, related_name="general_referrals",
         verbose_name="مرکز", null=True, blank=True,
     )
+    province = models.ForeignKey(
+        "org.OrganizationalUnit", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="general_referrals", verbose_name="استان مسئول",
+        limit_choices_to={"unit_type": "province"},
+    )
     repair_request = models.ForeignKey(
         RepairRequest, on_delete=models.PROTECT, related_name="referrals",
         verbose_name="درخواست تعمیر مرتبط", null=True, blank=True,
