@@ -438,15 +438,26 @@ def create_referral(*, subject, description, recipient_role, recipient_name,
                     attachment=None):
     if not actor or not actor.is_authenticated:
         raise PermissionDenied("ورود به سامانه الزامی است.")
-    if center and not _can_manage_center(actor, center):
-        raise PermissionDenied("مرکز خارج از حوزه مجاز شماست.")
     if repair_request and not visible_repair_requests(actor).filter(pk=repair_request.pk).exists():
         raise PermissionDenied("درخواست تعمیر خارج از حوزه مجاز شماست.")
+    if repair_request and not center:
+        center = repair_request.center
+    if center and not _can_manage_center(actor, center):
+        raise PermissionDenied("مرکز خارج از حوزه مجاز شماست.")
+    province_id = (
+        _province_id_for_center(center) if center
+        else (_province_id_for_user(actor) or _province_id_for_user(recipient_user))
+    )
+    province = None
+    if province_id:
+        province = OrganizationalUnit.objects.filter(
+            pk=province_id, unit_type=OrganizationalUnit.UNIT_PROVINCE
+        ).first()
     referral = GeneralReferral(
         subject=subject.strip(), description=description.strip(),
         recipient_role=recipient_role.strip(), recipient_name=recipient_name.strip(),
-        center=center, repair_request=repair_request, recipient_user=recipient_user,
-        attachment=attachment or "", created_by=actor,
+        center=center, province=province, repair_request=repair_request,
+        recipient_user=recipient_user, attachment=attachment or "", created_by=actor,
     )
     referral.full_clean()
     referral.save()
@@ -472,15 +483,16 @@ def create_referral(*, subject, description, recipient_role, recipient_name,
 def resolve_referral(*, referral, outcome, instruction, actor, attachment=None):
     if not actor or not actor.is_authenticated:
         raise PermissionDenied("ورود به سامانه الزامی است.")
-    if referral.center_id:
-        province_manager = (
-            _is_province_admin(actor)
-            and actor.get_scoped_centers().filter(pk=referral.center_id).exists()
-        )
-        if not (_is_country_admin(actor) or province_manager or referral.recipient_user_id == actor.pk):
-            raise PermissionDenied("تعیین تکلیف ارجاع فقط برای مدیر استان یا کاربر گیرنده مجاز است.")
-    elif not (_is_country_admin(actor) or referral.recipient_user_id == actor.pk):
-        raise PermissionDenied("ارجاع سراسری فقط توسط کاربر گیرنده یا مدیر کشوری قابل تعیین تکلیف است.")
+    referral_province_id = referral.province_id or (
+        _province_id_for_center(referral.center) if referral.center_id else None
+    )
+    province_manager = (
+        _is_province_admin(actor)
+        and referral_province_id is not None
+        and _province_id_for_user(actor) == referral_province_id
+    )
+    if not (_is_country_admin(actor) or province_manager or referral.recipient_user_id == actor.pk):
+        raise PermissionDenied("تعیین تکلیف ارجاع فقط برای مدیر استان، کاربر گیرنده یا مدیر کشوری مجاز است.")
     if referral.status != GeneralReferral.STATUS_OPEN:
         raise ValidationError("ارجاع قبلاً تعیین تکلیف شده و قابل بازنویسی نیست.")
     if not (outcome or "").strip():
