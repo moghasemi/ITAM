@@ -11,6 +11,7 @@ from django.urls import reverse
 
 from apps.accounts.models import User
 from apps.core.models import Notification
+from apps.core.utils import log_action
 from apps.org.models import ContractCenterAssignment, OrganizationalUnit
 
 from .repair_models import (
@@ -158,6 +159,15 @@ def assign_contractor_to_center(*, contract, center, start_date, actor):
         raise ValidationError(
             "این مرکز هم‌اکنون پیمانکار رسمی فعال دارد؛ ابتدا انتساب قبلی را با ثبت دلیل پایان دهید."
         ) from exc
+    log_action(
+        "assign", assignment,
+        changes={
+            "center": {"از": "", "به": str(center)},
+            "contract": {"از": "", "به": contract.number},
+        },
+        note="انتساب پیمانکار رسمی به مرکز ثبت شد.",
+        user=actor,
+    )
     return assignment
 
 
@@ -182,6 +192,15 @@ def end_contractor_assignment(*, assignment, reason, actor, end_date=None):
     locked.save(update_fields=[
         "status", "end_date", "ended_by", "end_reason", "updated_at"
     ])
+    log_action(
+        "end", locked,
+        changes={
+            "status": {"از": ContractCenterAssignment.STATUS_ACTIVE, "به": ContractCenterAssignment.STATUS_ENDED},
+            "end_date": {"از": "", "به": str(locked.end_date)},
+        },
+        note=reason.strip(),
+        user=actor,
+    )
     return locked
 
 
@@ -410,6 +429,16 @@ def create_referral(*, subject, description, recipient_role, recipient_name,
     )
     referral.full_clean()
     referral.save()
+    log_action(
+        "create", referral,
+        changes={
+            "subject": {"از": "", "به": referral.subject},
+            "recipient_role": {"از": "", "به": referral.recipient_role},
+            "recipient_name": {"از": "", "به": referral.recipient_name},
+        },
+        note="ارجاع عمومی ثبت شد.",
+        user=actor,
+    )
     if recipient_user:
         Notification.push(
             recipient_user, "ارجاع جدید در ITAM",
@@ -437,6 +466,16 @@ def resolve_referral(*, referral, outcome, instruction, actor):
     referral.save(update_fields=[
         "status", "outcome", "instruction", "resolved_by", "resolved_at", "updated_at",
     ])
+    log_action(
+        "resolve", referral,
+        changes={
+            "status": {"از": GeneralReferral.STATUS_OPEN, "به": GeneralReferral.STATUS_RESOLVED},
+            "outcome": {"از": "", "به": referral.outcome},
+            "instruction": {"از": "", "به": referral.instruction},
+        },
+        note="ارجاع عمومی تعیین تکلیف شد.",
+        user=actor,
+    )
     recipients = [referral.created_by]
     if referral.repair_request_id:
         recipients.append(referral.repair_request.requested_by)
