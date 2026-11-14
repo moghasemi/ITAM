@@ -27,6 +27,7 @@ from apps.maintenance.repair_services import (
     resolve_repair_cost_dispute,
     resubmit_repair_request,
     set_repairer_active,
+    visible_repair_feedback,
 )
 from apps.org.models import (
     Center, Contract, ContractCenterAssignment, Contractor,
@@ -203,6 +204,61 @@ class RepairAndReferralWorkflowTests(TestCase):
         self.assertEqual(request.manager_approval, GeneralITRequest.MANAGER_APPROVED)
         request = escalate_general_it_request(request=request, actor=self.it_expert)
         self.assertEqual(request.status, GeneralITRequest.STATUS_ESCALATED)
+
+    def test_provincial_it_experts_can_see_all_feedback_in_their_province(self):
+        other_county = OrganizationalUnit.objects.create(
+            name="زابل", code="WF-COUNTY-OTHER",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
+        )
+        other_center = Center.objects.create(
+            name="مرکز دیگر استان", code="WF-CENTER-OTHER", parent_unit=other_county,
+        )
+        other_expert = User.objects.create_user(
+            username="wf-other-center-it", password="test-password",
+            role=User.ROLE_ADMIN_IT, center=other_center,
+        )
+        other_asset = Asset.objects.create(
+            asset_tag="WF-ASSET-OTHER", title="کیس مرکز دیگر",
+            category=self.category, center=other_center,
+        )
+        repair = create_repair_request(
+            center=other_center, asset=other_asset, repairer=self.repairer,
+            fault_description="خرابی نمونه", referral_reason="ارجاع نمونه",
+            estimate_amount=Decimal("500000"), actor=other_expert,
+        )
+        repair = decide_repair_request(
+            repair=repair, decision="approve", note="تایید", actor=self.province_admin,
+        )
+        complete_repair_request(
+            repair=repair, actor=other_expert, outcome="تعمیر شد",
+            final_cost=Decimal("500000"), work_quality=5,
+            completion_speed=5, cost_fairness=5,
+        )
+
+        visible = visible_repair_feedback(self.it_expert)
+        self.assertTrue(visible.filter(repair_request=repair).exists())
+
+    def test_repairer_profile_changes_are_audited_by_the_ui(self):
+        from django.urls import reverse
+
+        self.client.force_login(self.it_expert)
+        response = self.client.post(
+            reverse("maintenance:repairer_update", args=[self.repairer.pk]),
+            {
+                "kind": self.repairer.kind,
+                "name": "تعمیرکار نمونه ویرایش‌شده",
+                "national_id": "",
+                "phone": "",
+                "email": "",
+                "address": "",
+                "specialties": "تعمیر سخت‌افزار",
+                "notes": "ویرایش آزمایشی",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        event = RepairerProfileEvent.objects.get(repairer=self.repairer, action="updated")
+        self.assertEqual(event.previous_values["name"], "تعمیرکار نمونه استان")
+        self.assertEqual(event.new_values["name"], "تعمیرکار نمونه ویرایش‌شده")
 
     def test_contractor_assignment_is_unique_and_history_is_retained(self):
         contractor = Contractor.objects.create(name="پیمانکار رسمی گردش")
