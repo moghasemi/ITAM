@@ -2,6 +2,7 @@ import datetime as dt
 from decimal import Decimal
 
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
@@ -149,8 +150,10 @@ class RepairAndReferralWorkflowTests(TestCase):
             repair=repair, decision="reject_increase",
             note="افزایش هزینه تایید نشد؛ اختلاف مبلغ باید تعیین تکلیف مالی شود.",
             actor=self.province_admin,
+            attachment=SimpleUploadedFile("cost-decision.pdf", b"%PDF-1.4\ndecision"),
         )
         repair.refresh_from_db()
+        self.assertTrue(repair.cost_dispute_attachment.name.endswith("cost-decision.pdf"))
         self.assertEqual(repair.status, RepairRequest.STATUS_DISPUTED)
         self.assertEqual(repair.cost_dispute_resolution, "افزایش هزینه تایید نشد؛ اختلاف مبلغ باید تعیین تکلیف مالی شود.")
         self.assertIsNone(repair.cost_increase_approved_by_id)
@@ -295,6 +298,7 @@ class RepairAndReferralWorkflowTests(TestCase):
             recipient_name="مسئول مالی نمونه",
             center=self.center,
             actor=self.province_admin,
+            attachment=SimpleUploadedFile("initial.pdf", b"%PDF-1.4\ninitial"),
         )
         self.assertTrue(AuditLog.objects.filter(
             model_name="GeneralReferral", object_id=str(referral.pk), action="create"
@@ -305,8 +309,10 @@ class RepairAndReferralWorkflowTests(TestCase):
             outcome="اعتبار تامین قطعه تایید شد.",
             instruction="پرداخت پس از ارائه فاکتور رسمی انجام شود.",
             actor=self.province_admin,
+            attachment=SimpleUploadedFile("decision.pdf", b"%PDF-1.4\ndecision"),
         )
         referral.refresh_from_db()
+        self.assertTrue(referral.resolution_attachment.name.endswith("decision.pdf"))
         self.assertEqual(referral.status, GeneralReferral.STATUS_RESOLVED)
         self.assertTrue(AuditLog.objects.filter(
             model_name="GeneralReferral", object_id=str(referral.pk), action="resolve"
