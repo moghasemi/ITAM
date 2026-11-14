@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from django import forms
+from django.db.models import Q
 
 from apps.accounts.models import User
 from apps.assets.models import Asset
@@ -123,7 +124,17 @@ class ReferralCreateForm(StyledModelForm):
         centers = user.get_scoped_centers()
         self.fields["center"].queryset = centers
         self.fields["repair_request"].queryset = RepairRequest.objects.filter(center__in=centers)
-        self.fields["recipient_user"].queryset = User.objects.filter(is_active=True).exclude(pk=user.pk)
+        recipients = User.objects.filter(is_active=True).exclude(pk=user.pk)
+        if not user.is_admin_country:
+            province_ids = centers.values_list(
+                "treatment_management__province_id", flat=True
+            ).distinct()
+            recipients = recipients.filter(
+                Q(org_unit_id__in=province_ids)
+                | Q(org_unit__parent_id__in=province_ids)
+                | Q(center__treatment_management__province_id__in=province_ids)
+            )
+        self.fields["recipient_user"].queryset = recipients
 
 
 class ReferralResolveForm(StyledForm):
