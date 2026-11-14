@@ -51,6 +51,9 @@
         <a class="nav-item {% if active_menu == 'repairs' %}active{% endif %}" href="{% url 'maintenance:repairer_list' %}">
           <span class="nav-icon">🧰</span> تعمیرکاران مستقل
         </a>
+        <a class="nav-item {% if active_menu == 'repairs' %}active{% endif %}" href="{% url 'maintenance:feedback_list' %}">
+          <span class="nav-icon">⭐</span> ارزیابی تعمیرکاران
+        </a>
         <a class="nav-item {% if active_menu == 'referrals' %}active{% endif %}" href="{% url 'maintenance:referral_list' %}">
           <span class="nav-icon">📤</span> ارجاع‌های عمومی
         </a>
