@@ -317,6 +317,11 @@ class RepairAndReferralWorkflowTests(TestCase):
         self.assertTrue(AuditLog.objects.filter(
             model_name="GeneralReferral", object_id=str(referral.pk), action="resolve"
         ).exists())
+        with self.assertRaises(ValidationError):
+            resolve_referral(
+                referral=referral, outcome="تلاش برای بازنویسی",
+                instruction="", actor=self.province_admin,
+            )
 
     def test_global_referral_can_only_be_resolved_by_recipient_or_country_admin(self):
         referral = create_referral(
