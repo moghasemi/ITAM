@@ -394,7 +394,16 @@ def referral_create(request):
 
 @login_required
 def referral_resolve(request, pk: int):
-    referral = get_object_or_404(GeneralReferral.objects.all(), pk=pk)
+    referrals = GeneralReferral.objects.all()
+    if not request.user.is_admin_country:
+        from django.db.models import Q
+        if request.user.is_admin_province or request.user.role == User.ROLE_ADMIN_IT:
+            referrals = referrals.filter(
+                Q(center__in=request.user.get_scoped_centers()) | Q(recipient_user=request.user)
+            )
+        else:
+            referrals = referrals.filter(recipient_user=request.user)
+    referral = get_object_or_404(referrals, pk=pk)
     if referral.center_id and not request.user.is_admin_country:
         province_manager = (
             request.user.is_admin_province
