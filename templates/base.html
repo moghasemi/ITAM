@@ -66,6 +66,11 @@
           <span class="nav-icon">🏛</span> مراکز استان
         </a>
       {% endif %}
+      {% if user.is_admin_province or user.is_superuser %}
+        <a class="nav-item {% if active_menu == 'contracts' %}active{% endif %}" href="{% url 'org:assignment_list' %}">
+          <span class="nav-icon">🔗</span> انتساب پیمانکار به مراکز
+        </a>
+      {% endif %}
       {% if user.is_admin_it or user.is_manager %}
         <a class="nav-item {% if active_menu == 'contracts' %}active{% endif %}" href="{% url 'org:contract_list' %}">
           <span class="nav-icon">📄</span> قراردادها
