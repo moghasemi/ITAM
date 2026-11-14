@@ -173,6 +173,10 @@ class RepairRequest(TimeStampedModel):
     )
     final_cost_reason = models.TextField("توضیح افزایش هزینه", blank=True)
     cost_dispute_resolution = models.TextField("نتیجه تعیین تکلیف اختلاف هزینه", blank=True)
+    cost_dispute_attachment = models.FileField(
+        "مستند تصمیم اختلاف هزینه", upload_to="repairs/cost-disputes/%Y/%m/",
+        validators=[validate_document_file], blank=True,
+    )
     completion_attachment = models.FileField(
         "پیوست نتیجه تعمیر", upload_to="repairs/completion/%Y/%m/",
         validators=[validate_document_file], blank=True,
@@ -331,7 +335,11 @@ class GeneralReferral(TimeStampedModel):
     outcome = models.TextField("نتیجه پیگیری", blank=True)
     instruction = models.TextField("دستور / اقدام ثبت‌شده", blank=True)
     attachment = models.FileField(
-        "مستند پیوست", upload_to="referrals/%Y/%m/",
+        "مستند اولیه ارجاع", upload_to="referrals/%Y/%m/",
+        validators=[validate_document_file], blank=True,
+    )
+    resolution_attachment = models.FileField(
+        "مستند نتیجه / دستور", upload_to="referrals/resolutions/%Y/%m/",
         validators=[validate_document_file], blank=True,
     )
     created_by = models.ForeignKey(
