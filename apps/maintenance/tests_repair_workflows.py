@@ -328,6 +328,25 @@ class RepairAndReferralWorkflowTests(TestCase):
                 instruction="", actor=self.province_admin,
             )
 
+    def test_province_admin_can_resolve_centerless_province_referral(self):
+        referral = create_referral(
+            subject="ارجاع استانی بدون مرکز مشخص",
+            description="موضوع مربوط به کل استان است.",
+            recipient_role="مسئول مالی استان",
+            recipient_name="مسئول مالی نمونه",
+            recipient_user=self.manager,
+            actor=self.province_admin,
+        )
+        self.assertEqual(referral.province_id, self.province.pk)
+        resolve_referral(
+            referral=referral,
+            outcome="نتیجه استانی ثبت شد.",
+            instruction="اقدام طبق دستور مدیر استان انجام شود.",
+            actor=self.province_admin,
+        )
+        referral.refresh_from_db()
+        self.assertEqual(referral.status, GeneralReferral.STATUS_RESOLVED)
+
     def test_global_referral_can_only_be_resolved_by_recipient_or_country_admin(self):
         referral = create_referral(
             subject="ارجاع سراسری نمونه",
