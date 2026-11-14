@@ -297,6 +297,20 @@ def repair_cost_resolve(request, pk: int):
 
 
 @login_required
+def feedback_list(request):
+    rows = visible_repair_feedback(request.user).select_related(
+        "repair_request", "repairer", "center", "author"
+    ).prefetch_related("replies__author")
+    return render(request, "maintenance/workflow_list.html", {
+        "page_title": "ارزیابی و بازخورد تعمیرکاران استان",
+        "kind": "feedback",
+        "rows": rows,
+        "active_menu": "repairs",
+        "can_create": False,
+    })
+
+
+@login_required
 def feedback_reply(request, pk: int):
     feedback = get_object_or_404(visible_repair_feedback(request.user), pk=pk)
     form = FeedbackReplyForm(request.POST or None)
