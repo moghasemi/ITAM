@@ -77,9 +77,7 @@ class LoginThrottlingTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(self.client.session.get("_auth_user_id"))
         self.assertFalse(
-            LoginAttempt.objects.filter(
-                username_hash__isnull=False,
-            ).exists()
+            LoginAttempt.objects.exists()
         )
 
     def test_ip_failure_limit_blocks_password_spraying(self):
