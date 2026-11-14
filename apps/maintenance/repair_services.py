@@ -256,13 +256,13 @@ def create_repair_request(*, center, asset, repairer, fault_description,
 @transaction.atomic
 def decide_repair_request(*, repair, decision, note, actor):
     _require_province_admin_for_center(actor, repair.center)
-    if repair.status not in (RepairRequest.STATUS_PENDING, RepairRequest.STATUS_RETURNED):
+    locked = RepairRequest.objects.select_for_update().get(pk=repair.pk)
+    if locked.status not in (RepairRequest.STATUS_PENDING, RepairRequest.STATUS_RETURNED):
         raise ValidationError("این درخواست در وضعیت قابل تصمیم‌گیری نیست.")
     if decision not in {"approve", "return", "reject"}:
         raise ValidationError("تصمیم نامعتبر است.")
     if decision in {"return", "reject"} and not (note or "").strip():
         raise ValidationError("برای عودت یا رد درخواست، توضیح الزامی است.")
-    locked = RepairRequest.objects.select_for_update().get(pk=repair.pk)
     previous = locked.status
     locked.approved_by = actor
     locked.approved_at = timezone.now()
@@ -297,6 +297,7 @@ def resubmit_repair_request(*, repair, actor, fault_description=None,
                             estimate_attachment=None):
     if not _can_manage_center(actor, repair.center) or (actor.role != User.ROLE_ADMIN_IT and not actor.is_admin_country):
         raise PermissionDenied("فقط کارشناس IT همان مرکز می‌تواند درخواست را اصلاح کند.")
+    repair = RepairRequest.objects.select_for_update().get(pk=repair.pk)
     if repair.status != RepairRequest.STATUS_RETURNED:
         raise ValidationError("فقط درخواست عودت‌شده قابل اصلاح و ارسال مجدد است.")
     previous = repair.status
@@ -322,6 +323,7 @@ def complete_repair_request(*, repair, outcome, final_cost, actor,
                             comment="", completion_attachment=None, final_cost_reason=""):
     if not _can_manage_center(actor, repair.center) or not actor.has_role(User.ROLE_ADMIN_IT):
         raise PermissionDenied("ثبت نتیجه تعمیر فقط برای کارشناس IT همان مرکز مجاز است.")
+    repair = RepairRequest.objects.select_for_update().get(pk=repair.pk)
     if repair.status != RepairRequest.STATUS_APPROVED:
         raise ValidationError("فقط درخواست تاییدشده قابل ثبت نتیجه تعمیر است.")
     if not outcome or not outcome.strip():
@@ -383,6 +385,7 @@ def complete_repair_request(*, repair, outcome, final_cost, actor,
 @transaction.atomic
 def resolve_repair_cost_dispute(*, repair, decision, note, actor, attachment=None):
     _require_province_admin_for_center(actor, repair.center)
+    repair = RepairRequest.objects.select_for_update().get(pk=repair.pk)
     if repair.status != RepairRequest.STATUS_DISPUTED:
         raise ValidationError("این درخواست اختلاف هزینه باز ندارد.")
     if not (note or "").strip():
@@ -486,6 +489,7 @@ def create_referral(*, subject, description, recipient_role, recipient_name,
 def resolve_referral(*, referral, outcome, instruction, actor, attachment=None):
     if not actor or not actor.is_authenticated:
         raise PermissionDenied("ورود به سامانه الزامی است.")
+    referral = GeneralReferral.objects.select_for_update().get(pk=referral.pk)
     referral_province_id = referral.province_id or (
         _province_id_for_center(referral.center) if referral.center_id else None
     )
@@ -593,6 +597,7 @@ def assign_general_it_request(*, request, expert, actor):
 def manager_decide_general_it_request(*, request, decision, note, actor):
     if actor.role != User.ROLE_MANAGER or actor.center_id != request.center_id:
         raise PermissionDenied("فقط مدیر همان مرکز می‌تواند درخواست را بررسی کند.")
+    request = GeneralITRequest.objects.select_for_update().get(pk=request.pk)
     if request.manager_approval != GeneralITRequest.MANAGER_PENDING:
         raise ValidationError("درخواست قبلاً توسط مدیر بررسی شده است.")
     if decision not in {"approve", "reject"}:
@@ -632,8 +637,13 @@ def manager_decide_general_it_request(*, request, decision, note, actor):
 def escalate_general_it_request(*, request, actor, bypass_reason=""):
     if (actor.role != User.ROLE_ADMIN_IT and not actor.is_admin_country) or not _can_manage_center(actor, request.center):
         raise PermissionDenied("فقط کارشناس IT همان مرکز می‌تواند درخواست را به استان ارسال کند.")
-    if request.status in (GeneralITRequest.STATUS_REJECTED, GeneralITRequest.STATUS_RESOLVED):
-        raise ValidationError("درخواست ردشده یا مختومه قابل ارسال مجدد نیست.")
+    request = GeneralITRequest.objects.select_for_update().get(pk=request.pk)
+    if request.status in (
+        GeneralITRequest.STATUS_REJECTED,
+        GeneralITRequest.STATUS_RESOLVED,
+        GeneralITRequest.STATUS_ESCALATED,
+    ):
+        raise ValidationError("درخواست ردشده، ارسال‌شده یا مختومه قابل ارسال مجدد نیست.")
     if request.manager_approval == GeneralITRequest.MANAGER_REJECTED:
         raise ValidationError("درخواست توسط مدیر مرکز رد شده و قابل ارجاع نیست.")
     if request.manager_approval == GeneralITRequest.MANAGER_PENDING:
@@ -666,6 +676,7 @@ def escalate_general_it_request(*, request, actor, bypass_reason=""):
 @transaction.atomic
 def resolve_general_it_request(*, request, decision, actor):
     _require_province_admin_for_center(actor, request.center)
+    request = GeneralITRequest.objects.select_for_update().get(pk=request.pk)
     if request.status != GeneralITRequest.STATUS_ESCALATED:
         raise ValidationError("فقط درخواست ارسال‌شده به استان قابل تعیین تکلیف است.")
     if not (decision or "").strip():
