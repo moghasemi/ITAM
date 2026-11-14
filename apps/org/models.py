@@ -613,7 +613,7 @@ class ContractCenterAssignment(TimeStampedModel):
                 name="unique_active_contractor_per_center",
             ),
         ]
-        indexes = [models.Index(fields=("center", "status"))]
+        indexes = [models.Index(fields=("center", "status"), name="org_contract_center_status_idx")]
 
     def clean(self):
         from django.core.exceptions import ValidationError
