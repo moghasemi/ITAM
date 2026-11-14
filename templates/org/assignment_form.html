@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header"><div><h1>{{ page_title }}</h1><p>برای هر مرکز فقط یک پیمانکار رسمی فعال مجاز است.</p></div></div>
+<div class="card">
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="form-actions"><button class="btn btn-primary" type="submit">ثبت انتساب</button><a class="btn btn-secondary" href="{% url 'org:assignment_list' %}">انصراف</a></div>
+  </form>
+</div>
+{% endblock %}
