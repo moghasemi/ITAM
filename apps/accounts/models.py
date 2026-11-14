@@ -286,8 +286,8 @@ class User(AbstractUser):
 class LoginAttempt(models.Model):
     """ثبت حداقلی تلاش‌های ناموفق ورود برای محدودسازی حملات حدس گذرواژه."""
 
-    ip_address = models.GenericIPAddressField("نشانی IP", null=True, blank=True, db_index=True)
-    username_hash = models.CharField("شناسه یک‌طرفه نام کاربری", max_length=64, db_index=True)
+    ip_address = models.GenericIPAddressField("نشانی IP", null=True, blank=True)
+    username_hash = models.CharField("شناسه یک‌طرفه نام کاربری", max_length=64)
     attempted_at = models.DateTimeField("زمان تلاش", default=timezone.now, db_index=True)
 
     class Meta:
