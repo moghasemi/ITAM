@@ -6,7 +6,7 @@ from django.test import RequestFactory, TestCase, override_settings
 
 from apps.accounts.models import User
 from apps.assets.models import Asset, AssetAttachment, AssetCategory, HardwareSnapshot
-from apps.maintenance.models import MaintenanceVisit, VisitAssetCheck
+from apps.maintenance.models import (GeneralReferral, IndependentRepairer, MaintenanceVisit, RepairRequest, VisitAssetCheck)
 from apps.org.models import Center, Contract, Contractor, OrganizationalUnit
 from apps.core.views import private_media
 
@@ -50,13 +50,35 @@ class PrivateMediaAuthorizationTests(TestCase):
             role=User.ROLE_ADMIN_IT, center=self.center_b,
         )
         category = AssetCategory.objects.create(name="دارایی رسانه", code="MEDIA")
-        asset = Asset.objects.create(
+        self.asset = Asset.objects.create(
             asset_tag="MEDIA-0001", title="تجهیز آزمایشی",
             category=category, center=self.center_a,
         )
         self.attachment = AssetAttachment.objects.create(
-            asset=asset,
+            asset=self.asset,
             file=SimpleUploadedFile("evidence.txt", b"private-evidence"),
+        )
+        repairer = IndependentRepairer.objects.create(
+            province=province, kind=IndependentRepairer.KIND_COMPANY,
+            name="تعمیرکار خصوصی رسانه", created_by=self.user_a,
+        )
+        self.repair = RepairRequest.objects.create(
+            center=self.center_a, asset=self.asset, repairer=repairer,
+            repairer_name_snapshot=repairer.name,
+            fault_description="خرابی نمونه", referral_reason="ارجاع نمونه",
+            estimate_amount="1000000", requested_by=self.user_a,
+            status=RepairRequest.STATUS_COMPLETED,
+            estimate_attachment=SimpleUploadedFile("estimate.pdf", b"%PDF-1.4\nestimate"),
+            completion_attachment=SimpleUploadedFile("completion.pdf", b"%PDF-1.4\ncompletion"),
+            cost_dispute_attachment=SimpleUploadedFile("decision.pdf", b"%PDF-1.4\ndecision"),
+        )
+        self.referral = GeneralReferral.objects.create(
+            subject="ارجاع خصوصی رسانه", description="شرح خصوصی",
+            center=self.center_a, recipient_role="مدیر استان",
+            recipient_name="مسئول نمونه", created_by=self.user_a,
+            attachment=SimpleUploadedFile("referral.pdf", b"%PDF-1.4\nreferral"),
+            resolution_attachment=SimpleUploadedFile("resolution.pdf", b"%PDF-1.4\nresolution"),
+            status=GeneralReferral.STATUS_RESOLVED, outcome="نتیجه خصوصی",
         )
 
     def test_same_center_staff_can_download_owned_asset_attachment(self):
@@ -73,6 +95,35 @@ class PrivateMediaAuthorizationTests(TestCase):
         with self.assertRaises(Http404):
             private_media(request, self.attachment.file.name)
 
+
+    def test_same_center_staff_can_download_repair_and_referral_documents(self):
+        paths = [
+            self.repair.estimate_attachment.name,
+            self.repair.completion_attachment.name,
+            self.repair.cost_dispute_attachment.name,
+            self.referral.attachment.name,
+            self.referral.resolution_attachment.name,
+        ]
+        for path in paths:
+            request = RequestFactory().get(f"/media/{path}")
+            request.user = self.user_a
+            response = private_media(request, path)
+            self.assertEqual(response.status_code, 200, path)
+            response.close()
+
+    def test_other_center_staff_cannot_download_repair_or_referral_documents(self):
+        paths = [
+            self.repair.estimate_attachment.name,
+            self.repair.completion_attachment.name,
+            self.repair.cost_dispute_attachment.name,
+            self.referral.attachment.name,
+            self.referral.resolution_attachment.name,
+        ]
+        for path in paths:
+            request = RequestFactory().get(f"/media/{path}")
+            request.user = self.user_b
+            with self.assertRaises(Http404, msg=path):
+                private_media(request, path)
 
     def test_technician_cannot_download_misbound_hardware_or_visit_photos(self):
         import datetime as dt
