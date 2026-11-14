@@ -257,8 +257,8 @@ def create_repair_request(*, center, asset, repairer, fault_description,
 def decide_repair_request(*, repair, decision, note, actor):
     _require_province_admin_for_center(actor, repair.center)
     locked = RepairRequest.objects.select_for_update().get(pk=repair.pk)
-    if locked.status not in (RepairRequest.STATUS_PENDING, RepairRequest.STATUS_RETURNED):
-        raise ValidationError("این درخواست در وضعیت قابل تصمیم‌گیری نیست.")
+    if locked.status != RepairRequest.STATUS_PENDING:
+        raise ValidationError("فقط درخواست ارسال‌شده و در انتظار تایید قابل تصمیم‌گیری است.")
     if decision not in {"approve", "return", "reject"}:
         raise ValidationError("تصمیم نامعتبر است.")
     if decision in {"return", "reject"} and not (note or "").strip():
