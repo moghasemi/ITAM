@@ -345,7 +345,9 @@ def referral_list(request):
         from django.db.models import Q
         if can_create:
             scoped_centers = request.user.get_scoped_centers()
-            province_ids = scoped_centers.values_list("treatment_management__province_id", flat=True).distinct()
+            province_ids = scoped_centers.filter(
+                treatment_management__province_id__isnull=False
+            ).values_list("treatment_management__province_id", flat=True).distinct()
             rows = rows.filter(
                 Q(center__in=scoped_centers)
                 | Q(center__isnull=True, province_id__in=province_ids)
@@ -355,7 +357,9 @@ def referral_list(request):
             rows = rows.filter(recipient_user=request.user)
     scoped_centers = request.user.get_scoped_centers()
     scoped_center_ids = set(scoped_centers.values_list("pk", flat=True))
-    scoped_province_ids = set(scoped_centers.values_list("treatment_management__province_id", flat=True))
+    scoped_province_ids = set(scoped_centers.filter(
+        treatment_management__province_id__isnull=False
+    ).values_list("treatment_management__province_id", flat=True))
     rows = list(rows)
     for row in rows:
         row.can_resolve = (
