@@ -7,8 +7,10 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
+from django.urls import reverse
 
 from apps.accounts.models import User
+from apps.core.models import Notification
 from apps.org.models import ContractCenterAssignment, OrganizationalUnit
 
 from .repair_models import (
@@ -79,7 +81,7 @@ def visible_repairers(user):
         return IndependentRepairer.objects.none()
     if _is_country_admin(user):
         return IndependentRepairer.objects.all()
-    if _is_province_admin(user) and _province_id_for_user(user):
+    if (user.is_admin_province or user.has_role(User.ROLE_ADMIN_IT)) and _province_id_for_user(user):
         return IndependentRepairer.objects.filter(province_id=_province_id_for_user(user))
     province_ids = user.get_scoped_centers().values("treatment_management__province_id")
     return IndependentRepairer.objects.filter(province_id__in=province_ids).distinct()
@@ -95,7 +97,7 @@ def visible_repair_feedback(user):
     province_ids = user.get_scoped_centers().values("treatment_management__province_id")
     # Provincial IT experts and the provincial IT head can review all feedback
     # in their province; center experts are limited to their assigned centers.
-    if _is_province_admin(user) and _province_id_for_user(user):
+    if (user.is_admin_province or user.has_role(User.ROLE_ADMIN_IT)) and _province_id_for_user(user):
         return RepairFeedback.objects.filter(
             center__treatment_management__province_id=_province_id_for_user(user)
         ).select_related("repairer", "center", "author", "repair_request")
@@ -260,6 +262,12 @@ def decide_repair_request(*, repair, decision, note, actor):
         "rejected_at", "updated_at",
     ])
     _record_repair_event(locked, action, locked.decision_note or "تایید شد.", actor, previous)
+    Notification.push(
+        locked.requested_by, "تصمیم درخواست تعمیر ثبت شد",
+        f"{locked.number}: {locked.get_status_display()}",
+        url=locked.get_absolute_url(),
+        level="warning" if decision == "reject" else "info",
+    )
     return locked
 
 
@@ -337,6 +345,18 @@ def complete_repair_request(*, repair, outcome, final_cost, actor,
         previous,
         metadata={"estimate": str(repair.estimate_amount), "final_cost": str(final_cost)},
     )
+    province_admins = User.objects.filter(
+        role=User.ROLE_ADMIN_PROVINCE,
+        org_unit_id=_province_id_for_center(repair.center),
+        is_active=True,
+    )
+    Notification.push_many(
+        province_admins,
+        "نتیجه تعمیر ثبت شد",
+        f"{repair.number}: " + ("اختلاف هزینه نیازمند تعیین تکلیف است." if disputed else "تعمیر تکمیل شد."),
+        url=repair.get_absolute_url(),
+        level="warning" if disputed else "success",
+    )
     return repair
 
 
@@ -364,6 +384,11 @@ def resolve_repair_cost_dispute(*, repair, decision, note, actor):
         "cost_increase_approved_at", "status", "updated_at",
     ])
     _record_repair_event(repair, action, note.strip(), actor, previous)
+    Notification.push(
+        repair.requested_by, "اختلاف هزینه تعمیر تعیین تکلیف شد",
+        f"{repair.number}: {note.strip()}",
+        url=repair.get_absolute_url(), level="success",
+    )
     return repair
 
 
@@ -385,6 +410,11 @@ def create_referral(*, subject, description, recipient_role, recipient_name,
     )
     referral.full_clean()
     referral.save()
+    if recipient_user:
+        Notification.push(
+            recipient_user, "ارجاع جدید در ITAM",
+            referral.subject, url=reverse("maintenance:referral_list"),
+        )
     return referral
 
 
@@ -407,6 +437,16 @@ def resolve_referral(*, referral, outcome, instruction, actor):
     referral.save(update_fields=[
         "status", "outcome", "instruction", "resolved_by", "resolved_at", "updated_at",
     ])
+    recipients = [referral.created_by]
+    if referral.repair_request_id:
+        recipients.append(referral.repair_request.requested_by)
+    Notification.push_many(
+        {user.pk: user for user in recipients}.values(),
+        "نتیجه ارجاع در ITAM ثبت شد",
+        f"{referral.subject}: {referral.outcome}",
+        url=reverse("maintenance:referral_list"),
+        level="success",
+    )
     return referral
 
 
@@ -452,6 +492,10 @@ def assign_general_it_request(*, request, expert, actor):
     GeneralITRequestEvent.objects.create(
         request=request, action="assigned", note=f"به {expert.display_name} ارجاع شد.", actor=actor,
     )
+    Notification.push(
+        request.requested_by, "درخواست IT به کارشناس ارجاع شد",
+        request.number, url=reverse("maintenance:it_request_detail", args=[request.pk]),
+    )
     return request
 
 
@@ -484,6 +528,13 @@ def manager_decide_general_it_request(*, request, decision, note, actor):
         request=request, action=f"manager_{decision}", note=(note or "تایید مدیر مرکز"),
         actor=actor,
     )
+    Notification.push_many(
+        [u for u in (request.requested_by, request.assigned_to) if u],
+        "تصمیم مدیر مرکز درباره درخواست IT",
+        f"{request.number}: {request.get_manager_approval_display()}",
+        url=reverse("maintenance:it_request_detail", args=[request.pk]),
+        level="warning" if decision == "reject" else "info",
+    )
     return request
 
 
@@ -509,6 +560,16 @@ def escalate_general_it_request(*, request, actor, bypass_reason=""):
         note=(bypass_reason.strip() if bypass_reason else "با تایید مدیر مرکز به استان ارسال شد."),
         actor=actor,
     )
+    province_admins = User.objects.filter(
+        role=User.ROLE_ADMIN_PROVINCE,
+        org_unit_id=_province_id_for_center(request.center),
+        is_active=True,
+    )
+    Notification.push_many(
+        province_admins, "درخواست جدید برای مدیریت درمان استان",
+        f"{request.number}: {request.title}",
+        url=reverse("maintenance:it_request_detail", args=[request.pk]),
+    )
     return request
 
 
@@ -528,5 +589,12 @@ def resolve_general_it_request(*, request, decision, actor):
     ])
     GeneralITRequestEvent.objects.create(
         request=request, action="provincial_resolved", note=decision.strip(), actor=actor,
+    )
+    Notification.push_many(
+        [u for u in (request.requested_by, request.assigned_to) if u],
+        "دستور استانی درخواست IT ثبت شد",
+        f"{request.number}: {decision.strip()}",
+        url=reverse("maintenance:it_request_detail", args=[request.pk]),
+        level="success",
     )
     return request
