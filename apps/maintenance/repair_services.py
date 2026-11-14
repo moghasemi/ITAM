@@ -451,10 +451,12 @@ def create_referral(*, subject, description, recipient_role, recipient_name,
 def resolve_referral(*, referral, outcome, instruction, actor):
     if not actor or not actor.is_authenticated:
         raise PermissionDenied("ورود به سامانه الزامی است.")
-    if referral.recipient_user_id and referral.recipient_user_id != actor.pk and not _is_country_admin(actor):
-        raise PermissionDenied("این ارجاع به کاربر دیگری واگذار شده است.")
     if referral.center_id:
-        if not _is_country_admin(actor) and not actor.get_scoped_centers().filter(pk=referral.center_id).exists():
+        if (
+            not _is_country_admin(actor)
+            and referral.recipient_user_id != actor.pk
+            and not actor.get_scoped_centers().filter(pk=referral.center_id).exists()
+        ):
             raise PermissionDenied("ارجاع خارج از حوزه مجاز شماست.")
     elif not (_is_country_admin(actor) or referral.recipient_user_id == actor.pk):
         raise PermissionDenied("ارجاع سراسری فقط توسط کاربر گیرنده یا مدیر کشوری قابل تعیین تکلیف است.")
