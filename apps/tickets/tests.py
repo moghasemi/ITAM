@@ -24,7 +24,7 @@ from apps.core.constants import (
 from apps.core.models import SystemSetting
 from apps.integrations.models import OutboxEvent
 from apps.org.models import (
-    Center, Contract, Contractor, OrganizationalUnit, SlaPolicy,
+    Center, Contract, ContractCenterAssignment, Contractor, OrganizationalUnit, SlaPolicy,
 )
 
 from .models import Ticket, TicketAttachment, TicketEvent, TicketPause
@@ -89,8 +89,19 @@ class TicketWorkflowTests(TestCase):
             username="expert", password="pass12345", role=User.ROLE_ADMIN_IT,
             center=cls.center
         )
+        province_admin = User.objects.create_user(
+            username="ticket-province-admin", password="pass12345",
+            role=User.ROLE_ADMIN_PROVINCE, org_unit=province,
+        )
         cls.technician = User.objects.create_user(
-            username="tech", password="pass12345", role=User.ROLE_TECHNICIAN, contractor=cls.contractor
+            username="tech", password="pass12345", role=User.ROLE_TECHNICIAN,
+            contractor=cls.contractor, org_unit=province,
+        )
+        ContractCenterAssignment.objects.create(
+            contract=cls.contract, center=cls.center,
+            start_date=timezone.localdate(),
+            status=ContractCenterAssignment.STATUS_ACTIVE,
+            assigned_by=province_admin,
         )
         cls.requester = User.objects.create_user(
             username="user", password="pass12345", role=User.ROLE_REQUESTER,
