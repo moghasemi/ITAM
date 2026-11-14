@@ -26,7 +26,7 @@ from apps.core.constants import (
     DIFF_REPLACED,
     DIFF_UNCHANGED,
 )
-from apps.org.models import Center, Contract, Contractor, OrganizationalUnit
+from apps.org.models import Center, Contract, ContractCenterAssignment, Contractor, OrganizationalUnit
 
 
 class _Item:
@@ -144,8 +144,18 @@ class SnapshotWorkflowTests(TestCase):
             asset_tag="A-1", category=cls.category, contract=cls.contract,
             center=cls.center, brand="DELL"
         )
+        province_admin = User.objects.create_user(
+            username="snapshot-province-admin", password="pass12345",
+            role=User.ROLE_ADMIN_PROVINCE, org_unit=province,
+        )
         cls.technician = User.objects.create_user(
-            username="tech", password="pass12345", role=User.ROLE_TECHNICIAN, contractor=cls.contractor
+            username="tech", password="pass12345", role=User.ROLE_TECHNICIAN,
+            contractor=cls.contractor, org_unit=province,
+        )
+        ContractCenterAssignment.objects.create(
+            contract=cls.contract, center=cls.center,
+            start_date=today, status=ContractCenterAssignment.STATUS_ACTIVE,
+            assigned_by=province_admin,
         )
         cls.it_expert = User.objects.create_user(
             username="expert", password="pass12345", role=User.ROLE_ADMIN_IT, center=cls.center
