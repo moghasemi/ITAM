@@ -153,11 +153,6 @@ class Command(BaseCommand):
         management = province.treatment_management
         if not province.is_active or not management.is_active:
             raise CommandError("استان یا مدیریت درمان سیستان و بلوچستان غیرفعال است؛ فرمان seed وضعیت عملیاتی را تغییر نمی‌دهد.")
-        counties = {
-            row["id"]: OrganizationalUnit.objects.get(code=f"IR-COUNTY-{row['id']}")
-            for row in rows
-        }
-
         self.stdout.write(self.style.MIGRATE_HEADING("۲) ایجاد مراکز کاملاً آزمایشی"))
         centers = {}
         for row in rows:
