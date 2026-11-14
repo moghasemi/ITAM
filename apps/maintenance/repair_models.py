@@ -64,6 +64,28 @@ class IndependentRepairer(TimeStampedModel):
         return self.name
 
 
+class RepairerProfileEvent(models.Model):
+    """نسخه‌های قبلی و جدید مشخصات تعمیرکار برای ممیزی و حفظ تاریخچه."""
+
+    repairer = models.ForeignKey(
+        IndependentRepairer, on_delete=models.PROTECT, related_name="profile_events",
+        verbose_name="تعمیرکار",
+    )
+    action = models.CharField("نوع تغییر", max_length=20, choices=(("created", "ایجاد"), ("updated", "ویرایش")))
+    previous_values = models.JSONField("مقادیر پیشین", default=dict, blank=True)
+    new_values = models.JSONField("مقادیر جدید", default=dict, blank=True)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name="repairer_profile_events", verbose_name="اقدام‌کننده",
+    )
+    created_at = models.DateTimeField("زمان", auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "تاریخچه مشخصات تعمیرکار"
+        verbose_name_plural = "تاریخچه مشخصات تعمیرکاران"
+        ordering = ("-created_at",)
+
+
 class RepairerStatusEvent(models.Model):
     """تاریخچه غیرقابل‌حذف فعال/غیرفعال شدن تعمیرکار."""
 
