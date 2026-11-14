@@ -393,3 +393,135 @@ class RepairAndReferralWorkflowTests(TestCase):
         )
         self.assertEqual(assignment.status, ContractCenterAssignment.STATUS_ENDED)
         self.assertTrue(ContractCenterAssignment.objects.filter(pk=assignment.pk).exists())
+
+    def test_stale_repair_decision_cannot_overwrite_a_newer_decision(self):
+        stale_repair = self._repair()
+        decide_repair_request(
+            repair=stale_repair, decision="approve",
+            note="تایید اولیه", actor=self.province_admin,
+        )
+        with self.assertRaises(ValidationError):
+            decide_repair_request(
+                repair=stale_repair, decision="reject",
+                note="تلاش برای تغییر تصمیم قبلی", actor=self.province_admin,
+            )
+        stale_repair.refresh_from_db()
+        self.assertEqual(stale_repair.status, RepairRequest.STATUS_APPROVED)
+        self.assertEqual(stale_repair.events.count(), 2)
+
+    def test_stale_completion_cannot_create_duplicate_feedback(self):
+        repair = self._repair()
+        repair = decide_repair_request(
+            repair=repair, decision="approve",
+            note="تایید اولیه", actor=self.province_admin,
+        )
+        stale_repair = RepairRequest.objects.get(pk=repair.pk)
+        complete_repair_request(
+            repair=repair, actor=self.it_expert,
+            outcome="تعمیر انجام شد", final_cost=Decimal("900000"),
+            work_quality=5, completion_speed=4, cost_fairness=4,
+        )
+        with self.assertRaises(ValidationError):
+            complete_repair_request(
+                repair=stale_repair, actor=self.it_expert,
+                outcome="ارسال تکراری", final_cost=Decimal("900000"),
+                work_quality=1, completion_speed=1, cost_fairness=1,
+            )
+        self.assertEqual(RepairFeedback.objects.filter(repair_request_id=repair.pk).count(), 1)
+        repair.refresh_from_db()
+        self.assertEqual(repair.status, RepairRequest.STATUS_COMPLETED)
+
+    def test_stale_cost_dispute_decision_cannot_overwrite_resolution(self):
+        repair = self._repair()
+        repair = decide_repair_request(
+            repair=repair, decision="approve",
+            note="تایید اولیه", actor=self.province_admin,
+        )
+        repair = complete_repair_request(
+            repair=repair, actor=self.it_expert,
+            outcome="تعمیر انجام شد", final_cost=Decimal("1200000"),
+            final_cost_reason="افزایش قیمت قطعه",
+            work_quality=4, completion_speed=4, cost_fairness=3,
+        )
+        stale_repair = RepairRequest.objects.get(pk=repair.pk)
+        resolve_repair_cost_dispute(
+            repair=repair, decision="settled",
+            note="اختلاف با توافق طرفین تسویه شد.", actor=self.province_admin,
+        )
+        with self.assertRaises(ValidationError):
+            resolve_repair_cost_dispute(
+                repair=stale_repair, decision="reject_increase",
+                note="تلاش برای بازنویسی تصمیم", actor=self.province_admin,
+            )
+        repair.refresh_from_db()
+        self.assertEqual(repair.status, RepairRequest.STATUS_RESOLVED)
+        self.assertEqual(repair.cost_dispute_resolution, "اختلاف با توافق طرفین تسویه شد.")
+
+    def test_stale_referral_resolution_cannot_overwrite_recorded_outcome(self):
+        referral = create_referral(
+            subject="ارجاع برای بررسی", description="شرح موضوع",
+            recipient_role="مسئول مالی", recipient_name="مسئول نمونه",
+            center=self.center, actor=self.province_admin,
+        )
+        stale_referral = GeneralReferral.objects.get(pk=referral.pk)
+        resolve_referral(
+            referral=referral, outcome="نتیجه اول", instruction="دستور اول",
+            actor=self.province_admin,
+        )
+        with self.assertRaises(ValidationError):
+            resolve_referral(
+                referral=stale_referral, outcome="نتیجه بازنویسی‌شده",
+                instruction="دستور بازنویسی‌شده", actor=self.province_admin,
+            )
+        referral.refresh_from_db()
+        self.assertEqual(referral.outcome, "نتیجه اول")
+        self.assertEqual(referral.status, GeneralReferral.STATUS_RESOLVED)
+
+    def test_stale_general_request_resolution_cannot_overwrite_decision(self):
+        request = create_general_it_request(
+            center=self.center, request_type=GeneralITRequest.TYPE_EQUIPMENT,
+            title="درخواست تجهیز", description="شرح درخواست", actor=self.requester,
+        )
+        assign_general_it_request(
+            request=request, expert=self.it_expert, actor=self.it_expert,
+        )
+        request = escalate_general_it_request(
+            request=request, actor=self.it_expert,
+            bypass_reason="فوریت درخواست",
+        )
+        stale_request = GeneralITRequest.objects.get(pk=request.pk)
+        resolve_general_it_request(
+            request=request, decision="تامین تجهیز تایید شد.",
+            actor=self.province_admin,
+        )
+        with self.assertRaises(ValidationError):
+            resolve_general_it_request(
+                request=stale_request, decision="تغییر نتیجه قبلی",
+                actor=self.province_admin,
+            )
+        request.refresh_from_db()
+        self.assertEqual(request.status, GeneralITRequest.STATUS_RESOLVED)
+        self.assertEqual(request.provincial_decision, "تامین تجهیز تایید شد.")
+
+    def test_stale_manager_review_cannot_replace_first_decision(self):
+        request = create_general_it_request(
+            center=self.center, request_type=GeneralITRequest.TYPE_REPLACEMENT,
+            title="جایگزینی تجهیز", description="شرح درخواست", actor=self.requester,
+        )
+        assign_general_it_request(
+            request=request, expert=self.it_expert, actor=self.it_expert,
+        )
+        stale_request = GeneralITRequest.objects.get(pk=request.pk)
+        manager_decide_general_it_request(
+            request=request, decision="approve",
+            note="تایید مدیر مرکز", actor=self.manager,
+        )
+        with self.assertRaises(ValidationError):
+            manager_decide_general_it_request(
+                request=stale_request, decision="reject",
+                note="تلاش برای تغییر تصمیم", actor=self.manager,
+            )
+        request.refresh_from_db()
+        self.assertEqual(request.manager_approval, GeneralITRequest.MANAGER_APPROVED)
+        self.assertEqual(request.status, GeneralITRequest.STATUS_APPROVED)
+
