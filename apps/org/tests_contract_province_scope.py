@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.org.models import Center, Contract, Contractor, OrganizationalUnit
+from apps.org.models import Center, Contract, ContractCenterAssignment, Contractor, OrganizationalUnit
 from apps.maintenance.repair_services import assign_contractor_to_center
 
 
