@@ -453,6 +453,9 @@ def create_referral(*, subject, description, recipient_role, recipient_name,
         province = OrganizationalUnit.objects.filter(
             pk=province_id, unit_type=OrganizationalUnit.UNIT_PROVINCE
         ).first()
+    if recipient_user and province_id and not _is_country_admin(actor):
+        if _province_id_for_user(recipient_user) != province_id:
+            raise PermissionDenied("گیرنده ارجاع باید در همان استان مسئول باشد.")
     referral = GeneralReferral(
         subject=subject.strip(), description=description.strip(),
         recipient_role=recipient_role.strip(), recipient_name=recipient_name.strip(),
