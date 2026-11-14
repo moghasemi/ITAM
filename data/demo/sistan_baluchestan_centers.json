@@ -1,0 +1,12 @@
+[
+  {"code":"DEMO-SB-HQ","name":"ستاد نمونه مدیریت درمان و فناوری اطلاعات استان","county_id":1110005,"city":"زاهدان","headquarters":true,"kind":"management"},
+  {"code":"DEMO-SB-ZAH-HOSP-01","name":"بیمارستان نمونه شماره ۱ زاهدان","county_id":1110005,"city":"زاهدان","headquarters":false,"kind":"hospital"},
+  {"code":"DEMO-SB-ZAH-HOSP-02","name":"بیمارستان نمونه شماره ۲ زاهدان","county_id":1110005,"city":"زاهدان","headquarters":false,"kind":"hospital"},
+  {"code":"DEMO-SB-ZAH-CLINIC-01","name":"درمانگاه نمونه زاهدان","county_id":1110005,"city":"زاهدان","headquarters":false,"kind":"clinic"},
+  {"code":"DEMO-SB-ZAH-MEDREC","name":"دفتر اسناد پزشکی نمونه زاهدان","county_id":1110005,"city":"زاهدان","headquarters":false,"kind":"medical_records"},
+  {"code":"DEMO-SB-ZAB-HOSP-01","name":"بیمارستان نمونه زابل","county_id":1110004,"city":"زابل","headquarters":false,"kind":"hospital"},
+  {"code":"DEMO-SB-KHA-HOSP-01","name":"بیمارستان نمونه خاش","county_id":1110003,"city":"خاش","headquarters":false,"kind":"hospital"},
+  {"code":"DEMO-SB-IRH-HOSP-01","name":"بیمارستان نمونه ایرانشهر","county_id":1110001,"city":"ایرانشهر","headquarters":false,"kind":"hospital"},
+  {"code":"DEMO-SB-CHA-HOSP-01","name":"بیمارستان نمونه چابهار","county_id":1110002,"city":"چابهار","headquarters":false,"kind":"hospital"},
+  {"code":"DEMO-SB-SAR-HOSP-01","name":"بیمارستان نمونه سراوان","county_id":1110006,"city":"سراوان","headquarters":false,"kind":"hospital"}
+]
