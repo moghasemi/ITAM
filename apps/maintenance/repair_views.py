@@ -294,6 +294,7 @@ def repair_cost_resolve(request, pk: int):
         try:
             resolve_repair_cost_dispute(
                 repair=repair, decision=decision, note=note, actor=request.user,
+                attachment=request.FILES.get("attachment"),
             )
             messages.success(request, "تعیین تکلیف اختلاف هزینه ثبت شد.")
         except (PermissionDenied, ValidationError) as exc:
@@ -383,12 +384,13 @@ def referral_resolve(request, pk: int):
     referral = get_object_or_404(GeneralReferral.objects.all(), pk=pk)
     if referral.center_id and not request.user.get_scoped_centers().filter(pk=referral.center_id).exists() and not request.user.is_admin_country and referral.recipient_user_id != request.user.pk:
         raise PermissionDenied("ارجاع خارج از حوزه مجاز شماست.")
-    form = ReferralResolveForm(request.POST or None)
+    form = ReferralResolveForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
         try:
             resolve_referral(
                 referral=referral, outcome=form.cleaned_data["outcome"],
                 instruction=form.cleaned_data.get("instruction", ""), actor=request.user,
+                attachment=form.cleaned_data.get("attachment"),
             )
             messages.success(request, "نتیجه ارجاع ثبت شد.")
         except (PermissionDenied, ValidationError) as exc:
