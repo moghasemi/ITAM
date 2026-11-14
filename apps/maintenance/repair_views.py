@@ -348,7 +348,7 @@ def referral_list(request):
             province_ids = scoped_centers.values_list("treatment_management__province_id", flat=True).distinct()
             rows = rows.filter(
                 Q(center__in=scoped_centers)
-                | Q(province_id__in=province_ids)
+                | Q(center__isnull=True, province_id__in=province_ids)
                 | Q(recipient_user=request.user)
             )
         else:
