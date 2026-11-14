@@ -104,7 +104,7 @@ class Migration(migrations.Migration):
                 ("author", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="authored_repair_feedback", to=settings.AUTH_USER_MODEL, verbose_name="ثبت‌کننده ارزیابی")),
                 ("center", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="repair_feedback", to="org.center", verbose_name="مرکز")),
                 ("repair_request", models.OneToOneField(on_delete=django.db.models.deletion.PROTECT, related_name="feedback", to="maintenance.repairrequest", verbose_name="درخواست تعمیر")),
-                ("repairer", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="feedback", to="maintenance.independentre pairer".replace(" ", ""), verbose_name="تعمیرکار")),
+                ("repairer", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="feedback", to="maintenance.independentrepairer", verbose_name="تعمیرکار")),
             ],
             options={"verbose_name": "ارزیابی تعمیرکار", "verbose_name_plural": "ارزیابی تعمیرکاران", "ordering": ("-created_at",)},
         ),
