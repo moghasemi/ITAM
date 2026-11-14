@@ -412,7 +412,9 @@ def referral_resolve(request, pk: int):
         from django.db.models import Q
         if request.user.is_admin_province or request.user.role == User.ROLE_ADMIN_IT:
             scoped_centers = request.user.get_scoped_centers()
-            province_ids = scoped_centers.values_list("treatment_management__province_id", flat=True).distinct()
+            province_ids = scoped_centers.filter(
+                treatment_management__province_id__isnull=False
+            ).values_list("treatment_management__province_id", flat=True).distinct()
             referrals = referrals.filter(
                 Q(center__in=scoped_centers)
                 | Q(center__isnull=True, province_id__in=province_ids)
@@ -422,9 +424,9 @@ def referral_resolve(request, pk: int):
             referrals = referrals.filter(recipient_user=request.user)
     referral = get_object_or_404(referrals, pk=pk)
     if not request.user.is_admin_country:
-        province_ids = set(request.user.get_scoped_centers().values_list(
-            "treatment_management__province_id", flat=True
-        ))
+        province_ids = set(request.user.get_scoped_centers().filter(
+            treatment_management__province_id__isnull=False
+        ).values_list("treatment_management__province_id", flat=True))
         province_manager = request.user.is_admin_province and (
             referral.province_id in province_ids
             or (
