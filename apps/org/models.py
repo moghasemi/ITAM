@@ -567,3 +567,87 @@ class SlaPolicy(TimeStampedModel):
 def default_contract_window():
     today = timezone.localdate()
     return today, today.replace(year=today.year + 1) - dt.timedelta(days=1)
+
+
+class ContractCenterAssignment(TimeStampedModel):
+    """انتساب تاریخی پیمانکار رسمی قرارداد استانی به یک مرکز مشخص."""
+
+    STATUS_PLANNED = "planned"
+    STATUS_ACTIVE = "active"
+    STATUS_ENDED = "ended"
+    STATUS_CHOICES = (
+        (STATUS_PLANNED, "برنامه‌ریزی‌شده"),
+        (STATUS_ACTIVE, "فعال"),
+        (STATUS_ENDED, "پایان‌یافته"),
+    )
+
+    contract = models.ForeignKey(
+        Contract, on_delete=models.PROTECT, related_name="center_assignments",
+        verbose_name="قرارداد",
+    )
+    center = models.ForeignKey(
+        Center, on_delete=models.PROTECT, related_name="contractor_assignments",
+        verbose_name="مرکز",
+    )
+    start_date = models.DateField("تاریخ شروع")
+    end_date = models.DateField("تاریخ پایان", null=True, blank=True)
+    status = models.CharField("وضعیت", max_length=12, choices=STATUS_CHOICES, default=STATUS_PLANNED)
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name="created_contract_center_assignments", verbose_name="ثبت‌کننده",
+    )
+    ended_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="ended_contract_center_assignments", verbose_name="پایان‌دهنده",
+    )
+    end_reason = models.TextField("دلیل پایان انتساب", blank=True)
+
+    class Meta:
+        verbose_name = "انتساب پیمانکار به مرکز"
+        verbose_name_plural = "تاریخچه انتساب پیمانکار به مراکز"
+        ordering = ("-start_date",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("center",), condition=models.Q(status="active"),
+                name="unique_active_contractor_per_center",
+            ),
+        ]
+        indexes = [models.Index(fields=("center", "status"))]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        errors = {}
+        if self.contract_id and self.center_id:
+            province_id = getattr(
+                getattr(self.center, "treatment_management", None), "province_id", None
+            )
+            if not province_id or self.contract.province_id != province_id:
+                errors["contract"] = "قرارداد و مرکز باید متعلق به یک استان مدیریت درمان باشند."
+            if not self.contract.is_provincial:
+                errors["contract"] = "انتساب رسمی فقط از قرارداد استانی انجام می‌شود."
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            errors["end_date"] = "تاریخ پایان نمی‌تواند پیش از شروع باشد."
+        if self.status == self.STATUS_ACTIVE:
+            today = timezone.localdate()
+            if self.start_date and self.start_date > today:
+                errors["status"] = "انتساب با تاریخ شروع آینده نمی‌تواند فعال باشد."
+            if self.end_date and self.end_date < today:
+                errors["status"] = "انتساب پایان‌یافته نمی‌تواند فعال باشد."
+        if self.status == self.STATUS_ENDED and not self.end_reason.strip():
+            errors["end_reason"] = "برای پایان انتساب، ثبت دلیل الزامی است."
+        if errors:
+            raise ValidationError(errors)
+
+    @property
+    def is_current(self):
+        today = timezone.localdate()
+        return (
+            self.status == self.STATUS_ACTIVE
+            and self.start_date <= today
+            and (self.end_date is None or self.end_date >= today)
+            and self.contract.is_current
+            and self.center.is_active
+        )
+
+    def __str__(self):
+        return f"{self.center.name} — {self.contract.contractor.name}"
