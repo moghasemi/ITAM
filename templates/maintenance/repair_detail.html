@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header"><div><h1>{{ page_title }}</h1><p>{{ repair.center.name }} — {{ repair.asset.asset_tag }}</p></div><span class="badge badge-info">{{ repair.get_status_display }}</span></div>
+<div class="card">
+  <h3>مشخصات درخواست</h3>
+  <p><strong>تعمیرکار:</strong> {{ repair.repairer_name_snapshot }}</p>
+  <p><strong>شرح خرابی:</strong> {{ repair.fault_description }}</p>
+  <p><strong>دلیل ارجاع:</strong> {{ repair.referral_reason }}</p>
+  <p><strong>برآورد:</strong> {{ repair.estimate_amount }}</p>
+  {% if repair.estimate_attachment %}<p><a href="{{ repair.estimate_attachment.url }}">پیوست برآورد</a></p>{% endif %}
+  <p><strong>نتیجه تعمیر:</strong> {{ repair.outcome|default:"ثبت نشده" }}</p>
+  <p><strong>هزینه نهایی:</strong> {{ repair.final_cost|default:"ثبت نشده" }}</p>
+  {% if repair.final_cost_reason %}<p><strong>دلیل افزایش هزینه:</strong> {{ repair.final_cost_reason }}</p>{% endif %}
+  {% if repair.cost_dispute_resolution %}<p><strong>تعیین تکلیف اختلاف:</strong> {{ repair.cost_dispute_resolution }}</p>{% endif %}
+  {% if repair.cost_dispute_attachment %}<p><a href="{{ repair.cost_dispute_attachment.url }}">مستند تصمیم اختلاف هزینه</a></p>{% endif %}
+</div>
+{% if can_decide and repair.status == "pending_approval" or can_decide and repair.status == "returned" %}
+<div class="card">
+  <h3>تصمیم مدیر فناوری اطلاعات استان</h3>
+  <form method="post" action="{% url 'maintenance:repair_decide' repair.pk %}">{% csrf_token %}{{ decision_form.as_p }}<button class="btn btn-primary">ثبت تصمیم</button></form>
+</div>
+{% endif %}
+{% if can_complete and repair.status == "returned" %}
+<div class="card"><h3>اصلاح درخواست عودت‌شده</h3><a class="btn btn-primary" href="{% url 'maintenance:repair_resubmit' repair.pk %}">اصلاح و ارسال مجدد</a></div>
+{% endif %}
+{% if can_complete and repair.status == "approved" %}
+<div class="card"><h3>ثبت نتیجه تعمیر و ارزیابی اجباری</h3>
+  <form method="post" enctype="multipart/form-data" action="{% url 'maintenance:repair_complete' repair.pk %}">{% csrf_token %}{{ completion_form.as_p }}<button class="btn btn-primary">ثبت نتیجه و ارزیابی</button></form>
+</div>
+{% endif %}
+{% if can_decide and repair.status == "cost_disputed" %}
+<div class="card"><h3>تعیین تکلیف اختلاف هزینه</h3>
+  <form method="post" enctype="multipart/form-data" action="{% url 'maintenance:repair_cost_resolve' repair.pk %}">{% csrf_token %}
+    <label>تصمیم</label><select name="decision" required><option value="approve_increase">تایید افزایش هزینه</option><option value="reject_increase">عدم تایید افزایش هزینه (پرونده باز بماند)</option><option value="settled">ثبت توافق / تسویه اختلاف</option></select>
+    <label>نتیجه و مستند تصمیم</label><textarea name="note" required></textarea>
+    <button class="btn btn-primary">ثبت تعیین تکلیف</button>
+  </form>
+</div>
+{% endif %}
+{% if feedback %}
+<div class="card">
+  <h3>ارزیابی تعمیرکار</h3>
+  <p>کیفیت: {{ feedback.work_quality }} از ۵ | سرعت: {{ feedback.completion_speed }} از ۵ | انصاف هزینه: {{ feedback.cost_fairness }} از ۵</p>
+  <p>{{ feedback.comment|default:"بدون توضیح تکمیلی" }}</p>
+  {% for reply in feedback.replies.all %}<blockquote>{{ reply.body }} <small>— {{ reply.author.display_name }}، {{ reply.created_at }}</small></blockquote>{% endfor %}
+  {% if can_reply %}<form method="post" action="{% url 'maintenance:feedback_reply' feedback.pk %}">{% csrf_token %}{{ reply_form.as_p }}<button class="btn btn-secondary">ثبت پاسخ</button></form>{% endif %}
+</div>
+{% endif %}
+<div class="card"><h3>تاریخچه اقدامات</h3>
+  <ul>{% for event in events %}<li>{{ event.created_at }} — {{ event.get_action_display|default:event.action }} — {{ event.note }} — {{ event.actor.display_name }}</li>{% empty %}<li>تاریخچه‌ای ثبت نشده است.</li>{% endfor %}</ul>
+</div>
+{% endblock %}

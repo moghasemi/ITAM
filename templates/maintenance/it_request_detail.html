@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header"><div><h1>{{ page_title }}</h1><p>{{ item.center.name }} — {{ item.get_request_type_display }}</p></div><span class="badge badge-info">{{ item.get_status_display }}</span></div>
+<div class="card">
+  <p><strong>درخواست‌کننده:</strong> {{ item.requested_by.display_name }}</p>
+  <p><strong>عنوان:</strong> {{ item.title }}</p><p>{{ item.description }}</p>
+  <p><strong>کارشناس مسئول:</strong> {{ item.assigned_to|default:"تعیین نشده" }}</p>
+  <p><strong>تایید مدیر مرکز:</strong> {{ item.get_manager_approval_display }}</p>
+  {% if item.manager_bypass_reason %}<p><strong>دلیل عبور:</strong> {{ item.manager_bypass_reason }}</p>{% endif %}
+  {% if item.provincial_decision %}<p><strong>تصمیم استانی:</strong> {{ item.provincial_decision }}</p>{% endif %}
+</div>
+{% if can_manage and item.status != "resolved" %}
+<div class="card"><h3>ارجاع به کارشناس IT مرکز</h3><form method="post" action="{% url 'maintenance:it_request_assign' item.pk %}">{% csrf_token %}{{ assign_form.as_p }}<button class="btn btn-primary">ارجاع</button></form></div>
+<div class="card"><h3>ارسال به مدیریت استانی</h3><form method="post" action="{% url 'maintenance:it_request_escalate' item.pk %}">{% csrf_token %}{{ escalate_form.as_p }}<button class="btn btn-primary">ارسال به استان</button></form></div>
+{% endif %}
+{% if can_manager_review and item.manager_approval == "pending" %}
+<div class="card"><h3>بررسی مدیر مرکز</h3><form method="post" action="{% url 'maintenance:it_request_manager_decide' item.pk %}">{% csrf_token %}{{ manager_form.as_p }}<button class="btn btn-primary">ثبت تصمیم مدیر</button></form></div>
+{% endif %}
+{% if can_province_resolve and item.status == "escalated" %}
+<div class="card"><h3>ثبت دستور و نتیجه استانی</h3><form method="post" action="{% url 'maintenance:it_request_resolve' item.pk %}">{% csrf_token %}{{ resolve_form.as_p }}<button class="btn btn-primary">ثبت دستور و خاتمه</button></form></div>
+{% endif %}
+<div class="card"><h3>تاریخچه گردش درخواست</h3><ul>{% for event in events %}<li>{{ event.created_at }} — {{ event.action }} — {{ event.note }} — {{ event.actor.display_name }}</li>{% empty %}<li>رویدادی ثبت نشده است.</li>{% endfor %}</ul></div>
+{% endblock %}

@@ -144,7 +144,11 @@ async function readSnapshot() {
   document.getElementById("content").innerHTML =
     `<div class="status"><div class="spinner"></div><p>در حال خواندن اطلاعات سخت‌افزاری و تولید هش...</p></div>`;
   try {
-    const r = await fetch(API + "/api/snapshot");
+    const r = await fetch(API + "/api/snapshot", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}"
+    });
     if (!r.ok) throw new Error("خطا در دریافت اطلاعات");
     const data = await r.json();
     render(data);

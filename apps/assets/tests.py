@@ -26,7 +26,7 @@ from apps.core.constants import (
     DIFF_REPLACED,
     DIFF_UNCHANGED,
 )
-from apps.org.models import Center, Contract, Contractor, OrganizationalUnit
+from apps.org.models import Center, Contract, ContractCenterAssignment, Contractor, OrganizationalUnit
 
 
 class _Item:
@@ -144,8 +144,18 @@ class SnapshotWorkflowTests(TestCase):
             asset_tag="A-1", category=cls.category, contract=cls.contract,
             center=cls.center, brand="DELL"
         )
+        province_admin = User.objects.create_user(
+            username="snapshot-province-admin", password="pass12345",
+            role=User.ROLE_ADMIN_PROVINCE, org_unit=province,
+        )
         cls.technician = User.objects.create_user(
-            username="tech", password="pass12345", role=User.ROLE_TECHNICIAN, contractor=cls.contractor
+            username="tech", password="pass12345", role=User.ROLE_TECHNICIAN,
+            contractor=cls.contractor, org_unit=province,
+        )
+        ContractCenterAssignment.objects.create(
+            contract=cls.contract, center=cls.center,
+            start_date=today, status=ContractCenterAssignment.STATUS_ACTIVE,
+            assigned_by=province_admin,
         )
         cls.it_expert = User.objects.create_user(
             username="expert", password="pass12345", role=User.ROLE_ADMIN_IT, center=cls.center
@@ -980,6 +990,41 @@ class SnapshotAccessBoundaryTests(TestCase):
         response = self.client.get(reverse("assets:snapshot_detail", args=[snapshot.pk]))
 
         self.assertEqual(response.status_code, 404)
+
+    def test_technician_cannot_view_asset_bound_to_another_contract_in_same_province(self):
+        center_b = Center.objects.create(
+            name="مرکز دوم همان استان",
+            code="SNAP-ACCESS-SAME-PROVINCE-B",
+            parent_unit=self.center_a.parent_unit,
+        )
+        province = self.center_a.parent_unit.parent
+        today = timezone.localdate()
+        second_contract = Contract.objects.create(
+            contractor=self.contractor,
+            province=province,
+            number="SNAP-ACCESS-SAME-PROVINCE-B",
+            title="قرارداد دوم همان استان",
+            start_date=today - dt.timedelta(days=5),
+            end_date=today + dt.timedelta(days=30),
+            status=Contract.STATUS_ACTIVE,
+        )
+        province_admin = User.objects.create_user(
+            username="snapshot-same-province-admin", password="test-password",
+            role=User.ROLE_ADMIN_PROVINCE, org_unit=province,
+        )
+        ContractCenterAssignment.objects.create(
+            contract=second_contract, center=center_b,
+            start_date=today, status=ContractCenterAssignment.STATUS_ACTIVE,
+            assigned_by=province_admin,
+        )
+        misbound_asset = Asset.objects.create(
+            asset_tag="SNAP-ACCESS-SAME-PROVINCE-MISBOUND",
+            category=self.category, center=center_b, contract=self.contract,
+        )
+
+        self.assertTrue(self.technician.get_scoped_centers().filter(pk=center_b.pk).exists())
+        self.assertFalse(visible_assets(self.technician).filter(pk=misbound_asset.pk).exists())
+        self.assertFalse(can_record_snapshot(self.technician, misbound_asset))
 
     def test_technician_cannot_view_asset_misbound_to_another_province_even_with_second_contract(self):
         province_b = self.center_b.parent_unit.parent

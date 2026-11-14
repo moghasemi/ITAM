@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.views.generic import CreateView
 
 from apps.core.constants import TICKET_OPEN_STATUSES
 from apps.accounts.permissions import (
@@ -23,6 +26,7 @@ from apps.core.mixins import (
     apply_search,
 )
 from apps.core.utils import log_action
+from apps.maintenance.repair_services import assign_contractor_to_center, end_contractor_assignment
 
 from .forms import (
     CenterForm,
@@ -32,8 +36,10 @@ from .forms import (
     DepartmentForm,
     LocationForm,
     SlaPolicyFormSet,
+    ContractCenterAssignmentForm,
+    ContractCenterAssignmentEndForm,
 )
-from .models import Center, Contract, Contractor, Department, Location
+from .models import Center, Contract, ContractCenterAssignment, Contractor, Department, Location
 
 
 def _visible_contracts_for_user(user):
@@ -450,3 +456,83 @@ def contract_generate_visits(request, pk: int):
         except Exception as exc:  # noqa: BLE001
             messages.error(request, f"برنامه‌ریزی بازدید انجام نشد: {exc}")
     return redirect("org:contract_detail", pk=pk)
+
+
+# ---------------------------------------------------------------------------
+# انتساب تاریخی پیمانکار رسمی به مرکز
+# ---------------------------------------------------------------------------
+class ContractCenterAssignmentListView(ProvinceAdminRequiredMixin, BaseListView):
+    model = ContractCenterAssignment
+    template_name = "org/assignment_list.html"
+    page_title = "انتساب پیمانکار رسمی به مراکز"
+    active_menu = "contracts"
+    paginate_by = 30
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = ContractCenterAssignment.objects.select_related(
+            "center", "contract", "contract__contractor", "assigned_by", "ended_by"
+        )
+        if not user.is_admin_country:
+            qs = qs.filter(center__in=user.get_scoped_centers())
+        return qs.order_by("-start_date", "-created_at")
+
+
+class ContractCenterAssignmentCreateView(ProvinceAdminRequiredMixin, PageContextMixin, CreateView):
+    model = ContractCenterAssignment
+    form_class = ContractCenterAssignmentForm
+    template_name = "org/assignment_form.html"
+    page_title = "انتساب پیمانکار به مرکز"
+    active_menu = "contracts"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        try:
+            self.object = assign_contractor_to_center(
+                contract=form.cleaned_data["contract"],
+                center=form.cleaned_data["center"],
+                start_date=form.cleaned_data["start_date"],
+                actor=self.request.user,
+            )
+        except (PermissionDenied, ValidationError) as exc:
+            form.add_error(None, exc)
+            return self.form_invalid(form)
+        messages.success(self.request, "انتساب پیمانکار رسمی ثبت شد.")
+        log_action("create", self.object, note="انتساب پیمانکار رسمی به مرکز", user=self.request.user)
+        return redirect("org:assignment_list")
+
+    def get_success_url(self):
+        return reverse("org:assignment_list")
+
+
+@login_required
+def contract_assignment_end(request, pk: int):
+    if request.method != "POST":
+        return redirect("org:assignment_list")
+    assignment = get_object_or_404(
+        ContractCenterAssignment.objects.select_related("center", "contract"),
+        pk=pk,
+    )
+    if not request.user.is_admin_country and not request.user.get_scoped_centers().filter(
+        pk=assignment.center_id
+    ).exists():
+        raise PermissionDenied("انتساب خارج از حوزه مجاز شماست.")
+    form = ContractCenterAssignmentEndForm(request.POST)
+    if form.is_valid():
+        try:
+            end_contractor_assignment(
+                assignment=assignment,
+                reason=form.cleaned_data["reason"],
+                end_date=form.cleaned_data.get("end_date"),
+                actor=request.user,
+            )
+            messages.success(request, "انتساب پایان یافت و سابقه آن حفظ شد.")
+        except (PermissionDenied, ValidationError) as exc:
+            messages.error(request, "؛ ".join(getattr(exc, "messages", [str(exc)])))
+    else:
+        messages.error(request, "برای پایان انتساب، دلیل معتبر الزامی است.")
+    return redirect("org:assignment_list")

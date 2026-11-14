@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import zipfile
+from pathlib import PurePosixPath
 
 from django.core.exceptions import ValidationError
 
@@ -13,6 +14,10 @@ ALLOWED_DOCUMENT_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS | {
     ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf", ".txt", ".csv",
 }
 MAX_UPLOAD_SIZE = 20 * 1024 * 1024
+MAX_ARCHIVE_MEMBERS = 1000
+MAX_ARCHIVE_MEMBER_SIZE = 100 * 1024 * 1024
+MAX_ARCHIVE_TOTAL_SIZE = 200 * 1024 * 1024
+MAX_ARCHIVE_COMPRESSION_RATIO = 1000
 
 
 def _read_prefix(file_obj, length=64):
@@ -32,7 +37,30 @@ def _zip_has_required_member(file_obj, required_member):
         position = file_obj.tell()
         file_obj.seek(0)
         with zipfile.ZipFile(file_obj) as archive:
-            valid = required_member in archive.namelist()
+            members = archive.infolist()
+            if len(members) > MAX_ARCHIVE_MEMBERS:
+                file_obj.seek(position)
+                return False
+            total_uncompressed = 0
+            for member in members:
+                member_path = PurePosixPath(member.filename)
+                if member_path.is_absolute() or ".." in member_path.parts:
+                    file_obj.seek(position)
+                    return False
+                if member.file_size > MAX_ARCHIVE_MEMBER_SIZE:
+                    file_obj.seek(position)
+                    return False
+                total_uncompressed += member.file_size
+                if total_uncompressed > MAX_ARCHIVE_TOTAL_SIZE:
+                    file_obj.seek(position)
+                    return False
+                if (
+                    member.file_size > 1024 * 1024
+                    and member.file_size / max(member.compress_size, 1) > MAX_ARCHIVE_COMPRESSION_RATIO
+                ):
+                    file_obj.seek(position)
+                    return False
+            valid = any(member.filename == required_member for member in members)
         file_obj.seek(position)
         return valid
     except (AttributeError, OSError, ValueError, zipfile.BadZipFile):

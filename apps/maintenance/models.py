@@ -291,3 +291,10 @@ class VisitAssetCheck(TimeStampedModel):
         if notes:
             self.notes = notes
         self.save()
+
+
+from .repair_models import (  # noqa: E402,F401
+    GeneralITRequest, GeneralReferral, IndependentRepairer, RepairFeedback,
+    GeneralITRequestEvent, RepairFeedbackReply, RepairRequest, RepairRequestEvent,
+    RepairerProfileEvent, RepairerStatusEvent,
+)

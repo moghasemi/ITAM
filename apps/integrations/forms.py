@@ -16,6 +16,38 @@ class WebhookEndpointForm(StyledModelForm):
             "name", "url", "method", "auth_type", "token", "secret",
             "extra_headers", "event_filter", "is_active", "timeout_seconds", "max_attempts",
         ]
+        widgets = {
+            "token": forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
+            "secret": forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ("token", "secret"):
+            self.fields[name].required = False
+            self.fields[name].help_text = (
+                "برای حفظ محرمانگی مقدار فعلی نمایش داده نمی‌شود؛ "
+                "برای جایگزینی، مقدار جدید وارد کنید."
+                if self.instance.pk
+                else "مقدار محرمانه فقط هنگام ذخیره دریافت می‌شود."
+            )
+
+    def clean_token(self):
+        value = (self.cleaned_data.get("token") or "").strip()
+        return value or (self.instance.token if self.instance.pk else "")
+
+    def clean_secret(self):
+        value = (self.cleaned_data.get("secret") or "").strip()
+        return value or (self.instance.secret if self.instance.pk else "")
+
+    def clean(self):
+        cleaned = super().clean()
+        auth_type = cleaned.get("auth_type")
+        if auth_type == WebhookEndpoint.AUTH_TOKEN and not cleaned.get("token"):
+            self.add_error("token", "برای احراز هویت توکنی، توکن الزامی است.")
+        if auth_type == WebhookEndpoint.AUTH_HMAC and not cleaned.get("secret"):
+            self.add_error("secret", "برای امضای HMAC، کلید محرمانه الزامی است.")
+        return cleaned
 
     def clean_extra_headers(self):
         value = self.cleaned_data.get("extra_headers") or {}

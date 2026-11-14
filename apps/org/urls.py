@@ -25,4 +25,7 @@ urlpatterns = [
     path("contracts/<int:pk>/", views.ContractDetailView.as_view(), name="contract_detail"),
     path("contracts/<int:pk>/edit/", views.ContractUpdateView.as_view(), name="contract_update"),
     path("contracts/<int:pk>/generate-visits/", views.contract_generate_visits, name="contract_generate_visits"),
+    path("assignments/", views.ContractCenterAssignmentListView.as_view(), name="assignment_list"),
+    path("assignments/add/", views.ContractCenterAssignmentCreateView.as_view(), name="assignment_create"),
+    path("assignments/<int:pk>/end/", views.contract_assignment_end, name="assignment_end"),
 ]

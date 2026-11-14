@@ -1,11 +1,15 @@
 from datetime import timedelta
+from io import StringIO
+
+from django.core.management import call_command
 
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.org.models import Center, Contract, Contractor, OrganizationalUnit
+from apps.org.models import Center, Contract, ContractCenterAssignment, Contractor, OrganizationalUnit
+from apps.maintenance.repair_services import assign_contractor_to_center
 
 
 class TechnicianProvinceContractScopeTests(TestCase):
@@ -42,6 +46,14 @@ class TechnicianProvinceContractScopeTests(TestCase):
             name="مرکز ب", code="C-B-TEST", parent_unit=county_b
         )
         self.contractor = Contractor.objects.create(name="پیمانکار آزمون")
+        self.province_admin_a = User.objects.create_user(
+            username="province-admin-a", password="Strong-Test-Password-2026!",
+            role=User.ROLE_ADMIN_PROVINCE, org_unit=self.province_a,
+        )
+        self.province_admin_b = User.objects.create_user(
+            username="province-admin-b", password="Strong-Test-Password-2026!",
+            role=User.ROLE_ADMIN_PROVINCE, org_unit=self.province_b,
+        )
         self.technician = User.objects.create_user(
             username="technician-province-test",
             password="Strong-Test-Password-2026!",
@@ -68,22 +80,33 @@ class TechnicianProvinceContractScopeTests(TestCase):
     def scoped_ids(self):
         return set(self.technician.get_scoped_centers().values_list("pk", flat=True))
 
+    def assign(self, contract, center, province_admin=None):
+        province_admin = province_admin or (
+            self.province_admin_a if center.treatment_management.province_id == self.province_a.pk
+            else self.province_admin_b
+        )
+        return assign_contractor_to_center(
+            contract=contract, center=center, start_date=self.today, actor=province_admin,
+        )
+
     def test_active_contract_grants_only_centers_in_its_province(self):
-        self.make_contract("CON-A-1", self.province_a)
-        self.assertEqual(self.scoped_ids(), {self.center_a1.pk, self.center_a2.pk})
+        contract = self.make_contract("CON-A-1", self.province_a)
+        self.assign(contract, self.center_a1)
+        self.assertEqual(self.scoped_ids(), {self.center_a1.pk})
 
     def test_multiple_active_contracts_in_same_province_are_supported(self):
-        self.make_contract("CON-A-1", self.province_a)
-        self.make_contract("CON-A-2", self.province_a)
+        first = self.make_contract("CON-A-1", self.province_a)
+        second = self.make_contract("CON-A-2", self.province_a)
+        self.assign(first, self.center_a1)
+        self.assign(second, self.center_a2)
         self.assertEqual(self.scoped_ids(), {self.center_a1.pk, self.center_a2.pk})
 
     def test_contracts_in_two_provinces_grant_only_those_two_provinces(self):
-        self.make_contract("CON-A-1", self.province_a)
-        self.make_contract("CON-B-1", self.province_b)
-        self.assertEqual(
-            self.scoped_ids(),
-            {self.center_a1.pk, self.center_a2.pk, self.center_b.pk},
-        )
+        contract_a = self.make_contract("CON-A-1", self.province_a)
+        contract_b = self.make_contract("CON-B-1", self.province_b)
+        self.assign(contract_a, self.center_a1, self.province_admin_a)
+        self.assign(contract_b, self.center_b, self.province_admin_b)
+        self.assertEqual(self.scoped_ids(), {self.center_a1.pk, self.center_b.pk})
 
     def test_suspended_contract_grants_no_access(self):
         self.make_contract("CON-SUSP", self.province_a, status=Contract.STATUS_SUSPENDED)
@@ -131,11 +154,26 @@ class TechnicianProvinceContractScopeTests(TestCase):
     def test_inactive_center_is_excluded_from_scope(self):
         self.center_a1.is_active = False
         self.center_a1.save(update_fields=["is_active"])
-        self.make_contract("CON-INACTIVE-CENTER", self.province_a)
+        contract = self.make_contract("CON-INACTIVE-CENTER", self.province_a)
+        self.assign(contract, self.center_a1)
+        self.assign(contract, self.center_a2)
         self.assertEqual(self.scoped_ids(), {self.center_a2.pk})
+
+    def test_legacy_contract_assignment_audit_is_read_only(self):
+        contract = self.make_contract("CON-LEGACY-AUDIT", self.province_a)
+        contract.centers.add(self.center_a1)
+        output = StringIO()
+
+        call_command("audit_contract_center_assignments", stdout=output)
+
+        self.assertIn("CON-LEGACY-AUDIT", output.getvalue())
+        self.assertEqual(
+            ContractCenterAssignment.objects.filter(contract=contract).count(), 0
+        )
 
     def test_contract_cannot_cover_a_center_in_another_province(self):
         contract = self.make_contract("CON-COVER", self.province_a)
+        self.assign(contract, self.center_a1)
         self.assertTrue(contract.covers_center(self.center_a1))
         self.assertFalse(contract.covers_center(self.center_b))
         self.assertFalse(contract.covers_center(None))

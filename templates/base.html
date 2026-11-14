@@ -40,6 +40,25 @@
         </a>
       {% endif %}
 
+      <div class="nav-section">درخواست‌ها و تعمیرات مستقل</div>
+      <a class="nav-item {% if active_menu == 'it_requests' %}active{% endif %}" href="{% url 'maintenance:it_request_list' %}">
+        <span class="nav-icon">📨</span> درخواست‌های عمومی IT
+      </a>
+      {% if user.is_admin_it or user.is_admin_province or user.is_superuser %}
+        <a class="nav-item {% if active_menu == 'repairs' %}active{% endif %}" href="{% url 'maintenance:repair_list' %}">
+          <span class="nav-icon">🔧</span> درخواست‌های تعمیر مستقل
+        </a>
+        <a class="nav-item {% if active_menu == 'repairs' %}active{% endif %}" href="{% url 'maintenance:repairer_list' %}">
+          <span class="nav-icon">🧰</span> تعمیرکاران مستقل
+        </a>
+        <a class="nav-item {% if active_menu == 'repairs' %}active{% endif %}" href="{% url 'maintenance:feedback_list' %}">
+          <span class="nav-icon">⭐</span> ارزیابی تعمیرکاران
+        </a>
+        <a class="nav-item {% if active_menu == 'referrals' %}active{% endif %}" href="{% url 'maintenance:referral_list' %}">
+          <span class="nav-icon">📤</span> ارجاع‌های عمومی
+        </a>
+      {% endif %}
+
       <div class="nav-section">دارایی‌ها</div>
       <a class="nav-item {% if active_menu == 'assets' %}active{% endif %}" href="{% url 'assets:list' %}">
         <span class="nav-icon">🖥</span> فهرست دارایی‌ها
@@ -64,6 +83,11 @@
       {% if user.is_admin_province or user.is_superuser %}
         <a class="nav-item {% if active_menu == 'centers' %}active{% endif %}" href="{% url 'org:center_list' %}">
           <span class="nav-icon">🏛</span> مراکز استان
+        </a>
+      {% endif %}
+      {% if user.is_admin_province or user.is_superuser %}
+        <a class="nav-item {% if active_menu == 'contracts' %}active{% endif %}" href="{% url 'org:assignment_list' %}">
+          <span class="nav-icon">🔗</span> انتساب پیمانکار به مراکز
         </a>
       {% endif %}
       {% if user.is_admin_it or user.is_manager %}

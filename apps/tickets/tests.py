@@ -24,7 +24,7 @@ from apps.core.constants import (
 from apps.core.models import SystemSetting
 from apps.integrations.models import OutboxEvent
 from apps.org.models import (
-    Center, Contract, Contractor, OrganizationalUnit, SlaPolicy,
+    Center, Contract, ContractCenterAssignment, Contractor, OrganizationalUnit, SlaPolicy,
 )
 
 from .models import Ticket, TicketAttachment, TicketEvent, TicketPause
@@ -89,8 +89,19 @@ class TicketWorkflowTests(TestCase):
             username="expert", password="pass12345", role=User.ROLE_ADMIN_IT,
             center=cls.center
         )
+        province_admin = User.objects.create_user(
+            username="ticket-province-admin", password="pass12345",
+            role=User.ROLE_ADMIN_PROVINCE, org_unit=province,
+        )
         cls.technician = User.objects.create_user(
-            username="tech", password="pass12345", role=User.ROLE_TECHNICIAN, contractor=cls.contractor
+            username="tech", password="pass12345", role=User.ROLE_TECHNICIAN,
+            contractor=cls.contractor, org_unit=province,
+        )
+        ContractCenterAssignment.objects.create(
+            contract=cls.contract, center=cls.center,
+            start_date=timezone.localdate(),
+            status=ContractCenterAssignment.STATUS_ACTIVE,
+            assigned_by=province_admin,
         )
         cls.requester = User.objects.create_user(
             username="user", password="pass12345", role=User.ROLE_REQUESTER,
@@ -187,6 +198,46 @@ class TicketWorkflowTests(TestCase):
         self.assertEqual(ticket.reporter_name, self.requester.display_name)
         self.assertEqual(ticket.reporter_phone, self.requester.phone)
         self.assertEqual(ticket.reported_by_id, self.requester.pk)
+
+    def test_technician_cannot_see_ticket_when_center_is_assigned_to_another_contract(self):
+        center_b = Center.objects.create(
+            name="مرکز دوم استان", code="TEST-CENTER-SECOND",
+            parent_unit=self.center.parent_unit,
+        )
+        contract_b = Contract.objects.create(
+            contractor=self.contractor, province=self.center.parent_unit.parent,
+            number="C-101", title="قرارداد دوم استان",
+            start_date=timezone.localdate() - dt.timedelta(days=5),
+            end_date=timezone.localdate() + dt.timedelta(days=30),
+        )
+        province_admin = User.objects.create_user(
+            username="ticket-province-admin-second", password="pass12345",
+            role=User.ROLE_ADMIN_PROVINCE, org_unit=self.center.parent_unit.parent,
+        )
+        ContractCenterAssignment.objects.create(
+            contract=contract_b, center=center_b,
+            start_date=timezone.localdate(),
+            status=ContractCenterAssignment.STATUS_ACTIVE,
+            assigned_by=province_admin,
+        )
+        # The asset is intentionally bound to contract A while its center is
+        # explicitly assigned to contract B in the same province.
+        asset_b = Asset.objects.create(
+            asset_tag="A-1001", category=self.category,
+            contract=self.contract, center=center_b, status="active",
+        )
+        requester_b = User.objects.create_user(
+            username="ticket-requester-second", password="pass12345",
+            role=User.ROLE_REQUESTER, center=center_b,
+        )
+        ticket = create_ticket(
+            asset=asset_b, title="خرابی با قرارداد نامنطبق",
+            description="این تیکت نباید برای تکنسین قرارداد اول قابل مشاهده باشد.",
+            priority=PRIORITY_HIGH, user=requester_b,
+        )
+
+        self.assertFalse(visible_tickets(self.technician).filter(pk=ticket.pk).exists())
+        self.assertFalse(can_manage_ticket(self.technician, ticket))
 
     def test_technician_cannot_manage_ticket_when_asset_is_bound_to_foreign_contract_province(self):
         national = self.center.parent_unit.parent.parent

@@ -3,7 +3,7 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from apps.accounts.models import User
-from apps.org.models import Center, Contract, OrganizationalUnit
+from apps.org.models import Center, Contract, ContractCenterAssignment, OrganizationalUnit
 
 
 class DemoSeedProvinceTests(TestCase):
@@ -37,6 +37,13 @@ class DemoSeedProvinceTests(TestCase):
         self.assertTrue(province_admin.get_scoped_centers().filter(pk__in=demo_centers).count() == 3)
 
         technician = User.objects.get(username="tech.pars")
+        for center in demo_centers:
+            ContractCenterAssignment.objects.create(
+                contract=contract, center=center,
+                start_date=contract.start_date,
+                status=ContractCenterAssignment.STATUS_ACTIVE,
+                assigned_by=province_admin,
+            )
         self.assertEqual(
             set(technician.get_scoped_centers().values_list("pk", flat=True)),
             set(demo_centers.values_list("pk", flat=True)),

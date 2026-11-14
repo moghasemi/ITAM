@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+
+{% block page_actions %}
+  <a class="btn btn-ghost" href="?{% if request.GET.date_from %}date_from={{ request.GET.date_from|urlencode }}&{% endif %}{% if request.GET.date_to %}date_to={{ request.GET.date_to|urlencode }}&{% endif %}export=1">⬇️ خروجی Excel</a>
+{% endblock %}
+
+{% block content %}
+<div class="alert alert-info">
+  <span>گزارش فقط داده‌های قابل مشاهده در حوزه سازمانی کاربر را محاسبه می‌کند. هزینه‌ها به ریال هستند و امتیازها از ۱ تا ۵ ثبت می‌شوند.</span>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="filter-form">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="{{ filter_form.date_from.id_for_label }}">از تاریخ</label>
+          {{ filter_form.date_from }}
+        </div>
+        <div class="form-group">
+          <label for="{{ filter_form.date_to.id_for_label }}">تا تاریخ</label>
+          {{ filter_form.date_to }}
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">اعمال فیلتر</button>
+        <a class="btn btn-ghost" href="{% url 'reports:repairs' %}">پاک کردن</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-icon">🧰</div><div>
+    <div class="stat-value">{{ summary.total|fa }}</div><div class="stat-label">کل درخواست‌های تعمیر</div></div></div>
+  <div class="stat-card is-warning"><div class="stat-icon">⏳</div><div>
+    <div class="stat-value">{{ summary.pending|fa }}</div><div class="stat-label">در انتظار تایید استان</div></div></div>
+  <div class="stat-card is-danger"><div class="stat-icon">⚠️</div><div>
+    <div class="stat-value">{{ summary.disputed|fa }}</div><div class="stat-label">اختلاف هزینه</div></div></div>
+  <div class="stat-card"><div class="stat-icon">💰</div><div>
+    <div class="stat-value">{{ summary.estimated|default:0|floatformat:0|fa }}</div><div class="stat-label">برآورد کل (ریال)</div></div></div>
+  <div class="stat-card"><div class="stat-icon">🧾</div><div>
+    <div class="stat-value">{{ summary.final|default:0|floatformat:0|fa }}</div><div class="stat-label">هزینه نهایی ثبت‌شده (ریال)</div></div></div>
+  <div class="stat-card"><div class="stat-icon">📨</div><div>
+    <div class="stat-value">{{ summary.general_requests|fa }}</div><div class="stat-label">درخواست‌های عمومی IT</div></div></div>
+  <div class="stat-card"><div class="stat-icon">📬</div><div>
+    <div class="stat-value">{{ summary.general_requests_open|fa }}</div><div class="stat-label">درخواست عمومی باز</div></div></div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2 class="card-title">کارنامه تعمیرکاران مستقل</h2></div>
+  <div class="table-wrap">
+    <table class="table compact">
+      <thead>
+        <tr>
+          <th>تعمیرکار</th><th>درخواست</th><th>مراکز</th><th>دارایی‌ها</th>
+          <th>باز</th><th>اختلاف</th><th>برآورد (ریال)</th><th>نهایی (ریال)</th>
+          <th>کیفیت</th><th>سرعت</th><th>انصاف هزینه</th><th>ارزیابی</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.repairer.name }}</td>
+          <td>{{ row.request_count|fa }}</td>
+          <td>{{ row.center_count|fa }}</td>
+          <td>{{ row.asset_count|fa }}</td>
+          <td>{{ row.open_count|fa }}</td>
+          <td>{{ row.disputed_count|fa }}</td>
+          <td class="nowrap">{{ row.estimate_total|default:0|floatformat:0|fa }}</td>
+          <td class="nowrap">{{ row.final_total|default:0|floatformat:0|fa }}</td>
+          <td>{{ row.avg_quality|floatformat:2|default:"—"|fa }}</td>
+          <td>{{ row.avg_speed|floatformat:2|default:"—"|fa }}</td>
+          <td>{{ row.avg_fairness|floatformat:2|default:"—"|fa }}</td>
+          <td>{{ row.feedback_count|fa }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="12">{% include "partials/empty.html" with text="در این بازه، درخواست تعمیر قابل مشاهده‌ای ثبت نشده است." %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

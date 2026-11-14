@@ -25,6 +25,8 @@ from apps.core.mixins import PageContextMixin
 from apps.core.sla import get_calendar
 from apps.core.utils import duration_fa, log_action
 from apps.maintenance.models import MaintenanceVisit
+from apps.maintenance.repair_models import GeneralITRequest, RepairRequest
+from apps.maintenance.repair_services import visible_repairers, visible_repair_requests
 from apps.maintenance.services import visible_visits
 from apps.org.models import Contract, Contractor
 from apps.tickets.models import Ticket
@@ -36,6 +38,7 @@ from .forms import ReportFilterForm, filter_tickets
 REPORT_MENU = [
     {"key": "sla", "title": "گزارش SLA و زمان‌های پاسخ", "url": "/reports/sla/", "icon": "⏱"},
     {"key": "contractor", "title": "کارنامه پیمانکاران", "url": "/reports/contractors/", "icon": "🏢"},
+    {"key": "repairs", "title": "هزینه و عملکرد تعمیرکاران مستقل", "url": "/reports/repairs/", "icon": "🧰"},
     {"key": "inventory", "title": "فهرست و ارزش دارایی‌ها", "url": "/reports/inventory/", "icon": "🖥"},
     {"key": "visits", "title": "رعایت بازدیدهای دوره‌ای", "url": "/reports/visits/", "icon": "🗓"},
     {"key": "failures", "title": "تحلیل خرابی‌ها و MTTR", "url": "/reports/failures/", "icon": "📉"},
@@ -290,6 +293,108 @@ class ContractorScorecardView(StaffRequiredMixin, PageContextMixin, View):
                 "rows": rows,
             },
         )
+
+
+# ---------------------------------------------------------------------------
+# گزارش تعمیرکاران مستقل، هزینه‌ها و درخواست‌های ارجاعی
+# ---------------------------------------------------------------------------
+class RepairPerformanceReportView(StaffRequiredMixin, PageContextMixin, View):
+    template_name = "reports/repairs.html"
+    page_title = "گزارش تعمیرکاران مستقل و هزینه‌های تعمیر"
+    active_menu = "reports"
+
+    def get(self, request, *args, **kwargs):
+        form, data = _filter_form(request)
+        repairs = visible_repair_requests(request.user).select_related(
+            "repairer", "center", "asset", "requested_by"
+        )
+        if data.get("date_from"):
+            repairs = repairs.filter(created_at__date__gte=data["date_from"])
+        if data.get("date_to"):
+            repairs = repairs.filter(created_at__date__lte=data["date_to"])
+
+        rows = []
+        repairers = visible_repairers(request.user).filter(
+            repair_requests__in=repairs
+        ).distinct().order_by("name")
+        for repairer in repairers:
+            related = repairs.filter(repairer=repairer)
+            totals = related.aggregate(
+                request_count=Count("pk"),
+                center_count=Count("center", distinct=True),
+                asset_count=Count("asset", distinct=True),
+                estimate_total=Sum("estimate_amount"),
+                final_total=Sum("final_cost"),
+                avg_quality=Avg("feedback__work_quality"),
+                avg_speed=Avg("feedback__completion_speed"),
+                avg_fairness=Avg("feedback__cost_fairness"),
+                feedback_count=Count("feedback", distinct=True),
+            )
+            rows.append({
+                "repairer": repairer,
+                **totals,
+                "pending_count": related.filter(status=RepairRequest.STATUS_PENDING).count(),
+                "disputed_count": related.filter(status=RepairRequest.STATUS_DISPUTED).count(),
+                "open_count": related.exclude(
+                    status__in=(RepairRequest.STATUS_REJECTED, RepairRequest.STATUS_RESOLVED)
+                ).count(),
+            })
+
+        summary = repairs.aggregate(
+            total=Count("pk"),
+            pending=Count("pk", filter=Q(status=RepairRequest.STATUS_PENDING)),
+            disputed=Count("pk", filter=Q(status=RepairRequest.STATUS_DISPUTED)),
+            estimated=Sum("estimate_amount"),
+            final=Sum("final_cost"),
+        )
+        if request.user.is_admin_country:
+            general_requests = GeneralITRequest.objects.all()
+        elif request.user.role == "requester":
+            general_requests = GeneralITRequest.objects.filter(requested_by=request.user)
+        else:
+            general_requests = GeneralITRequest.objects.filter(
+                center__in=request.user.get_scoped_centers()
+            )
+        if data.get("date_from"):
+            general_requests = general_requests.filter(created_at__date__gte=data["date_from"])
+        if data.get("date_to"):
+            general_requests = general_requests.filter(created_at__date__lte=data["date_to"])
+        summary["general_requests"] = general_requests.count()
+        summary["general_requests_open"] = general_requests.exclude(
+            status=GeneralITRequest.STATUS_RESOLVED
+        ).count()
+
+        if request.GET.get("export"):
+            headers = [
+                "تعمیرکار", "تعداد درخواست", "تعداد مراکز", "تعداد دارایی",
+                "در انتظار تایید", "اختلاف هزینه", "برآورد کل", "هزینه نهایی",
+                "میانگین کیفیت", "میانگین سرعت", "میانگین انصاف هزینه", "تعداد ارزیابی",
+            ]
+            export_rows = [[
+                row["repairer"].name, row["request_count"], row["center_count"],
+                row["asset_count"], row["pending_count"], row["disputed_count"],
+                row["estimate_total"] or 0, row["final_total"] or 0,
+                round(row["avg_quality"], 2) if row["avg_quality"] is not None else "",
+                round(row["avg_speed"], 2) if row["avg_speed"] is not None else "",
+                round(row["avg_fairness"], 2) if row["avg_fairness"] is not None else "",
+                row["feedback_count"],
+            ] for row in rows]
+            log_action(
+                "export", None, model_name="IndependentRepairer",
+                object_label="گزارش عملکرد تعمیرکاران مستقل", user=request.user,
+            )
+            return export_response(
+                request, filename="independent-repair-performance",
+                sheet_title="عملکرد تعمیرکاران", headers=headers, rows=export_rows,
+            )
+
+        return render(request, self.template_name, {
+            "page_title": self.page_title,
+            "active_menu": self.active_menu,
+            "filter_form": form,
+            "rows": rows,
+            "summary": summary,
+        })
 
 
 # ---------------------------------------------------------------------------

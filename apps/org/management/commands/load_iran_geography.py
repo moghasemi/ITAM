@@ -222,8 +222,9 @@ class Command(BaseCommand):
             if not management_created:
                 management.name = f"مدیریت درمان استان {province.name}"
                 management.code = f"TM-{province.code}"
-                management.is_active = province.is_active
-                management.save(update_fields=["name", "code", "is_active", "updated_at"])
+                # Activation is operational state. Geography seeding must never
+                # silently reactivate or deactivate a Treatment Management unit.
+                management.save(update_fields=["name", "code", "updated_at"])
                 updated_managements += 1
             else:
                 created_managements += 1

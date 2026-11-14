@@ -76,6 +76,17 @@ class IranGeographyLoaderTests(TestCase):
         province.refresh_from_db()
         self.assertTrue(province.is_active)
 
+    def test_loader_preserves_manual_treatment_management_activation(self):
+        call_command("load_iran_geography")
+        management = TreatmentManagement.objects.get(province__code="IR-PROV-111")
+        management.is_active = False
+        management.save(update_fields=["is_active", "updated_at"])
+
+        call_command("load_iran_geography")
+
+        management.refresh_from_db()
+        self.assertFalse(management.is_active)
+
     def test_loader_reuses_legacy_demo_hierarchy_and_keeps_center_link(self):
         national = OrganizationalUnit.objects.create(
             name="ستاد کشوری مدیریت فاوا",

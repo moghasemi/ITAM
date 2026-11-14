@@ -268,6 +268,25 @@ try {
             continue
         }
 
+        # Reject browser requests initiated by an unrelated origin. The sync
+        # endpoint is state-changing and must carry the exact local UI Origin.
+        $origin = $req.Headers["Origin"]
+        $allowedOrigins = @("http://localhost:$Port", "http://127.0.0.1:$Port")
+        if ($origin -and $origin -notin $allowedOrigins) {
+            $res.StatusCode = 403
+            Write-Json $res @{ status = "error"; error = "مبدأ درخواست برای این ایجنت مجاز نیست." }
+            $res.Close()
+            continue
+        }
+        if ($path -in @("/api/snapshot", "/api/sync-to-itam") -and (
+            $req.HttpMethod -ne "POST" -or $origin -notin $allowedOrigins
+        )) {
+            $res.StatusCode = 403
+            Write-Json $res @{ status = "error"; error = "عملیات تغییردهنده فقط با POST از رابط محلی HWAgent مجاز است." }
+            $res.Close()
+            continue
+        }
+
         try {
             switch -Regex ($path) {
 
@@ -343,7 +362,23 @@ try {
                     }
 
                     $baseUrl = if ($cfg.itamUrl) { "$($cfg.itamUrl)".TrimEnd('/') } else { "http://localhost:8000" }
-                    $targetUrl = "$baseUrl/api/v1/hardware/agent-sync/"
+                    $targetUri = $null
+                    if (-not [System.Uri]::TryCreate($baseUrl, [System.UriKind]::Absolute, [ref]$targetUri)) {
+                        $res.StatusCode = 400
+                        Write-Json $res @{ status = "error"; error = "نشانی سرور ITAM معتبر نیست." }
+                        break
+                    }
+                    if ($targetUri.Scheme -ne "https" -and -not [System.Uri]::IsLoopback($targetUri)) {
+                        $res.StatusCode = 400
+                        Write-Json $res @{ status = "error"; error = "برای سرور راه‌دور استفاده از HTTPS الزامی است." }
+                        break
+                    }
+                    if ($targetUri.UserInfo -or $targetUri.Query -or $targetUri.Fragment) {
+                        $res.StatusCode = 400
+                        Write-Json $res @{ status = "error"; error = "نشانی سرور نباید اطلاعات ورود، Query یا Fragment داشته باشد." }
+                        break
+                    }
+                    $targetUrl = "$($targetUri.GetLeftPart([System.UriPartial]::Authority).TrimEnd('/'))$($targetUri.AbsolutePath.TrimEnd('/'))/api/v1/hardware/agent-sync/"
                     $payloadJson = $snap | ConvertTo-Json -Depth 15 -Compress
 
                     $utcTimestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")

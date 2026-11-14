@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from apps.accounts.forms import UserForm
 from apps.accounts.models import User
-from apps.org.models import Center, Contract, Contractor, Department, OrganizationalUnit
+from apps.org.models import Center, Contract, ContractCenterAssignment, Contractor, Department, OrganizationalUnit
 
 
 class TechnicianProvinceScopeTests(TestCase):
@@ -56,6 +56,19 @@ class TechnicianProvinceScopeTests(TestCase):
             username="province-admin-a", password="test-password",
             role=User.ROLE_ADMIN_PROVINCE, org_unit=self.province_a,
         )
+        country_admin = User.objects.create_user(
+            username="assignment-country-admin", password="test-password",
+            role=User.ROLE_ADMIN_COUNTRY,
+        )
+        for contract, center in (
+            (self.contract_a, self.center_a),
+            (self.contract_b, self.center_b),
+        ):
+            ContractCenterAssignment.objects.create(
+                contract=contract, center=center,
+                start_date=today, status=ContractCenterAssignment.STATUS_ACTIVE,
+                assigned_by=country_admin,
+            )
 
     def test_technician_scope_is_limited_to_assigned_province(self):
         technician = User.objects.create_user(

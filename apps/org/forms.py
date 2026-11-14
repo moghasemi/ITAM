@@ -5,7 +5,7 @@ from django import forms
 from django.forms import inlineformset_factory
 
 from apps.core.forms import JalaliDateField, StyledModelForm
-from .models import Center, Contract, Contractor, Department, Location, OrganizationalUnit, SlaPolicy
+from .models import Center, Contract, ContractCenterAssignment, Contractor, Department, Location, OrganizationalUnit, SlaPolicy
 
 
 class CenterForm(StyledModelForm):
@@ -174,3 +174,47 @@ class ContractFilterForm(forms.Form):
             self.fields["contractor"].queryset = Contractor.objects.filter(
                 pk__in=scoped_contracts.values("contractor_id")
             )
+
+class ContractCenterAssignmentForm(StyledModelForm):
+    start_date = JalaliDateField(label="تاریخ شروع انتساب")
+
+    class Meta:
+        model = ContractCenterAssignment
+        fields = ["contract", "center", "start_date"]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is None:
+            self.fields["contract"].queryset = Contract.objects.none()
+            self.fields["center"].queryset = Center.objects.none()
+            return
+        centers = user.get_scoped_centers()
+        self.fields["center"].queryset = centers.order_by("name")
+        if user.is_admin_country:
+            contracts = Contract.objects.filter(is_provincial=True)
+        else:
+            province_id = getattr(user, "org_unit_id", None)
+            contracts = Contract.objects.filter(
+                province_id=province_id, is_provincial=True
+            )
+        self.fields["contract"].queryset = contracts.select_related("contractor").order_by("-start_date")
+
+    def clean(self):
+        cleaned = super().clean()
+        contract = cleaned.get("contract")
+        center = cleaned.get("center")
+        if contract and center:
+            province_id = center.treatment_management.province_id if center.treatment_management_id else None
+            if not province_id or contract.province_id != province_id:
+                self.add_error("contract", "قرارداد و مرکز باید متعلق به یک استان باشند.")
+            if not contract.is_current:
+                self.add_error("contract", "فقط قرارداد استانی جاری قابل انتساب است.")
+        return cleaned
+
+
+class ContractCenterAssignmentEndForm(forms.Form):
+    end_date = JalaliDateField(label="تاریخ پایان", required=False)
+    reason = forms.CharField(
+        label="دلیل پایان انتساب",
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )

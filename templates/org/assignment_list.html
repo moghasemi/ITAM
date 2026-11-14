@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load itam_tags %}
+{% block content %}
+<div class="page-header">
+  <div><h1>{{ page_title }}</h1><p>تاریخچه انتساب پیمانکار رسمی به هر مرکز؛ سوابق پایان‌یافته حذف نمی‌شوند.</p></div>
+  <a class="btn btn-primary" href="{% url 'org:assignment_create' %}">انتساب جدید</a>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>مرکز</th><th>استان</th><th>پیمانکار</th><th>قرارداد</th><th>شروع</th><th>پایان</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+      <tbody>
+      {% for item in object_list %}
+        <tr>
+          <td>{{ item.center.name }}</td>
+          <td>{{ item.center.treatment_management.province.name }}</td>
+          <td>{{ item.contract.contractor.name }}</td>
+          <td>{{ item.contract.number }}</td>
+          <td>{{ item.start_date|date:"Y/m/d" }}</td>
+          <td>{{ item.end_date|default:"—" }}</td>
+          <td>{{ item.get_status_display }}</td>
+          <td>
+            {% if item.status == "active" %}
+              <form method="post" action="{% url 'org:assignment_end' item.pk %}">
+                {% csrf_token %}
+                <input type="text" name="reason" required placeholder="دلیل پایان انتساب">
+                <button class="btn btn-sm btn-warning" type="submit">پایان انتساب</button>
+              </form>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8">هنوز انتسابی ثبت نشده است.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

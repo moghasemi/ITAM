@@ -349,6 +349,37 @@ def private_media(request, path: str):
         ).first()
         if attachment:
             allowed = visible_tickets(user).filter(pk=attachment.ticket_id).exists()
+    elif path.startswith("repairs/"):
+        from apps.maintenance.models import RepairRequest
+        from apps.maintenance.repair_services import visible_repair_requests
+        repair = RepairRequest.objects.filter(
+            Q(estimate_attachment=path)
+            | Q(completion_attachment=path)
+            | Q(cost_dispute_attachment=path)
+        ).first()
+        if repair:
+            allowed = visible_repair_requests(user).filter(pk=repair.pk).exists()
+    elif path.startswith("referrals/"):
+        from apps.maintenance.models import GeneralReferral
+        referral = GeneralReferral.objects.filter(
+            Q(attachment=path) | Q(resolution_attachment=path)
+        ).first()
+        if referral:
+            allowed = (
+                user.is_admin_country
+                or referral.recipient_user_id == user.pk
+                or (
+                    referral.center_id
+                    and user.get_scoped_centers().filter(pk=referral.center_id).exists()
+                )
+                or (
+                    not referral.center_id
+                    and referral.province_id
+                    and user.get_scoped_centers().filter(
+                        treatment_management__province_id=referral.province_id
+                    ).exists()
+                )
+            )
 
     if not allowed:
         raise Http404

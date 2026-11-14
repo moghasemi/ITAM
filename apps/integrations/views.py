@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import DetailView
 
-from apps.accounts.permissions import AdminItRequiredMixin, StaffRequiredMixin
+from apps.accounts.permissions import AdminItRequiredMixin, CountryAdminRequiredMixin, StaffRequiredMixin
 from apps.core.mixins import BaseCreateView, BaseListView, BaseUpdateView, PageContextMixin
 from apps.assets.models import Asset, HardwareSnapshot
 from apps.maintenance.models import MaintenanceVisit
@@ -159,7 +159,7 @@ def requeue_all(request):
     return redirect("integrations:outbox_list")
 
 
-class EndpointListView(AdminItRequiredMixin, BaseListView):
+class EndpointListView(CountryAdminRequiredMixin, BaseListView):
     model = WebhookEndpoint
     template_name = "integrations/endpoint_list.html"
     page_title = "مقصدهای ارسال رخداد"
@@ -167,7 +167,7 @@ class EndpointListView(AdminItRequiredMixin, BaseListView):
     paginate_by = 30
 
 
-class EndpointCreateView(AdminItRequiredMixin, BaseCreateView):
+class EndpointCreateView(CountryAdminRequiredMixin, BaseCreateView):
     model = WebhookEndpoint
     form_class = WebhookEndpointForm
     template_name = "integrations/endpoint_form.html"
@@ -177,7 +177,7 @@ class EndpointCreateView(AdminItRequiredMixin, BaseCreateView):
     success_message = "مقصد ارسال ثبت شد."
 
 
-class EndpointUpdateView(AdminItRequiredMixin, BaseUpdateView):
+class EndpointUpdateView(CountryAdminRequiredMixin, BaseUpdateView):
     model = WebhookEndpoint
     form_class = WebhookEndpointForm
     template_name = "integrations/endpoint_form.html"

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div><h1>{{ page_title }}</h1></div>
+  {% if can_create %}
+    {% if kind == "repairers" %}<a class="btn btn-primary" href="{% url 'maintenance:repairer_create' %}">ثبت تعمیرکار</a>{% endif %}
+    {% if kind == "repairs" %}<a class="btn btn-primary" href="{% url 'maintenance:repair_create' %}">ثبت درخواست تعمیر</a>{% endif %}
+    {% if kind == "referrals" %}<a class="btn btn-primary" href="{% url 'maintenance:referral_create' %}">ثبت ارجاع</a>{% endif %}
+    {% if kind == "it_requests" %}<a class="btn btn-primary" href="{% url 'maintenance:it_request_create' %}">ثبت درخواست</a>{% endif %}
+  {% endif %}
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        {% if kind == "repairers" %}<tr><th>نام</th><th>نوع</th><th>تخصص</th><th>تلفن</th><th>تعداد تعمیر</th><th>میانگین امتیاز</th><th>وضعیت</th><th>عملیات</th></tr>
+        {% elif kind == "repairs" %}<tr><th>شماره</th><th>مرکز</th><th>دارایی</th><th>تعمیرکار</th><th>برآورد</th><th>وضعیت</th><th>ثبت‌کننده</th></tr>
+        {% elif kind == "feedback" %}<tr><th>تعمیرکار</th><th>مرکز</th><th>درخواست</th><th>کیفیت</th><th>سرعت</th><th>انصاف هزینه</th><th>میانگین</th><th></th></tr>
+        {% elif kind == "referrals" %}<tr><th>موضوع</th><th>مرکز</th><th>گیرنده</th><th>وضعیت</th><th>ثبت‌کننده</th><th>تعیین تکلیف</th></tr>
+        {% else %}<tr><th>شماره</th><th>عنوان</th><th>مرکز</th><th>درخواست‌کننده</th><th>کارشناس</th><th>تایید مدیر</th><th>وضعیت</th><th></th></tr>{% endif %}
+      </thead>
+      <tbody>
+      {% for row in rows %}
+        {% if kind == "repairers" %}
+          <tr>
+            <td>{{ row.name }}</td><td>{{ row.get_kind_display }}</td><td>{{ row.specialties|default:"—" }}</td><td>{{ row.phone|default:"—" }}</td>
+            <td>{{ row.repair_count|default:0 }}</td><td>{% if row.average_quality %}{{ row.average_quality|floatformat:1 }} / {{ row.average_speed|floatformat:1 }} / {{ row.average_cost_fairness|floatformat:1 }}{% else %}—{% endif %}</td>
+            <td>{% if row.is_active %}فعال{% else %}غیرفعال{% endif %}</td>
+            <td>
+              <a class="btn btn-sm btn-secondary" href="{% url 'maintenance:repairer_update' row.pk %}">ویرایش</a>
+              <form method="post" action="{% url 'maintenance:repairer_status' row.pk %}" class="inline-form">
+                {% csrf_token %}
+                {% if row.is_active %}<input type="hidden" name="active" value="0"><input name="reason" required placeholder="دلیل غیرفعال‌سازی"><button class="btn btn-sm btn-warning">غیرفعال</button>
+                {% else %}<input type="hidden" name="active" value="1"><input name="reason" required placeholder="دلیل فعال‌سازی"><button class="btn btn-sm btn-success">فعال‌سازی</button>{% endif %}
+              </form>
+            </td>
+          </tr>
+        {% elif kind == "repairs" %}
+          <tr><td><a href="{% url 'maintenance:repair_detail' row.pk %}">{{ row.number }}</a></td><td>{{ row.center.name }}</td><td>{{ row.asset.asset_tag }}</td><td>{{ row.repairer_name_snapshot }}</td><td>{{ row.estimate_amount }}</td><td>{{ row.get_status_display }}</td><td>{{ row.requested_by.display_name }}</td></tr>
+        {% elif kind == "feedback" %}
+          <tr><td>{{ row.repairer_name_snapshot }}</td><td>{{ row.center.name }}</td><td><a href="{% url 'maintenance:repair_detail' row.repair_request_id %}">{{ row.repair_request.number }}</a></td><td>{{ row.work_quality }}</td><td>{{ row.completion_speed }}</td><td>{{ row.cost_fairness }}</td><td>{{ row.average_score }}</td><td><a class="btn btn-sm btn-secondary" href="{% url 'maintenance:repair_detail' row.repair_request_id %}">مشاهده / پاسخ</a></td></tr>
+        {% elif kind == "referrals" %}
+          <tr>
+            <td>{{ row.subject }}</td><td>{% if row.center %}{{ row.center.name }}{% elif row.province %}{{ row.province.name }}{% else %}سراسری{% endif %}</td><td>{{ row.recipient_role }} — {{ row.recipient_name }}{% if row.attachment %}<p><a href="{{ row.attachment.url }}">مستند اولیه</a></p>{% endif %}</td><td>{{ row.get_status_display }}</td><td>{{ row.created_by.display_name }}</td>
+            <td>{% if row.status == "open" and row.can_resolve %}
+              <form method="post" enctype="multipart/form-data" action="{% url 'maintenance:referral_resolve' row.pk %}">
+                {% csrf_token %}<textarea name="outcome" required placeholder="نتیجه پیگیری"></textarea><textarea name="instruction" placeholder="دستور / اقدام"></textarea>
+                <input type="file" name="attachment" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.rtf,.txt,.csv,.jpg,.jpeg,.png">
+                <button class="btn btn-sm btn-primary">ثبت نتیجه</button>
+              </form>
+            {% elif row.status == "open" %}
+              <span class="text-muted">در انتظار اقدام گیرنده یا مدیر استان</span>
+            {% else %}
+              {{ row.outcome }}
+              {% if row.instruction %}<p>{{ row.instruction }}</p>{% endif %}
+              {% if row.resolution_attachment %}<a href="{{ row.resolution_attachment.url }}">مستند نتیجه / دستور</a>{% endif %}
+            {% endif %}</td>
+          </tr>
+        {% else %}
+          <tr><td><a href="{% url 'maintenance:it_request_detail' row.pk %}">{{ row.number }}</a></td><td>{{ row.title }}</td><td>{{ row.center.name }}</td><td>{{ row.requested_by.display_name }}</td><td>{{ row.assigned_to|default:"—" }}</td><td>{{ row.get_manager_approval_display }}</td><td>{{ row.get_status_display }}</td><td><a class="btn btn-sm btn-secondary" href="{% url 'maintenance:it_request_detail' row.pk %}">جزئیات</a></td></tr>
+        {% endif %}
+      {% empty %}
+        <tr><td colspan="8">رکوردی برای نمایش وجود ندارد.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
