@@ -211,7 +211,11 @@ def repair_detail(request, pk: int):
         "completion_form": RepairCompletionForm(),
         "can_decide": province_admin,
         "can_complete": center_expert and (request.user.role == User.ROLE_ADMIN_IT or request.user.is_admin_country),
-        "can_reply": feedback is not None and visible_repair_feedback(request.user).filter(pk=feedback.pk).exists(),
+        "can_reply": (
+            feedback is not None
+            and (request.user.role == User.ROLE_ADMIN_IT or request.user.is_admin_province)
+            and visible_repair_feedback(request.user).filter(pk=feedback.pk).exists()
+        ),
         "active_menu": "repairs",
     })
 
@@ -299,6 +303,7 @@ def repair_cost_resolve(request, pk: int):
 
 @login_required
 def feedback_list(request):
+    _require_it_staff(request.user)
     rows = visible_repair_feedback(request.user).select_related(
         "repair_request", "repairer", "center", "author"
     ).prefetch_related("replies__author")
@@ -313,6 +318,7 @@ def feedback_list(request):
 
 @login_required
 def feedback_reply(request, pk: int):
+    _require_it_staff(request.user)
     feedback = get_object_or_404(visible_repair_feedback(request.user), pk=pk)
     form = FeedbackReplyForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
