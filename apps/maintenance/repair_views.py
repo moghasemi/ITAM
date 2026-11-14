@@ -108,11 +108,13 @@ def repairer_create(request):
 def repairer_update(request, pk: int):
     _require_it_staff(request.user)
     obj = get_object_or_404(visible_repairers(request.user), pk=pk)
+    fields = ("name", "kind", "national_id", "phone", "email", "address", "specialties", "notes")
+    # ModelForm validation mutates its instance in _post_clean; capture the
+    # persisted values before binding/validating the submitted form.
+    previous = {field: getattr(obj, field) for field in fields}
     form = IndependentRepairerForm(request.POST or None, instance=obj, user=request.user)
     if request.method == "POST" and form.is_valid():
-        fields = ("name", "kind", "national_id", "phone", "email", "address", "specialties", "notes")
         changed_fields = set(form.changed_data).intersection(fields)
-        previous = {field: getattr(obj, field) for field in fields}
         changed = form.save(commit=False)
         changed.updated_by = request.user
         changed.save()
