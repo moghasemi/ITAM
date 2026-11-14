@@ -30,7 +30,7 @@
 {% if can_decide and repair.status == "cost_disputed" %}
 <div class="card"><h3>تعیین تکلیف اختلاف هزینه</h3>
   <form method="post" action="{% url 'maintenance:repair_cost_resolve' repair.pk %}">{% csrf_token %}
-    <label>تصمیم</label><select name="decision" required><option value="approve_increase">تایید افزایش هزینه</option><option value="settled">ثبت توافق / تسویه اختلاف</option></select>
+    <label>تصمیم</label><select name="decision" required><option value="approve_increase">تایید افزایش هزینه</option><option value="reject_increase">عدم تایید افزایش هزینه (پرونده باز بماند)</option><option value="settled">ثبت توافق / تسویه اختلاف</option></select>
     <label>نتیجه و مستند تصمیم</label><textarea name="note" required></textarea>
     <button class="btn btn-primary">ثبت تعیین تکلیف</button>
   </form>
