@@ -41,7 +41,7 @@
           <tr><td>{{ row.repairer_name_snapshot }}</td><td>{{ row.center.name }}</td><td><a href="{% url 'maintenance:repair_detail' row.repair_request_id %}">{{ row.repair_request.number }}</a></td><td>{{ row.work_quality }}</td><td>{{ row.completion_speed }}</td><td>{{ row.cost_fairness }}</td><td>{{ row.average_score }}</td><td><a class="btn btn-sm btn-secondary" href="{% url 'maintenance:repair_detail' row.repair_request_id %}">مشاهده / پاسخ</a></td></tr>
         {% elif kind == "referrals" %}
           <tr>
-            <td>{{ row.subject }}</td><td>{{ row.center|default:"—" }}</td><td>{{ row.recipient_role }} — {{ row.recipient_name }}</td><td>{{ row.get_status_display }}</td><td>{{ row.created_by.display_name }}</td>
+            <td>{{ row.subject }}</td><td>{{ row.center|default:"—" }}</td><td>{{ row.recipient_role }} — {{ row.recipient_name }}{% if row.attachment %}<p><a href="{{ row.attachment.url }}">مستند اولیه</a></p>{% endif %}</td><td>{{ row.get_status_display }}</td><td>{{ row.created_by.display_name }}</td>
             <td>{% if row.status == "open" %}
               <form method="post" enctype="multipart/form-data" action="{% url 'maintenance:referral_resolve' row.pk %}">
                 {% csrf_token %}<textarea name="outcome" required placeholder="نتیجه پیگیری"></textarea><textarea name="instruction" placeholder="دستور / اقدام"></textarea>
