@@ -75,9 +75,16 @@ def visible_tickets(user, center=None):
             return queryset.none()
         centers = user.get_scoped_centers()
         active_contracts = user.get_active_contractor_contracts()
+        today = timezone.localdate()
         qs = queryset.filter(
             contract__in=active_contracts,
             contract__province_id=F("asset__center__treatment_management__province_id"),
+            contract__center_assignments__center_id=F("asset__center_id"),
+            contract__center_assignments__status="active",
+            contract__center_assignments__start_date__lte=today,
+        ).filter(
+            Q(contract__center_assignments__end_date__isnull=True)
+            | Q(contract__center_assignments__end_date__gte=today)
         ).filter(
             Q(assigned_contractor_id=user.contractor_id)
             | Q(assigned_technician=user)
