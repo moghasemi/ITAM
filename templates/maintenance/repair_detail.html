@@ -12,6 +12,7 @@
   <p><strong>هزینه نهایی:</strong> {{ repair.final_cost|default:"ثبت نشده" }}</p>
   {% if repair.final_cost_reason %}<p><strong>دلیل افزایش هزینه:</strong> {{ repair.final_cost_reason }}</p>{% endif %}
   {% if repair.cost_dispute_resolution %}<p><strong>تعیین تکلیف اختلاف:</strong> {{ repair.cost_dispute_resolution }}</p>{% endif %}
+  {% if repair.cost_dispute_attachment %}<p><a href="{{ repair.cost_dispute_attachment.url }}">مستند تصمیم اختلاف هزینه</a></p>{% endif %}
 </div>
 {% if can_decide and repair.status == "pending_approval" or can_decide and repair.status == "returned" %}
 <div class="card">
@@ -29,7 +30,7 @@
 {% endif %}
 {% if can_decide and repair.status == "cost_disputed" %}
 <div class="card"><h3>تعیین تکلیف اختلاف هزینه</h3>
-  <form method="post" action="{% url 'maintenance:repair_cost_resolve' repair.pk %}">{% csrf_token %}
+  <form method="post" enctype="multipart/form-data" action="{% url 'maintenance:repair_cost_resolve' repair.pk %}">{% csrf_token %}
     <label>تصمیم</label><select name="decision" required><option value="approve_increase">تایید افزایش هزینه</option><option value="reject_increase">عدم تایید افزایش هزینه (پرونده باز بماند)</option><option value="settled">ثبت توافق / تسویه اختلاف</option></select>
     <label>نتیجه و مستند تصمیم</label><textarea name="note" required></textarea>
     <button class="btn btn-primary">ثبت تعیین تکلیف</button>
