@@ -38,6 +38,16 @@ def _is_province_admin(user):
     return bool(user and user.is_authenticated and user.is_admin_province)
 
 
+def _province_id_for_user(user):
+    if not user:
+        return None
+    if user.org_unit_id and user.org_unit.unit_type == OrganizationalUnit.UNIT_PROVINCE:
+        return user.org_unit_id
+    if user.center_id and user.center.treatment_management_id:
+        return user.center.treatment_management.province_id
+    return None
+
+
 def _can_manage_center(user, center):
     return bool(
         user and user.is_authenticated
@@ -51,7 +61,7 @@ def _require_province_admin_for_center(user, center):
         raise PermissionDenied("این اقدام فقط برای مدیر فناوری اطلاعات استان مجاز است.")
     if not _is_country_admin(user):
         province_id = _province_id_for_center(center)
-        if not province_id or user.org_unit_id != province_id:
+        if not province_id or _province_id_for_user(user) != province_id:
             raise PermissionDenied("مرکز خارج از حوزه استان مجاز شماست.")
 
 
@@ -69,8 +79,8 @@ def visible_repairers(user):
         return IndependentRepairer.objects.none()
     if _is_country_admin(user):
         return IndependentRepairer.objects.all()
-    if _is_province_admin(user) and user.org_unit_id:
-        return IndependentRepairer.objects.filter(province_id=user.org_unit_id)
+    if _is_province_admin(user) and _province_id_for_user(user):
+        return IndependentRepairer.objects.filter(province_id=_province_id_for_user(user))
     province_ids = user.get_scoped_centers().values("treatment_management__province_id")
     return IndependentRepairer.objects.filter(province_id__in=province_ids).distinct()
 
@@ -85,9 +95,9 @@ def visible_repair_feedback(user):
     province_ids = user.get_scoped_centers().values("treatment_management__province_id")
     # Provincial IT experts and the provincial IT head can review all feedback
     # in their province; center experts are limited to their assigned centers.
-    if _is_province_admin(user) and user.org_unit_id:
+    if _is_province_admin(user) and _province_id_for_user(user):
         return RepairFeedback.objects.filter(
-            center__treatment_management__province_id=user.org_unit_id
+            center__treatment_management__province_id=_province_id_for_user(user)
         ).select_related("repairer", "center", "author", "repair_request")
     return RepairFeedback.objects.filter(
         center__in=user.get_scoped_centers()
@@ -127,7 +137,7 @@ def assign_contractor_to_center(*, contract, center, start_date, actor):
         raise PermissionDenied("انتساب پیمانکار رسمی فقط توسط مدیر استان انجام می‌شود.")
     if not _is_country_admin(actor) and (
         not center.treatment_management_id
-        or center.treatment_management.province_id != actor.org_unit_id
+        or center.treatment_management.province_id != _province_id_for_user(actor)
     ):
         raise PermissionDenied("مرکز خارج از استان مجاز شماست.")
     if not contract.is_current or not contract.is_provincial:
@@ -156,7 +166,7 @@ def end_contractor_assignment(*, assignment, reason, actor, end_date=None):
     if not _is_province_admin(actor):
         raise PermissionDenied("فقط مدیر استان می‌تواند انتساب رسمی را پایان دهد.")
     if not _is_country_admin(actor) and (
-        assignment.center.treatment_management.province_id != actor.org_unit_id
+        assignment.center.treatment_management.province_id != _province_id_for_user(actor)
     ):
         raise PermissionDenied("انتساب خارج از حوزه استان مجاز شماست.")
     locked = ContractCenterAssignment.objects.select_for_update().get(pk=assignment.pk)
@@ -382,10 +392,11 @@ def create_referral(*, subject, description, recipient_role, recipient_name,
 def resolve_referral(*, referral, outcome, instruction, actor):
     if not actor or not actor.is_authenticated:
         raise PermissionDenied("ورود به سامانه الزامی است.")
-    if referral.center_id and not (
-        _is_country_admin(actor) or referral.center_id in actor.get_scoped_centers().values_list("pk", flat=True)
-    ):
-        raise PermissionDenied("ارجاع خارج از حوزه مجاز شماست.")
+    if referral.center_id:
+        if not _is_country_admin(actor) and not actor.get_scoped_centers().filter(pk=referral.center_id).exists():
+            raise PermissionDenied("ارجاع خارج از حوزه مجاز شماست.")
+    elif not (_is_country_admin(actor) or _is_province_admin(actor) or actor.has_role(User.ROLE_ADMIN_IT)):
+        raise PermissionDenied("تعیین تکلیف ارجاع سراسری فقط برای مسئولان فناوری اطلاعات مجاز است.")
     if not (outcome or "").strip():
         raise ValidationError("ثبت نتیجه پیگیری الزامی است.")
     referral.status = GeneralReferral.STATUS_RESOLVED
