@@ -13,6 +13,7 @@ from apps.core.constants import (
     PRIORITY_LABELS,
     PRIORITY_MEDIUM,
     FAILURE_TYPE_CHOICES,
+    CONTRACTOR_SUPPORTED_FAILURE_TYPES,
     STATUS_CANCELED,
     STATUS_CLOSED,
     STATUS_REPORTED,
@@ -146,7 +147,11 @@ class Ticket(TimeStampedModel):
             self.number = self._generate_number()
         if not self.contract_id and self.asset_id and self.asset.contract_id:
             self.contract = self.asset.contract
-        if not self.assigned_contractor_id and self.contract_id:
+        if (
+            not self.assigned_contractor_id
+            and self.contract_id
+            and self.failure_type in CONTRACTOR_SUPPORTED_FAILURE_TYPES
+        ):
             self.assigned_contractor = self.contract.contractor
         if self.reported_at and not self.response_due_at:
             from .services import apply_sla_deadlines

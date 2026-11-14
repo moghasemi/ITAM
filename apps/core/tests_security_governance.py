@@ -526,3 +526,152 @@ class PostImplementationSecurityRemediationTests(TestCase):
         self.assertIsNone(asset.current_snapshot)
         self.assertEqual(asset.snapshots.count(), 0)
         self.assertEqual(asset.updated_at, updated_before)
+
+class CountyScopeRegressionTests(TestCase):
+    """Regression coverage for county administrators, empty scopes and centerless visits."""
+
+    def setUp(self):
+        from apps.maintenance.models import MaintenanceVisit, VisitAssetCheck
+        from apps.tickets.models import Ticket
+
+        self.MaintenanceVisit = MaintenanceVisit
+        self.VisitAssetCheck = VisitAssetCheck
+        self.Ticket = Ticket
+
+        self.national = OrganizationalUnit.objects.create(
+            name="ستاد آزمون شهرستان", code="CNTY-NAT",
+            unit_type=OrganizationalUnit.UNIT_NATIONAL,
+        )
+        self.province = OrganizationalUnit.objects.create(
+            name="استان آزمون شهرستان", code="CNTY-PROV",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=self.national,
+        )
+        self.county_a = OrganizationalUnit.objects.create(
+            name="شهرستان الف", code="CNTY-A",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
+        )
+        self.county_b = OrganizationalUnit.objects.create(
+            name="شهرستان ب", code="CNTY-B",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
+        )
+        self.center_a = Center.objects.create(
+            name="مرکز شهرستان الف", code="CNTY-CENTER-A", parent_unit=self.county_a,
+        )
+        self.center_b = Center.objects.create(
+            name="مرکز شهرستان ب", code="CNTY-CENTER-B", parent_unit=self.county_b,
+        )
+        self.county_admin = User.objects.create_user(
+            username="county-scope-admin", password="Strong-Test-Password-2026!",
+            role=User.ROLE_ADMIN_COUNTY, org_unit=self.county_a,
+        )
+        self.own_requester = User.objects.create_user(
+            username="county-own-requester", password="Strong-Test-Password-2026!",
+            role=User.ROLE_REQUESTER, center=self.center_a,
+        )
+        self.foreign_requester = User.objects.create_user(
+            username="county-foreign-requester", password="Strong-Test-Password-2026!",
+            role=User.ROLE_REQUESTER, center=self.center_b,
+        )
+        self.category = AssetCategory.objects.create(name="تجهیز شهرستان", code="CNTY-ASSET")
+        self.asset_a = Asset.objects.create(
+            asset_tag="CNTY-ASSET-A", title="تجهیز الف",
+            category=self.category, center=self.center_a,
+        )
+        self.asset_b = Asset.objects.create(
+            asset_tag="CNTY-ASSET-B", title="تجهیز ب",
+            category=self.category, center=self.center_b,
+        )
+
+    def test_county_admin_scope_is_limited_to_assigned_county(self):
+        scoped_ids = set(self.county_admin.get_scoped_centers().values_list("pk", flat=True))
+        self.assertEqual(scoped_ids, {self.center_a.pk})
+        from apps.accounts.views import visible_users
+        user_ids = set(visible_users(self.county_admin).values_list("pk", flat=True))
+        self.assertIn(self.own_requester.pk, user_ids)
+        self.assertNotIn(self.foreign_requester.pk, user_ids)
+
+    def test_county_admin_user_list_and_role_transition_are_scoped(self):
+        from django.urls import reverse
+        from apps.accounts.forms import UserForm
+
+        self.client.force_login(self.county_admin)
+        response = self.client.get(reverse("accounts:user_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.own_requester.username)
+        self.assertNotContains(response, self.foreign_requester.username)
+
+        form = UserForm(
+            data={
+                "username": self.own_requester.username,
+                "role": User.ROLE_ADMIN_PROVINCE,
+                "center": self.center_a.pk,
+            },
+            instance=self.own_requester,
+            current_user=self.county_admin,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("role", form.errors)
+
+    def test_empty_scope_roles_fail_closed_for_users_tickets_and_visits(self):
+        from apps.accounts.views import visible_users
+        from apps.maintenance.services import visible_visits
+        from apps.tickets.services import visible_tickets
+
+        unassigned_it = User.objects.create_user(
+            username="unassigned-center-it", password="Strong-Test-Password-2026!",
+            role=User.ROLE_ADMIN_IT,
+        )
+        unassigned_county = User.objects.create_user(
+            username="unassigned-county-admin", password="Strong-Test-Password-2026!",
+            role=User.ROLE_ADMIN_COUNTY,
+        )
+        unassigned_province = User.objects.create_user(
+            username="unassigned-province-admin", password="Strong-Test-Password-2026!",
+            role=User.ROLE_ADMIN_PROVINCE,
+        )
+        for user in (unassigned_it, unassigned_county, unassigned_province):
+            self.assertFalse(user.get_scoped_centers().exists())
+            self.assertFalse(visible_users(user).exists())
+            self.assertFalse(visible_tickets(user).exists())
+            self.assertFalse(visible_visits(user).exists())
+
+    def test_county_ticket_visibility_uses_asset_center(self):
+        from apps.tickets.services import visible_tickets
+
+        own_ticket = self.Ticket.objects.create(
+            number="CNTY-TKT-A", asset=self.asset_a,
+            title="درخواست مرکز خودی", description="شرح",
+            reported_by=self.own_requester, failure_type="hardware",
+        )
+        foreign_ticket = self.Ticket.objects.create(
+            number="CNTY-TKT-B", asset=self.asset_b,
+            title="درخواست مرکز دیگر", description="شرح",
+            reported_by=self.foreign_requester, failure_type="hardware",
+        )
+        visible_ids = set(
+            visible_tickets(self.county_admin).values_list("pk", flat=True)
+        )
+        self.assertIn(own_ticket.pk, visible_ids)
+        self.assertNotIn(foreign_ticket.pk, visible_ids)
+
+    def test_county_admin_sees_only_scoped_checks_on_centerless_visits(self):
+        from apps.maintenance.services import visible_checks, visible_visits
+
+        contractor = Contractor.objects.create(name="پیمانکار شهرستان")
+        contract = Contract.objects.create(
+            contractor=contractor, province=self.province,
+            number="CNTY-CONTRACT", title="قرارداد آزمون",
+            start_date=timezone.localdate() - timedelta(days=1),
+            end_date=timezone.localdate() + timedelta(days=30),
+        )
+        visit = self.MaintenanceVisit.objects.create(
+            number="CNTY-VISIT-1", contract=contract, contractor=contractor,
+            center=None, sequence_number=1, scheduled_date=timezone.localdate(),
+        )
+        own_check = self.VisitAssetCheck.objects.create(visit=visit, asset=self.asset_a)
+        self.VisitAssetCheck.objects.create(visit=visit, asset=self.asset_b)
+
+        self.assertTrue(visible_visits(self.county_admin).filter(pk=visit.pk).exists())
+        check_ids = set(visible_checks(self.county_admin, visit).values_list("pk", flat=True))
+        self.assertEqual(check_ids, {own_check.pk})
+
