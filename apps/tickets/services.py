@@ -33,6 +33,7 @@ from apps.core.constants import (
     TICKET_STATUS_LABELS,
 )
 from apps.core.models import Notification, SystemSetting
+from apps.core.constants import CONTRACTOR_SUPPORTED_FAILURE_TYPES
 from apps.core.sla import get_calendar
 from apps.core.utils import log_action
 from apps.integrations.models import OutboxEvent
@@ -86,6 +87,8 @@ def visible_tickets(user, center=None):
             Q(contract__center_assignments__end_date__isnull=True)
             | Q(contract__center_assignments__end_date__gte=today)
         ).filter(
+            failure_type__in=CONTRACTOR_SUPPORTED_FAILURE_TYPES
+        ).filter(
             Q(assigned_contractor_id=user.contractor_id)
             | Q(assigned_technician=user)
             | Q(contract__contractor_id=user.contractor_id)
@@ -114,7 +117,8 @@ def can_manage_ticket(user, ticket: Ticket) -> bool:
         return True
     if user.has_role(User.ROLE_TECHNICIAN):
         if (
-            not user.contractor_id
+            ticket.failure_type not in CONTRACTOR_SUPPORTED_FAILURE_TYPES
+            or not user.contractor_id
             or not ticket.contract_id
             or ticket.contract.contractor_id != user.contractor_id
             or not ticket.contract.is_current
