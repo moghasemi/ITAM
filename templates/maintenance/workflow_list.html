@@ -13,8 +13,9 @@
   <div class="table-responsive">
     <table class="table">
       <thead>
-        {% if kind == "repairers" %}<tr><th>نام</th><th>نوع</th><th>تخصص</th><th>تلفن</th><th>وضعیت</th><th>عملیات</th></tr>
+        {% if kind == "repairers" %}<tr><th>نام</th><th>نوع</th><th>تخصص</th><th>تلفن</th><th>تعداد تعمیر</th><th>میانگین امتیاز</th><th>وضعیت</th><th>عملیات</th></tr>
         {% elif kind == "repairs" %}<tr><th>شماره</th><th>مرکز</th><th>دارایی</th><th>تعمیرکار</th><th>برآورد</th><th>وضعیت</th><th>ثبت‌کننده</th></tr>
+        {% elif kind == "feedback" %}<tr><th>تعمیرکار</th><th>مرکز</th><th>درخواست</th><th>کیفیت</th><th>سرعت</th><th>انصاف هزینه</th><th>میانگین</th><th></th></tr>
         {% elif kind == "referrals" %}<tr><th>موضوع</th><th>مرکز</th><th>گیرنده</th><th>وضعیت</th><th>ثبت‌کننده</th><th>تعیین تکلیف</th></tr>
         {% else %}<tr><th>شماره</th><th>عنوان</th><th>مرکز</th><th>درخواست‌کننده</th><th>کارشناس</th><th>تایید مدیر</th><th>وضعیت</th><th></th></tr>{% endif %}
       </thead>
@@ -23,6 +24,7 @@
         {% if kind == "repairers" %}
           <tr>
             <td>{{ row.name }}</td><td>{{ row.get_kind_display }}</td><td>{{ row.specialties|default:"—" }}</td><td>{{ row.phone|default:"—" }}</td>
+            <td>{{ row.repair_count|default:0 }}</td><td>{% if row.average_quality %}{{ row.average_quality|floatformat:1 }} / {{ row.average_speed|floatformat:1 }} / {{ row.average_cost_fairness|floatformat:1 }}{% else %}—{% endif %}</td>
             <td>{% if row.is_active %}فعال{% else %}غیرفعال{% endif %}</td>
             <td>
               <a class="btn btn-sm btn-secondary" href="{% url 'maintenance:repairer_update' row.pk %}">ویرایش</a>
@@ -35,6 +37,8 @@
           </tr>
         {% elif kind == "repairs" %}
           <tr><td><a href="{% url 'maintenance:repair_detail' row.pk %}">{{ row.number }}</a></td><td>{{ row.center.name }}</td><td>{{ row.asset.asset_tag }}</td><td>{{ row.repairer_name_snapshot }}</td><td>{{ row.estimate_amount }}</td><td>{{ row.get_status_display }}</td><td>{{ row.requested_by.display_name }}</td></tr>
+        {% elif kind == "feedback" %}
+          <tr><td>{{ row.repairer_name_snapshot }}</td><td>{{ row.center.name }}</td><td><a href="{% url 'maintenance:repair_detail' row.repair_request_id %}">{{ row.repair_request.number }}</a></td><td>{{ row.work_quality }}</td><td>{{ row.completion_speed }}</td><td>{{ row.cost_fairness }}</td><td>{{ row.average_score }}</td><td><a class="btn btn-sm btn-secondary" href="{% url 'maintenance:repair_detail' row.repair_request_id %}">مشاهده / پاسخ</a></td></tr>
         {% elif kind == "referrals" %}
           <tr>
             <td>{{ row.subject }}</td><td>{{ row.center|default:"—" }}</td><td>{{ row.recipient_role }} — {{ row.recipient_name }}</td><td>{{ row.get_status_display }}</td><td>{{ row.created_by.display_name }}</td>
