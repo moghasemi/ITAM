@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.core.models import AuditLog
+from apps.core.models import AuditLog, Notification
 from apps.assets.models import Asset, AssetCategory
 from apps.maintenance.repair_models import (
     GeneralITRequest, GeneralReferral, IndependentRepairer, RepairFeedback, RepairerProfileEvent,
@@ -521,6 +521,48 @@ class RepairAndReferralWorkflowTests(TestCase):
         request.refresh_from_db()
         self.assertEqual(request.status, GeneralITRequest.STATUS_RESOLVED)
         self.assertEqual(request.provincial_decision, "تامین تجهیز تایید شد.")
+
+    def test_general_it_request_creation_notifies_and_assignment_is_state_guarded(self):
+        request = create_general_it_request(
+            center=self.center,
+            request_type="equipment",
+            title="درخواست تجهیز جدید",
+            description="نیاز به تجهیز جدید",
+            actor=self.requester,
+        )
+        self.assertTrue(request.events.filter(action="created").exists())
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.it_expert,
+                title="درخواست جدید IT برای مرکز",
+            ).exists()
+        )
+
+        second_expert = User.objects.create_user(
+            username="wf-second-center-it",
+            password="test-password",
+            role=User.ROLE_ADMIN_IT,
+            center=self.center,
+        )
+        assign_general_it_request(
+            request=request, expert=second_expert, actor=self.it_expert,
+        )
+        request.refresh_from_db()
+        self.assertEqual(request.status, GeneralITRequest.STATUS_ASSIGNED)
+        self.assertEqual(request.assigned_to_id, second_expert.pk)
+        self.assertTrue(
+            Notification.objects.filter(
+                user=second_expert,
+                title="درخواست IT جدید به شما ارجاع شد",
+            ).exists()
+        )
+
+        request.status = GeneralITRequest.STATUS_ESCALATED
+        request.save(update_fields=["status", "updated_at"])
+        with self.assertRaises(ValidationError):
+            assign_general_it_request(
+                request=request, expert=self.it_expert, actor=self.it_expert,
+            )
 
     def test_stale_manager_review_cannot_replace_first_decision(self):
         request = create_general_it_request(
