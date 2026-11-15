@@ -149,8 +149,16 @@ class VisitDetailView(AnyRoleRequiredMixin, PageContextMixin, DetailView):
         scoped_checks = visible_checks(self.request.user, visit)
         context["checks"] = scoped_checks.select_related("asset", "asset__category", "asset__location")
         context["stats"] = visit_statistics(visit, checks=scoped_checks)
-        context["can_manage"] = can_manage_visit(self.request.user, visit)
-        context["can_confirm"] = can_confirm_visit(self.request.user, visit)
+        context["can_manage"] = (
+            can_manage_visit(self.request.user, visit)
+            and visit.status not in (VISIT_DONE, VISIT_CANCELED)
+            and not visit.it_confirmed_at
+        )
+        context["can_confirm"] = (
+            can_confirm_visit(self.request.user, visit)
+            and visit.status == VISIT_DONE
+            and not visit.it_confirmed_at
+        )
         context["complete_form"] = VisitCompleteForm(
             initial={"report_text": visit.report_text, "recommendation": visit.recommendation}
         )
