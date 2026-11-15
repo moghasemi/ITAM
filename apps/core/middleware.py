@@ -1,8 +1,8 @@
-"""کاربر جاری و نشانی IP در طول پردازش درخواست."""
+"""Current request context and trusted client-IP extraction."""
 from __future__ import annotations
 
 import ipaddress
-
+import os
 import threading
 
 _state = threading.local()
@@ -28,24 +28,55 @@ def get_current_request():
     return getattr(_state, "request", None)
 
 
+def _trusted_proxy_networks():
+    networks = []
+    for value in os.environ.get("ITAM_TRUSTED_PROXY_IPS", "").split(","):
+        value = value.strip()
+        if not value:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(value, strict=False))
+        except ValueError:
+            # Invalid proxy entries fail closed: they never grant trust.
+            continue
+    return networks
+
+
 def client_ip(request=None) -> str | None:
-    """استخراج نشانی IP کاربر با در نظر گرفتن پروکسی معکوس."""
+    """Use X-Forwarded-For only when REMOTE_ADDR is an explicitly trusted proxy.
+
+    Walk the forwarded chain from right to left, skipping trusted proxies. This
+    avoids accepting a client-supplied leftmost XFF value when the trusted proxy
+    appends the actual client address.
+    """
     request = request or get_current_request()
     if request is None:
         return None
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    candidate = (
-        forwarded.split(",", 1)[0].strip()
-        if forwarded
-        else (request.META.get("REMOTE_ADDR", "") or "").strip()
-    )
-    if not candidate:
-        return None
+
+    remote_text = (request.META.get("REMOTE_ADDR", "") or "").strip()
     try:
-        ipaddress.ip_address(candidate)
+        remote = ipaddress.ip_address(remote_text)
     except ValueError:
         return None
-    return candidate
+
+    trusted_networks = _trusted_proxy_networks()
+    if not any(remote in network for network in trusted_networks):
+        return str(remote)
+
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    for value in reversed(forwarded.split(",")):
+        candidate_text = value.strip()
+        if not candidate_text:
+            continue
+        try:
+            candidate = ipaddress.ip_address(candidate_text)
+        except ValueError:
+            continue
+        if any(candidate in network for network in trusted_networks):
+            continue
+        return str(candidate)
+
+    return str(remote)
 
 
 def client_user_agent(request=None) -> str:
@@ -56,7 +87,7 @@ def client_user_agent(request=None) -> str:
 
 
 class CurrentUserMiddleware:
-    """کاربر و درخواست جاری را برای استفاده در مدل‌ها و لاگ‌ها ذخیره می‌کند."""
+    """Expose the current request/user to audit helpers."""
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -64,7 +95,6 @@ class CurrentUserMiddleware:
     def __call__(self, request):
         set_current_request(request)
         try:
-            response = self.get_response(request)
+            return self.get_response(request)
         finally:
             clear_current_request()
-        return response
