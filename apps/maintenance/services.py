@@ -381,6 +381,18 @@ def start_visit(visit: MaintenanceVisit, user):
 
 
 @transaction.atomic
+
+def can_force_complete_visit(user):
+    return bool(
+        user
+        and getattr(user, "is_authenticated", False)
+        and (
+            user.is_admin_country
+            or user.is_admin_province
+            or user.has_role(User.ROLE_ADMIN_IT)
+        )
+    )
+
 def complete_visit(
     visit: MaintenanceVisit,
     user,
@@ -405,11 +417,7 @@ def complete_visit(
             f"{pending} برگه بازدید تکمیل نشده است. برای پایان اجباری گزینه «پایان با ناقص» را انتخاب کنید."
         )
     if pending and force:
-        if not (
-            user.is_admin_country
-            or user.is_admin_province
-            or user.has_role(User.ROLE_ADMIN_IT)
-        ):
+        if not can_force_complete_visit(user):
             raise PermissionDenied("پایان بازدید با برگه ناقص فقط برای مدیر IT مجاز است.")
         forced_reason = (force_reason or "").strip()
         if not forced_reason:
