@@ -14,6 +14,7 @@ from apps.core.constants import (
     CHECK_HEALTHY,
     CHECK_NOT_SEEN,
     EVENT_VISIT_COMPLETED,
+    EVENT_VISIT_CONFIRMED,
     EVENT_VISIT_MISSED,
     EVENT_VISIT_PLANNED,
     VISIT_CANCELED,
@@ -494,6 +495,7 @@ def complete_visit(
             "report_text": visit.report_text,
             "completed_with_incomplete_checks": bool(pending and force),
             "incomplete_checks_count": pending if force else 0,
+            "awaiting_it_confirmation": True,
         },
         aggregate_type="MaintenanceVisit",
         aggregate_id=visit.pk,
@@ -516,6 +518,9 @@ def complete_visit(
 @transaction.atomic
 def confirm_visit(visit: MaintenanceVisit, user, note: str = ""):
     """تایید بازدید توسط کارشناس فناوری اطلاعات مرکز."""
+    visit = MaintenanceVisit.objects.select_for_update(of=("self",)).select_related(
+        "contract", "contract__contractor", "technician"
+    ).get(pk=visit.pk)
     if not can_confirm_visit(user, visit):
         raise PermissionDenied("تایید بازدید فقط توسط کارشناس فناوری اطلاعات مجاز همان دامنه انجام می‌شود.")
     if visit.status != VISIT_DONE:
@@ -526,11 +531,33 @@ def confirm_visit(visit: MaintenanceVisit, user, note: str = ""):
     visit.it_confirmed_at = timezone.now()
     visit.it_note = note[:300]
     visit.save(update_fields=["it_confirmed_by", "it_confirmed_at", "it_note", "updated_at"])
+    OutboxEvent.emit(
+        EVENT_VISIT_CONFIRMED,
+        {
+            "visit_id": visit.pk,
+            "number": visit.number,
+            "contract": visit.contract.number,
+            "contractor": visit.contract.contractor.name,
+            "confirmed_at": visit.it_confirmed_at.isoformat(),
+            "confirmed_by": user.display_name,
+            "confirmation_note": visit.it_note,
+        },
+        aggregate_type="MaintenanceVisit",
+        aggregate_id=visit.pk,
+        actor=user,
+    )
+    if visit.technician_id and visit.technician.is_active:
+        Notification.push(
+            visit.technician,
+            f"گزارش بازدید {visit.number} تایید شد",
+            f"بازدید قرارداد {visit.contract.number} توسط کارشناس IT تایید شد.",
+            visit.get_absolute_url(),
+            level="success",
+        )
     log_action("approve", visit, note="تایید بازدید دوره‌ای", user=user)
     return visit
 
 
-@transaction.atomic
 @transaction.atomic
 def save_check(check: VisitAssetCheck, user, *, condition=None, actions_taken=None,
                parts_replaced=None, notes=None, next_due_date=None, photo=None,
