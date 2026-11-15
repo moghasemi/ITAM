@@ -25,6 +25,7 @@ from apps.core.constants import (
 from apps.core.models import Notification
 from apps.core.utils import log_action
 from apps.integrations.models import OutboxEvent
+from apps.org.models import ContractCenterAssignment
 
 from .models import MaintenanceVisit, VisitAssetCheck
 
@@ -34,6 +35,40 @@ def _it_experts_for_center(center_id):
         return User.objects.none()
     return User.objects.filter(
         role=User.ROLE_ADMIN_IT, is_active=True, center_id=center_id
+    )
+
+
+def _it_experts_for_visit(visit):
+    if visit.center_id:
+        return _it_experts_for_center(visit.center_id)
+    today = timezone.localdate()
+    assignments = ContractCenterAssignment.objects.filter(
+        contract_id=visit.contract_id,
+        status=ContractCenterAssignment.STATUS_ACTIVE,
+        start_date__lte=today,
+    ).filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
+    return User.objects.filter(
+        role=User.ROLE_ADMIN_IT,
+        is_active=True,
+        center_id__in=assignments.values("center_id"),
+    ).distinct()
+
+
+def _visit_notification_users(visit):
+    users = list(_it_experts_for_visit(visit))
+    if visit.technician_id and visit.technician.is_active:
+        users.append(visit.technician)
+    return users
+
+
+def notify_visit_planned(visit):
+    Notification.push_many(
+        _visit_notification_users(visit),
+        f"بازدید {visit.number} برنامه‌ریزی شد",
+        f"بازدید دوره‌ای قرارداد {visit.contract.number} برای "
+        f"{visit.scheduled_date:%Y/%m/%d} برنامه‌ریزی شد.",
+        visit.get_absolute_url(),
+        level="info",
     )
 
 
@@ -279,6 +314,7 @@ def generate_visits(contract, *, user=None, populate=True) -> dict:
                 aggregate_id=visit.pk,
                 actor=user,
             )
+            notify_visit_planned(visit)
         else:
             existing += 1
         if populate:
@@ -346,7 +382,7 @@ def mark_missed_visits(user=None) -> int:
             actor=user,
         )
         Notification.push_many(
-            list(_it_experts_for_center(visit.center_id)),
+            _visit_notification_users(visit),
             f"بازدید {visit.number} انجام نشد",
             f"مهلت بازدید دوره‌ای قرارداد {visit.contract.number} به پایان رسید.",
             visit.get_absolute_url(),
@@ -461,7 +497,7 @@ def complete_visit(
         actor=user,
     )
     Notification.push_many(
-        list(_it_experts_for_center(visit.center_id)),
+        _visit_notification_users(visit),
         f"پایان بازدید {visit.number}",
         f"بازدید دوره‌ای قرارداد {visit.contract.number} تکمیل شد و در انتظار تایید است.",
         visit.get_absolute_url(),
