@@ -451,15 +451,9 @@ def referral_resolve(request, pk: int):
 
 
 def _visible_it_requests(user):
-    if not user or not user.is_authenticated:
-        return GeneralITRequest.objects.none()
-    if user.is_admin_country:
-        return GeneralITRequest.objects.all()
-    if user.role == User.ROLE_REQUESTER:
-        return GeneralITRequest.objects.filter(requested_by=user)
-    if user.role == User.ROLE_MANAGER:
-        return GeneralITRequest.objects.filter(center_id=user.center_id)
-    return GeneralITRequest.objects.filter(center__in=user.get_scoped_centers()) | GeneralITRequest.objects.filter(requested_by=user)
+    from apps.maintenance.repair_services import visible_general_it_requests
+
+    return visible_general_it_requests(user)
 
 
 @login_required
