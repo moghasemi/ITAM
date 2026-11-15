@@ -1,7 +1,8 @@
 """Regression tests for the Sistan and Baluchestan demo seed."""
 from django.core.management import call_command
 from django.db import connection
-from django.test import TestCase, skipUnless
+from django.test import TestCase
+from unittest import skipUnless
 
 from apps.accounts.models import User
 from apps.org.models import Center, Contract, ContractCenterAssignment, OrganizationalUnit
