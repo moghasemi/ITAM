@@ -43,32 +43,9 @@ from .models import Center, Contract, ContractCenterAssignment, Contractor, Depa
 
 
 def _visible_contracts_for_user(user):
-    """Return contracts visible in the user's organizational scope.
+    from .services import visible_contracts
 
-    Province administrators can review all contracts in their province.
-    Center/county roles only see contracts with a current explicit assignment
-    to one of their scoped centers; province ownership alone is not enough.
-    """
-    if user.is_admin_country:
-        return Contract.objects.all()
-    if user.has_role("technician"):
-        return user.get_active_contractor_contracts()
-    if user.is_admin_province:
-        province_ids = user.get_scoped_centers().values("treatment_management__province_id")
-        return Contract.objects.filter(province_id__in=province_ids).distinct()
-
-    today = timezone.localdate()
-    assignments = ContractCenterAssignment.objects.filter(
-        center__in=user.get_scoped_centers(),
-        status=ContractCenterAssignment.STATUS_ACTIVE,
-        start_date__lte=today,
-    ).filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
-    return Contract.objects.filter(
-        pk__in=assignments.values("contract_id"),
-        status=Contract.STATUS_ACTIVE,
-        start_date__lte=today,
-        end_date__gte=today,
-    ).distinct()
+    return visible_contracts(user)
 
 
 # ---------------------------------------------------------------------------
