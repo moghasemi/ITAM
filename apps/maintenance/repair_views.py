@@ -382,15 +382,12 @@ def referral_list(request):
         from django.db.models import Q
         if can_create:
             scoped_centers = request.user.get_scoped_centers()
-            visible_scope = (
+            province_ids = _province_scope_ids(request.user)
+            rows = rows.filter(
                 Q(center__in=scoped_centers)
+                | Q(center__isnull=True, province_id__in=province_ids)
                 | Q(recipient_user=request.user)
-                | Q(created_by=request.user)
             )
-            if request.user.is_admin_province:
-                province_ids = _province_scope_ids(request.user)
-                visible_scope |= Q(center__isnull=True, province_id__in=province_ids)
-            rows = rows.filter(visible_scope)
         else:
             rows = rows.filter(recipient_user=request.user)
     scoped_centers = request.user.get_scoped_centers()
@@ -446,20 +443,13 @@ def referral_resolve(request, pk: int):
     referrals = GeneralReferral.objects.all()
     if not request.user.is_admin_country:
         from django.db.models import Q
-        if request.user.is_admin_province:
+        if request.user.is_admin_province or request.user.role == User.ROLE_ADMIN_IT:
             scoped_centers = request.user.get_scoped_centers()
             province_ids = _province_scope_ids(request.user)
             referrals = referrals.filter(
                 Q(center__in=scoped_centers)
                 | Q(center__isnull=True, province_id__in=province_ids)
                 | Q(recipient_user=request.user)
-                | Q(created_by=request.user)
-            )
-        elif request.user.role == User.ROLE_ADMIN_IT:
-            referrals = referrals.filter(
-                Q(center__in=request.user.get_scoped_centers())
-                | Q(recipient_user=request.user)
-                | Q(created_by=request.user)
             )
         else:
             referrals = referrals.filter(recipient_user=request.user)
