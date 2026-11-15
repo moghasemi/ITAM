@@ -135,6 +135,27 @@ class RepairAndReferralWorkflowTests(TestCase):
         self.assertEqual(repair.status, RepairRequest.STATUS_RESOLVED)
         self.assertEqual(repair.cost_increase_approved_by_id, self.province_admin.pk)
 
+    def test_repair_can_be_completed_when_final_cost_is_unknown(self):
+        repair = self._repair()
+        repair = decide_repair_request(
+            repair=repair,
+            decision="approve",
+            note="تایید برآورد",
+            actor=self.province_admin,
+        )
+        repair = complete_repair_request(
+            repair=repair,
+            actor=self.it_expert,
+            outcome="تعمیر انجام شد؛ مبلغ نهایی هنوز مشخص نیست.",
+            final_cost=None,
+            work_quality=4,
+            completion_speed=4,
+            cost_fairness=5,
+        )
+        self.assertEqual(repair.status, RepairRequest.STATUS_COMPLETED)
+        self.assertIsNone(repair.final_cost)
+        self.assertEqual(RepairFeedback.objects.filter(repair_request=repair).count(), 1)
+
     def test_rejected_cost_increase_keeps_repair_open_as_disputed(self):
         repair = self._repair()
         repair = decide_repair_request(
