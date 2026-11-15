@@ -32,6 +32,7 @@ from apps.maintenance.repair_services import (
     resubmit_repair_request,
     set_repairer_active,
     visible_repair_feedback,
+    escalate_general_it_request,
     visible_repair_requests,
     visible_general_it_requests,
 )
@@ -551,6 +552,28 @@ class RepairAndReferralWorkflowTests(TestCase):
             assign_general_it_request(
                 request=request, expert=self.it_expert, actor=self.it_expert,
             )
+
+    def test_issue_request_can_escalate_without_manager_bypass(self):
+        request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_ISSUE,
+            title="کمبود تجهیز",
+            description="شرح کمبود",
+            actor=self.requester,
+        )
+        self.assertEqual(
+            request.manager_approval,
+            GeneralITRequest.MANAGER_NOT_REQUIRED,
+        )
+        escalated = escalate_general_it_request(
+            request=request,
+            actor=self.it_expert,
+        )
+        self.assertEqual(escalated.status, GeneralITRequest.STATUS_ESCALATED)
+        self.assertEqual(
+            escalated.manager_approval,
+            GeneralITRequest.MANAGER_NOT_REQUIRED,
+        )
 
     def test_technicians_cannot_view_center_repair_requests_or_other_general_it_requests(self):
         repair = self._repair()
