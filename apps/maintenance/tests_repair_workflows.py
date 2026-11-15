@@ -585,7 +585,7 @@ class RepairAndReferralWorkflowTests(TestCase):
         self.assertTrue(
             Notification.objects.filter(
                 user=self.it_expert,
-                title="درخواست جدید IT برای مرکز",
+                title="درخواست جدید فناوری اطلاعات",
             ).exists()
         )
 
