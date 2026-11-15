@@ -2,7 +2,7 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-primary" href="{% url 'org:contractor_create' %}">➕ افزودن پیمانکار</a>
+  {% if user.is_admin_province %}<a class="btn btn-primary" href="{% url 'org:contractor_create' %}">➕ افزودن پیمانکار</a>{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -28,7 +28,7 @@
           <td>{% if item.is_active %}<span class="badge badge-success">فعال</span>{% else %}<span class="badge badge-neutral">غیرفعال</span>{% endif %}</td>
           <td class="table-actions">
             <a class="btn btn-ghost btn-sm" href="{% url 'org:contractor_detail' item.pk %}">پرونده</a>
-            <a class="btn btn-ghost btn-sm" href="{% url 'org:contractor_update' item.pk %}">ویرایش</a>
+            {% if user.is_admin_province %}<a class="btn btn-ghost btn-sm" href="{% url 'org:contractor_update' item.pk %}">ویرایش</a>{% endif %}
           </td>
         </tr>
       {% empty %}
