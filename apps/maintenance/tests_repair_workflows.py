@@ -699,12 +699,15 @@ class RepairAndReferralWorkflowTests(TestCase):
             center=self.center, request_type=GeneralITRequest.TYPE_EQUIPMENT,
             title="درخواست تجهیز", description="شرح درخواست", actor=self.requester,
         )
+        request = manager_decide_general_it_request(
+            request=request, decision="approve",
+            note="تایید مدیر مرکز", actor=self.manager,
+        )
         assign_general_it_request(
             request=request, expert=self.it_expert, actor=self.it_expert,
         )
         request = escalate_general_it_request(
             request=request, actor=self.it_expert,
-            bypass_reason="فوریت درخواست",
         )
         stale_request = GeneralITRequest.objects.get(pk=request.pk)
         resolve_general_it_request(
@@ -729,6 +732,16 @@ class RepairAndReferralWorkflowTests(TestCase):
             actor=self.requester,
         )
         self.assertTrue(request.events.filter(action="created").exists())
+        self.assertEqual(
+            request.manager_approval,
+            GeneralITRequest.MANAGER_PENDING,
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.manager,
+                title="درخواست جدید برای بررسی مدیر مرکز",
+            ).exists()
+        )
         self.assertTrue(
             Notification.objects.filter(
                 user=self.it_expert,
@@ -741,6 +754,14 @@ class RepairAndReferralWorkflowTests(TestCase):
             password="test-password",
             role=User.ROLE_ADMIN_IT,
             center=self.center,
+        )
+        with self.assertRaises(ValidationError):
+            assign_general_it_request(
+                request=request, expert=second_expert, actor=self.it_expert,
+            )
+        request = manager_decide_general_it_request(
+            request=request, decision="approve",
+            note="تایید مدیر مرکز", actor=self.manager,
         )
         assign_general_it_request(
             request=request, expert=second_expert, actor=self.it_expert,
@@ -761,6 +782,32 @@ class RepairAndReferralWorkflowTests(TestCase):
             assign_general_it_request(
                 request=request, expert=self.it_expert, actor=self.it_expert,
             )
+
+    def test_equipment_request_skips_manager_approval_when_center_has_no_active_manager(self):
+        self.manager.is_active = False
+        self.manager.save(update_fields=["is_active"])
+
+        request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_EQUIPMENT,
+            title="درخواست تجهیز بدون مدیر فعال",
+            description="مرکز در حال حاضر مدیر فعال ندارد.",
+            actor=self.requester,
+        )
+        self.assertEqual(
+            request.manager_approval,
+            GeneralITRequest.MANAGER_NOT_REQUIRED,
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                user=self.manager,
+                title="درخواست جدید برای بررسی مدیر مرکز",
+            ).exists()
+        )
+        assigned = assign_general_it_request(
+            request=request, expert=self.it_expert, actor=self.it_expert,
+        )
+        self.assertEqual(assigned.status, GeneralITRequest.STATUS_ASSIGNED)
 
     def test_issue_request_can_escalate_without_manager_bypass(self):
         request = create_general_it_request(
@@ -822,13 +869,13 @@ class RepairAndReferralWorkflowTests(TestCase):
             center=self.center, request_type=GeneralITRequest.TYPE_REPLACEMENT,
             title="جایگزینی تجهیز", description="شرح درخواست", actor=self.requester,
         )
-        assign_general_it_request(
-            request=request, expert=self.it_expert, actor=self.it_expert,
-        )
         stale_request = GeneralITRequest.objects.get(pk=request.pk)
         manager_decide_general_it_request(
             request=request, decision="approve",
             note="تایید مدیر مرکز", actor=self.manager,
+        )
+        assign_general_it_request(
+            request=request, expert=self.it_expert, actor=self.it_expert,
         )
         with self.assertRaises(ValidationError):
             manager_decide_general_it_request(
