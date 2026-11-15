@@ -574,6 +574,79 @@ class MultiCenterAndHWAgentTests(TestCase):
         self.assertTrue(diff2["has_alarm"])
         self.assertGreater(snap2.diff_count, 0)
 
+    def test_anonymous_hwagent_upload_pages_redirect_to_login(self):
+        from django.urls import reverse
+
+        batch_response = self.client.get(reverse("assets:hwagent_batch_import"))
+        upload_response = self.client.get(reverse("assets:hwagent_upload", args=[self.asset_sub.pk]))
+        self.assertEqual(batch_response.status_code, 302)
+        self.assertEqual(upload_response.status_code, 302)
+
+    def test_hwagent_batch_import_requires_explicit_center_for_admin_scope(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.urls import reverse
+
+        self.client.force_login(self.admin_prov)
+        upload = SimpleUploadedFile(
+            "new-pc.json",
+            b'{"computerName":"HWAGENT-NEW","cpu":{"name":"Intel Core i5","cores":4,"threads":8,"speed":2500}}',
+            content_type="application/json",
+        )
+        response = self.client.post(
+            reverse("assets:hwagent_batch_import"),
+            {"files": [upload], "auto_create": "on"},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Asset.objects.filter(hostname="HWAGENT-NEW").exists())
+
+    def test_hwagent_batch_import_rejects_center_outside_admin_scope(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.urls import reverse
+        from apps.org.models import Center, OrganizationalUnit
+
+        other_province = OrganizationalUnit.objects.create(
+            name="استان دیگر", code="OU-TEST-PRV-OTHER",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=self.nat,
+        )
+        other_county = OrganizationalUnit.objects.create(
+            name="شهرستان دیگر", code="OU-TEST-CNTY-OTHER",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=other_province,
+        )
+        other_center = Center.objects.create(
+            name="مرکز خارج از استان", code="OTHER-CENTER",
+            parent_unit=other_county,
+        )
+        self.client.force_login(self.admin_prov)
+        upload = SimpleUploadedFile(
+            "foreign-pc.json",
+            b'{"computerName":"HWAGENT-FOREIGN","cpu":{"name":"Intel Core i5","cores":4,"threads":8,"speed":2500}}',
+            content_type="application/json",
+        )
+        response = self.client.post(
+            reverse("assets:hwagent_batch_import"),
+            {"files": [upload], "center": str(other_center.pk), "auto_create": "on"},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Asset.objects.filter(hostname="HWAGENT-FOREIGN").exists())
+
+    def test_center_it_batch_import_ignores_submitted_foreign_center(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.urls import reverse
+
+        self.client.force_login(self.admin_sub)
+        upload = SimpleUploadedFile(
+            "center-bound-pc.json",
+            b'{"computerName":"HWAGENT-CENTER-BOUND","cpu":{"name":"Intel Core i5","cores":4,"threads":8,"speed":2500}}',
+            content_type="application/json",
+        )
+        response = self.client.post(
+            reverse("assets:hwagent_batch_import"),
+            {"files": [upload], "center": str(self.center_hq.pk), "auto_create": "on"},
+        )
+        self.assertEqual(response.status_code, 200)
+        created = Asset.objects.get(hostname="HWAGENT-CENTER-BOUND")
+        self.assertEqual(created.center_id, self.center_sub.pk)
+
     def test_api_hwagent_sync_endpoint(self):
         from django.test import Client
         from apps.assets.models import AgentCredential
