@@ -305,7 +305,17 @@ class RepairAndReferralWorkflowTests(TestCase):
         request = escalate_general_it_request(request=request, actor=self.it_expert)
         self.assertEqual(request.status, GeneralITRequest.STATUS_ESCALATED)
 
-    def test_provincial_it_experts_can_see_all_feedback_in_their_province(self):
+    def test_center_it_only_sees_feedback_for_its_own_center(self):
+        own_repair = self._repair()
+        own_repair = decide_repair_request(
+            repair=own_repair, decision="approve", note="تایید", actor=self.province_admin,
+        )
+        complete_repair_request(
+            repair=own_repair, actor=self.it_expert, outcome="تعمیر شد",
+            final_cost=Decimal("500000"), work_quality=5,
+            completion_speed=5, cost_fairness=5,
+        )
+
         other_county = OrganizationalUnit.objects.create(
             name="زابل", code="WF-COUNTY-OTHER",
             unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
@@ -321,22 +331,26 @@ class RepairAndReferralWorkflowTests(TestCase):
             asset_tag="WF-ASSET-OTHER", title="کیس مرکز دیگر",
             category=self.category, center=other_center,
         )
-        repair = create_repair_request(
+        other_repair = create_repair_request(
             center=other_center, asset=other_asset, repairer=self.repairer,
             fault_description="خرابی نمونه", referral_reason="ارجاع نمونه",
             estimate_amount=Decimal("500000"), actor=other_expert,
         )
-        repair = decide_repair_request(
-            repair=repair, decision="approve", note="تایید", actor=self.province_admin,
+        other_repair = decide_repair_request(
+            repair=other_repair, decision="approve", note="تایید", actor=self.province_admin,
         )
         complete_repair_request(
-            repair=repair, actor=other_expert, outcome="تعمیر شد",
+            repair=other_repair, actor=other_expert, outcome="تعمیر شد",
             final_cost=Decimal("500000"), work_quality=5,
             completion_speed=5, cost_fairness=5,
         )
 
-        visible = visible_repair_feedback(self.it_expert)
-        self.assertTrue(visible.filter(repair_request=repair).exists())
+        center_visible = visible_repair_feedback(self.it_expert)
+        self.assertTrue(center_visible.filter(repair_request=own_repair).exists())
+        self.assertFalse(center_visible.filter(repair_request=other_repair).exists())
+
+        province_visible = visible_repair_feedback(self.province_admin)
+        self.assertTrue(province_visible.filter(repair_request=other_repair).exists())
 
     def test_repairer_profile_changes_are_audited_by_the_ui(self):
         from django.urls import reverse
