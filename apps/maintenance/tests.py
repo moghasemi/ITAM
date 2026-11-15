@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.core.constants import EVENT_VISIT_CONFIRMED, EVENT_VISIT_PLANNED, VISIT_DONE
+from apps.core.constants import EVENT_VISIT_CONFIRMED, EVENT_VISIT_MISSED, EVENT_VISIT_PLANNED, VISIT_DONE, VISIT_MISSED
 from apps.core.models import Notification
 from apps.integrations.models import OutboxEvent
 from apps.assets.models import Asset, AssetCategory
@@ -16,7 +16,7 @@ from apps.org.models import Center, Contract, ContractCenterAssignment, Contract
 from .forms import VisitForm
 from .models import MaintenanceVisit, VisitAssetCheck
 from .services import (
-    can_confirm_visit, can_manage_visit, confirm_visit, complete_visit, save_check,
+    can_confirm_visit, can_manage_visit, confirm_visit, complete_visit, mark_missed_visits, save_check,
     visible_checks, visible_visits,
 )
 from .views import VisitCreateView, VisitUpdateView, _emit_visit_planned
@@ -499,6 +499,31 @@ class ProvincialMaintenanceScopeTests(TestCase):
                 self.provincial_admin,
                 notes="تغییر پس از تایید",
             )
+
+    def test_overdue_visit_without_end_date_is_marked_missed(self):
+        self.visit.scheduled_date = timezone.localdate() - dt.timedelta(days=1)
+        self.visit.scheduled_end_date = None
+        self.visit.status = VISIT_PLANNED
+        self.visit.save(update_fields=["scheduled_date", "scheduled_end_date", "status", "updated_at"])
+
+        changed = mark_missed_visits(user=self.provincial_admin)
+        self.visit.refresh_from_db()
+
+        self.assertEqual(changed, 1)
+        self.assertEqual(self.visit.status, VISIT_MISSED)
+        self.assertTrue(
+            OutboxEvent.objects.filter(
+                event_type=EVENT_VISIT_MISSED,
+                aggregate_type="MaintenanceVisit",
+                aggregate_id=str(self.visit.pk),
+            ).exists()
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.center_it,
+                title=f"بازدید {self.visit.number} انجام نشد",
+            ).exists()
+        )
 
     def test_manual_visit_planning_emits_outbox_event(self):
         _emit_visit_planned(self.visit, self.provincial_admin)
