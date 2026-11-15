@@ -135,6 +135,12 @@ class RepairAndReferralWorkflowTests(TestCase):
         self.assertEqual(repair.status, RepairRequest.STATUS_RESOLVED)
         self.assertEqual(repair.cost_increase_approved_by_id, self.province_admin.pk)
 
+    def test_retired_assets_cannot_receive_new_independent_repair_requests(self):
+        self.asset.status = "retired"
+        self.asset.save(update_fields=["status", "updated_at"])
+        with self.assertRaises(ValidationError):
+            self._repair()
+
     def test_repair_can_be_completed_when_final_cost_is_unknown(self):
         repair = self._repair()
         repair = decide_repair_request(
