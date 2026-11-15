@@ -658,7 +658,7 @@ def create_general_it_request(*, center, request_type, title, description, actor
     ).exclude(pk=actor.pk)
     Notification.push_many(
         center_experts,
-        "درخواست جدید IT برای مرکز",
+        "درخواست جدید فناوری اطلاعات",
         f"{request.number}: {request.title}",
         url=reverse("maintenance:it_request_detail", args=[request.pk]),
         level="info",
