@@ -52,6 +52,16 @@ def _province_id_for_user(user):
     return None
 
 
+def _province_admins(province_id):
+    if not province_id:
+        return User.objects.none()
+    return User.objects.filter(
+        role=User.ROLE_ADMIN_PROVINCE,
+        org_unit_id=province_id,
+        is_active=True,
+    )
+
+
 def _can_manage_center(user, center):
     return bool(
         user and user.is_authenticated
@@ -287,6 +297,13 @@ def create_repair_request(*, center, asset, repairer, fault_description,
         repair, "submitted", "درخواست برای تایید مدیر استان ارسال شد.", actor,
         previous=RepairRequest.STATUS_DRAFT,
     )
+    Notification.push_many(
+        _province_admins(province_id),
+        "درخواست تعمیر جدید در انتظار تایید",
+        f"{repair.number}: {repair.asset.asset_tag}",
+        url=repair.get_absolute_url(),
+        level="info",
+    )
     return repair
 
 
@@ -355,6 +372,13 @@ def resubmit_repair_request(*, repair, actor, fault_description=None,
     repair.full_clean()
     repair.save()
     _record_repair_event(repair, "resubmitted", "درخواست اصلاح و مجدداً ارسال شد.", actor, previous)
+    Notification.push_many(
+        _province_admins(_province_id_for_center(repair.center)),
+        "درخواست تعمیر اصلاح‌شده در انتظار تایید",
+        f"{repair.number}: {repair.asset.asset_tag}",
+        url=repair.get_absolute_url(),
+        level="info",
+    )
     return repair
 
 
@@ -418,13 +442,8 @@ def complete_repair_request(*, repair, outcome, final_cost, actor,
             "final_cost": str(final_cost) if final_cost is not None else None,
         },
     )
-    province_admins = User.objects.filter(
-        role=User.ROLE_ADMIN_PROVINCE,
-        org_unit_id=_province_id_for_center(repair.center),
-        is_active=True,
-    )
     Notification.push_many(
-        province_admins,
+        _province_admins(_province_id_for_center(repair.center)),
         "نتیجه تعمیر ثبت شد",
         f"{repair.number}: " + ("اختلاف هزینه نیازمند تعیین تکلیف است." if disputed else "تعمیر تکمیل شد."),
         url=repair.get_absolute_url(),
