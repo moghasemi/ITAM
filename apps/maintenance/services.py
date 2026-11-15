@@ -368,12 +368,12 @@ def start_visit(visit: MaintenanceVisit, user):
     ).get(pk=visit.pk)
     if not can_manage_visit(user, visit):
         raise PermissionDenied("اجازه شروع این بازدید را ندارید.")
-    if visit.status == VISIT_DONE:
-        raise ValidationError("این بازدید پایان یافته است.")
+    if visit.status in (VISIT_DONE, VISIT_CANCELED):
+        raise ValidationError("بازدید پایان‌یافته یا لغوشده قابل شروع مجدد نیست.")
     populate_checks(visit)
     visit.status = VISIT_IN_PROGRESS
     visit.started_at = visit.started_at or timezone.now()
-    if not visit.technician_id:
+    if not visit.technician_id and user.role == User.ROLE_TECHNICIAN:
         visit.technician = user
     visit.save(update_fields=["status", "started_at", "technician", "updated_at"])
     log_action("status_change", visit, note="شروع بازدید دوره‌ای", user=user)
