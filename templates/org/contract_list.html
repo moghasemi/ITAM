@@ -2,7 +2,7 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  {% if user.is_admin_it %}
+  {% if user.is_admin_province %}
     <a class="btn btn-primary" href="{% url 'org:contract_create' %}">➕ ثبت قرارداد</a>
   {% endif %}
 {% endblock %}
@@ -40,7 +40,7 @@
           <td><span class="badge badge-{{ contract.status_css }}">{{ contract.get_status_display }}</span></td>
           <td class="table-actions">
             <a class="btn btn-ghost btn-sm" href="{% url 'org:contract_detail' contract.pk %}">پرونده</a>
-            {% if user.is_admin_it %}
+            {% if user.is_admin_province %}
               <a class="btn btn-ghost btn-sm" href="{% url 'org:contract_update' contract.pk %}">ویرایش</a>
             {% endif %}
           </td>
