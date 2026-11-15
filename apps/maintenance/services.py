@@ -272,6 +272,8 @@ def _period_bounds(contract, index: int):
 @transaction.atomic
 def generate_visits(contract, *, user=None, populate=True) -> dict:
     """ساخت نوبت‌های بازدید دوره‌ای یک قرارداد بر اساس دوره تعریف‌شده."""
+    if not contract.is_current:
+        raise ValidationError("برای قرارداد غیرفعال یا خارج از بازه اعتبار، بازدید جدید برنامه‌ریزی نمی‌شود.")
     if not contract.visit_interval_days:
         raise ValidationError("دوره بازدید برای این قرارداد تعریف نشده است.")
 
