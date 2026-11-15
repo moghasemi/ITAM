@@ -42,6 +42,38 @@ def _trusted_proxy_networks():
     return networks
 
 
+def _is_trusted_proxy(address) -> bool:
+    return any(address in network for network in _trusted_proxy_networks())
+
+
+class TrustedProxyHeadersMiddleware:
+    """Strip forwarding headers unless the TCP peer is a configured proxy."""
+
+    _FORWARDED_HEADERS = (
+        "HTTP_X_FORWARDED_FOR",
+        "HTTP_X_FORWARDED_PROTO",
+        "HTTP_X_FORWARDED_HOST",
+        "HTTP_X_FORWARDED_PORT",
+        "HTTP_X_FORWARDED_SERVER",
+        "HTTP_FORWARDED",
+        "HTTP_X_REAL_IP",
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        remote_text = (request.META.get("REMOTE_ADDR", "") or "").strip()
+        try:
+            remote = ipaddress.ip_address(remote_text)
+        except ValueError:
+            remote = None
+        if remote is None or not _is_trusted_proxy(remote):
+            for header in self._FORWARDED_HEADERS:
+                request.META.pop(header, None)
+        return self.get_response(request)
+
+
 def client_ip(request=None) -> str | None:
     """Use X-Forwarded-For only when REMOTE_ADDR is an explicitly trusted proxy.
 
