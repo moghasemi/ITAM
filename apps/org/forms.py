@@ -80,17 +80,26 @@ class CenterForm(StyledModelForm):
             else:
                 province_qs = OrganizationalUnit.objects.none()
 
-        if self.is_bound:
+        if fixed_province_id:
+            selected_province_id = fixed_province_id
+        elif self.is_bound:
             selected_province_id = self.data.get(self.add_prefix("province"))
+            if selected_province_id:
+                county_qs = county_qs.filter(parent_id=selected_province_id)
+            else:
+                county_qs = county_qs.none()
         elif self.instance.pk and self.instance.parent_unit_id:
             selected_province_id = self.instance.parent_unit.parent_id
         else:
-            selected_province_id = fixed_province_id
+            selected_province_id = None
 
-        if selected_province_id:
-            county_qs = county_qs.filter(parent_id=selected_province_id)
-        else:
-            county_qs = county_qs.none()
+        if fixed_province_id:
+            county_qs = county_qs.filter(parent_id=fixed_province_id)
+        elif not self.is_bound:
+            # Country administrators need the full option set on GET so the
+            # province selector can filter it without another request. On POST
+            # the queryset above is restricted to the submitted province.
+            pass
 
         province_field = self.fields["province"]
         province_field.queryset = province_qs
@@ -106,7 +115,7 @@ class CenterForm(StyledModelForm):
             queryset=county_qs,
             required=True,
             empty_label="شهرستان را انتخاب کنید",
-            widget=CountySelect(attrs={"class": "form-select"}),
+            widget=CountySelect(attrs={"class": "select"}),
             help_text="فقط شهرستان‌های استان انتخاب‌شده قابل انتخاب هستند.",
         )
         self.order_fields([
