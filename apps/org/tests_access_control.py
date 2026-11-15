@@ -142,7 +142,10 @@ class CenterContractReadOnlyAccessTests(TestCase):
         self.assertNotContains(list_response, "ثبت قرارداد")
         self.assertNotContains(list_response, "ویرایش")
         self.assertNotContains(detail_response, "ویرایش قرارداد")
-        self.assertNotContains(detail_response, "برنامه‌ریزی بازدیدهای دوره‌ای")
+        self.assertNotContains(
+            detail_response,
+            reverse("org:contract_generate_visits", args=[self.assigned_contract.pk]),
+        )
 
     def test_province_admin_retains_province_wide_contract_access_and_management(self):
         visible_ids = set(
