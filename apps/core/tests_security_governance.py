@@ -399,11 +399,11 @@ class PostImplementationSecurityRemediationTests(TestCase):
         self.assertFalse(form_no_parent.is_valid())
         self.assertIn("parent_unit", form_no_parent.errors)
 
-        form_wrong_parent = CenterForm(data={"name": "مرکز با استان", "code": "C-FRM-02", "parent_unit": prv.pk})
+        form_wrong_parent = CenterForm(data={"name": "مرکز با استان", "code": "C-FRM-02", "province": prv.pk, "parent_unit": prv.pk})
         self.assertFalse(form_wrong_parent.is_valid())
         self.assertIn("parent_unit", form_wrong_parent.errors)
 
-        form_valid = CenterForm(data={"name": "مرکز صحیح", "code": "C-FRM-03", "parent_unit": cnty.pk})
+        form_valid = CenterForm(data={"name": "مرکز صحیح", "code": "C-FRM-03", "province": prv.pk, "parent_unit": cnty.pk})
         self.assertTrue(form_valid.is_valid(), form_valid.errors)
         created_center = form_valid.save()
         self.assertEqual(created_center.province_name, prv.name)
