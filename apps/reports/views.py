@@ -29,6 +29,7 @@ from apps.maintenance.repair_models import GeneralITRequest, RepairRequest
 from apps.maintenance.repair_services import visible_repairers, visible_repair_requests
 from apps.maintenance.services import visible_visits
 from apps.org.models import Contract, Contractor
+from apps.org.services import visible_contracts
 from apps.tickets.models import Ticket
 from apps.tickets.services import visible_tickets
 
@@ -69,18 +70,15 @@ class ReportsHomeView(StaffRequiredMixin, PageContextMixin, View):
             "reports": REPORT_MENU,
             "tickets_total": tickets.count(),
             "assets_total": assets.count(),
-            "contracts_active": (
-                Contract.objects.filter(status=Contract.STATUS_ACTIVE).count()
-                if request.user.is_admin_country
-                else Contract.objects.filter(
-                    status=Contract.STATUS_ACTIVE,
-                    province_id__in=request.user.get_scoped_centers().values("treatment_management__province_id"),
-                ).distinct().count()
-            ),
+            "contracts_active": visible_contracts(user).filter(
+                status=Contract.STATUS_ACTIVE,
+                start_date__lte=timezone.localdate(),
+                end_date__gte=timezone.localdate(),
+            ).count(),
             "breached_total": tickets.filter(Q(response_met=False) | Q(resolve_met=False)).count(),
             "snapshots_total": HardwareSnapshot.objects.filter(asset__in=assets).count(),
             "diff_alarms": HardwareSnapshot.objects.filter(
-                asset__in=assets, diff_data__has_key="removed"
+                asset__in=assets, diff_data__has_alarm=True
             ).count(),
         }
         return render(request, self.template_name, context)
