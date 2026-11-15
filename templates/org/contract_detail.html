@@ -2,7 +2,7 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  {% if user.is_admin_it %}
+  {% if user.is_admin_province %}
     <a class="btn btn-primary" href="{% url 'org:contract_update' object.pk %}">ویرایش قرارداد</a>
     <form method="post" action="{% url 'org:contract_generate_visits' object.pk %}" class="inline-form"
           data-confirm="بازدیدهای دوره‌ای این قرارداد بر اساس دوره {{ object.visit_interval_days }} روز ساخته شود؟">
