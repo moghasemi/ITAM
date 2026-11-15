@@ -368,6 +368,7 @@ def private_media(request, path: str):
         if referral:
             allowed = (
                 user.is_admin_country
+                or referral.created_by_id == user.pk
                 or referral.recipient_user_id == user.pk
                 or (
                     referral.center_id
