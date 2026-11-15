@@ -62,6 +62,7 @@ Copy-Item deploy\.env.example .env
 - `ITAM_CSRF_TRUSTED_ORIGINS`: مبدأ HTTPS واقعی سامانه.
 - `ITAM_DB_*`: نام پایگاه، کاربر اختصاصی برنامه، گذرواژه قوی، میزبان و پورت PostgreSQL.
 - `ITAM_PUBLIC_BASE_URL`: نشانی HTTPS واقعی که در QR تجهیزات درج می‌شود.
+- `ITAM_TRUSTED_PROXY_IPS`: IP یا CIDR دقیق Reverse Proxy که مستقیماً به برنامه وصل می‌شود؛ چند مقدار را با ویرگول جدا کنید. از `0.0.0.0/0` یا بازه‌های عمومی استفاده نکنید. اگر این مقدار تنظیم نشود، هدرهای `X-Forwarded-*` مورد اعتماد نیستند. در اتصال مستقیم TLS بدون Reverse Proxy، `ITAM_USE_PROXY_SSL_HEADER=0` بگذارید.
 
 برای PostgreSQL یک پایگاه و کاربر اختصاصی برنامه بسازید؛ برنامه را با کاربر superuser پایگاه داده اجرا نکنید. فایل `.env` را فقط برای حساب سرویس و مدیران مجاز قابل خواندن کنید.
 
