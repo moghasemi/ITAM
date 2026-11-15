@@ -70,7 +70,7 @@ class ReportsHomeView(StaffRequiredMixin, PageContextMixin, View):
             "reports": REPORT_MENU,
             "tickets_total": tickets.count(),
             "assets_total": assets.count(),
-            "contracts_active": visible_contracts(user).filter(
+            "contracts_active": visible_contracts(request.user).filter(
                 status=Contract.STATUS_ACTIVE,
                 start_date__lte=timezone.localdate(),
                 end_date__gte=timezone.localdate(),
