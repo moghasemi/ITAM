@@ -809,6 +809,25 @@ class RepairAndReferralWorkflowTests(TestCase):
         )
         self.assertEqual(assigned.status, GeneralITRequest.STATUS_ASSIGNED)
 
+    def test_manager_who_submits_equipment_request_does_not_self_approve(self):
+        request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_EQUIPMENT,
+            title="درخواست تجهیز توسط مدیر",
+            description="مدیر مرکز خودش درخواست را ثبت کرده است.",
+            actor=self.manager,
+        )
+        self.assertEqual(
+            request.manager_approval,
+            GeneralITRequest.MANAGER_NOT_REQUIRED,
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                user=self.manager,
+                title="درخواست جدید برای بررسی مدیر مرکز",
+            ).exists()
+        )
+
     def test_issue_request_can_escalate_without_manager_bypass(self):
         request = create_general_it_request(
             center=self.center,
