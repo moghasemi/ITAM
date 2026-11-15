@@ -160,7 +160,8 @@ class VisitDetailView(AnyRoleRequiredMixin, PageContextMixin, DetailView):
             and not visit.it_confirmed_at
         )
         context["complete_form"] = VisitCompleteForm(
-            initial={"report_text": visit.report_text, "recommendation": visit.recommendation}
+            initial={"report_text": visit.report_text, "recommendation": visit.recommendation},
+            can_force=can_force_complete_visit(self.request.user),
         )
         context["confirm_form"] = VisitConfirmForm()
         return context
@@ -292,7 +293,9 @@ def visit_start(request, pk: int):
 def visit_complete(request, pk: int):
     if request.method != "POST":
         return redirect("maintenance:visit_detail", pk=pk)
-    form = VisitCompleteForm(request.POST or None)
+    form = VisitCompleteForm(
+        request.POST or None, can_force=can_force_complete_visit(request.user)
+    )
     if not form.is_valid():
         messages.error(request, "اطلاعات فرم پایان بازدید ناقص است.")
         return redirect("maintenance:visit_detail", pk=pk)
