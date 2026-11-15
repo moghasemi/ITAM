@@ -694,6 +694,31 @@ class MultiCenterAndHWAgentTests(TestCase):
         self.assertEqual(data["asset_tag"], "TAG-SUB")
 
 
+    def test_api_hwagent_sync_rejects_inactive_center(self):
+        import json
+        import uuid
+        from django.utils import timezone
+        from apps.assets.models import AgentCredential, HardwareSnapshot
+
+        credential, token = AgentCredential.generate(self.center_sub, name="inactive-center-agent")
+        self.center_sub.is_active = False
+        self.center_sub.save(update_fields=["is_active"])
+        payload = {
+            "computerName": "PC-SUB-01",
+            "os": "Windows 11",
+            "cpu": {"name": "Intel Core i5", "cores": 4, "threads": 8, "speed": 2500},
+        }
+        response = self.client.post(
+            "/api/v1/hardware/agent-sync/",
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+            HTTP_X_ITAM_TIMESTAMP=timezone.now().isoformat(),
+            HTTP_X_ITAM_NONCE=str(uuid.uuid4()),
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(HardwareSnapshot.objects.filter(asset=self.asset_sub).exists())
+
     def test_api_hwagent_sync_rejects_invalid_nonce_format(self):
         import json
         import uuid
