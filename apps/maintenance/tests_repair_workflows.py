@@ -864,6 +864,38 @@ class RepairAndReferralWorkflowTests(TestCase):
         )
         self.assertEqual(assigned.status, GeneralITRequest.STATUS_ASSIGNED)
 
+    def test_manager_requester_cannot_self_approve_when_another_manager_exists(self):
+        second_manager = User.objects.create_user(
+            username="wf-second-manager",
+            password="test-password",
+            role=User.ROLE_MANAGER,
+            center=self.center,
+        )
+        request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_EQUIPMENT,
+            title="درخواست مدیر با مدیر دوم",
+            description="باید مدیر دیگری بررسی کند.",
+            actor=self.manager,
+        )
+        self.assertEqual(
+            request.manager_approval,
+            GeneralITRequest.MANAGER_PENDING,
+        )
+        with self.assertRaises(PermissionDenied):
+            manager_decide_general_it_request(
+                request=request, decision="approve",
+                note="تلاش برای تایید خود", actor=self.manager,
+            )
+        approved = manager_decide_general_it_request(
+            request=request, decision="approve",
+            note="تایید توسط مدیر دوم", actor=second_manager,
+        )
+        self.assertEqual(
+            approved.manager_approval,
+            GeneralITRequest.MANAGER_APPROVED,
+        )
+
     def test_manager_who_submits_equipment_request_does_not_self_approve(self):
         request = create_general_it_request(
             center=self.center,
