@@ -363,6 +363,9 @@ def mark_missed_visits(user=None) -> int:
 # ---------------------------------------------------------------------------
 @transaction.atomic
 def start_visit(visit: MaintenanceVisit, user):
+    visit = MaintenanceVisit.objects.select_for_update(of=("self",)).select_related(
+        "contract", "contract__contractor"
+    ).get(pk=visit.pk)
     if not can_manage_visit(user, visit):
         raise PermissionDenied("اجازه شروع این بازدید را ندارید.")
     if visit.status == VISIT_DONE:
@@ -387,6 +390,9 @@ def complete_visit(
     force=False,
     force_reason="",
 ):
+    visit = MaintenanceVisit.objects.select_for_update(of=("self",)).select_related(
+        "contract", "contract__contractor"
+    ).get(pk=visit.pk)
     if not can_manage_visit(user, visit):
         raise PermissionDenied("اجازه پایان این بازدید را ندارید.")
     if visit.status in (VISIT_DONE, VISIT_CANCELED):
@@ -470,10 +476,21 @@ def confirm_visit(visit: MaintenanceVisit, user, note: str = ""):
 
 
 @transaction.atomic
+@transaction.atomic
 def save_check(check: VisitAssetCheck, user, *, condition=None, actions_taken=None,
                parts_replaced=None, notes=None, next_due_date=None, photo=None,
                hardware_snapshot=None, checked=True):
     """ثبت نتیجه بازدید یک تجهیز."""
+    visit_id = VisitAssetCheck.objects.filter(pk=check.pk).values_list(
+        "visit_id", flat=True
+    ).get()
+    locked_visit = MaintenanceVisit.objects.select_for_update(of=("self",)).get(
+        pk=visit_id
+    )
+    check = VisitAssetCheck.objects.select_for_update(of=("self",)).select_related(
+        "asset"
+    ).get(pk=check.pk, visit_id=visit_id)
+    check.visit = locked_visit
     if not can_manage_visit(user, check.visit):
         raise PermissionDenied("اجازه ثبت نتیجه این برگه بازدید را ندارید.")
     if check.visit.status in (VISIT_DONE, VISIT_CANCELED) or check.visit.it_confirmed_at:
