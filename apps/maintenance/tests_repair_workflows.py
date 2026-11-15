@@ -100,6 +100,12 @@ class RepairAndReferralWorkflowTests(TestCase):
     def test_repair_requires_provincial_approval_and_records_cost_dispute(self):
         repair = self._repair()
         self.assertEqual(repair.status, RepairRequest.STATUS_PENDING)
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.province_admin,
+                title="درخواست تعمیر جدید در انتظار تایید",
+            ).exists()
+        )
 
         with self.assertRaises(PermissionDenied):
             decide_repair_request(
@@ -205,6 +211,12 @@ class RepairAndReferralWorkflowTests(TestCase):
             estimate_amount=Decimal("1100000"),
         )
         self.assertEqual(repair.status, RepairRequest.STATUS_PENDING)
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.province_admin,
+                title="درخواست تعمیر اصلاح‌شده در انتظار تایید",
+            ).exists()
+        )
         repair = decide_repair_request(
             repair=repair, decision="reject", note="درخواست فاقد توجیه است.",
             actor=self.province_admin,
