@@ -342,17 +342,21 @@ def check_edit(request, pk: int):
 
     form = VisitCheckForm(request.POST or None, request.FILES or None, instance=check)
     if request.method == "POST" and form.is_valid():
-        obj = save_check(
-            check,
-            request.user,
-            condition=form.cleaned_data.get("condition"),
-            actions_taken=form.cleaned_data.get("actions_taken"),
-            parts_replaced=form.cleaned_data.get("parts_replaced"),
-            notes=form.cleaned_data.get("notes"),
-            next_due_date=form.cleaned_data.get("next_due_date"),
-            photo=form.cleaned_data.get("photo"),
-            checked=True,
-        )
+        try:
+            obj = save_check(
+                check,
+                request.user,
+                condition=form.cleaned_data.get("condition"),
+                actions_taken=form.cleaned_data.get("actions_taken"),
+                parts_replaced=form.cleaned_data.get("parts_replaced"),
+                notes=form.cleaned_data.get("notes"),
+                next_due_date=form.cleaned_data.get("next_due_date"),
+                photo=form.cleaned_data.get("photo"),
+                checked=True,
+            )
+        except (ValidationError, PermissionDenied) as exc:
+            messages.error(request, "؛ ".join(getattr(exc, "messages", [str(exc)])))
+            return redirect("maintenance:visit_detail", pk=check.visit_id)
         log_action("update", obj, note="ثبت نتیجه بازدید تجهیز", user=request.user)
         messages.success(request, "برگه بازدید ذخیره شد.")
         return redirect("maintenance:visit_detail", pk=check.visit_id)
