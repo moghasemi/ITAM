@@ -524,7 +524,11 @@ def it_request_detail(request, pk: int):
         request.user.role == User.ROLE_ADMIN_IT
         and request.user.get_scoped_centers().filter(pk=obj.center_id).exists()
     )
-    can_manager_review = request.user.role == User.ROLE_MANAGER and request.user.center_id == obj.center_id
+    can_manager_review = (
+        request.user.role == User.ROLE_MANAGER
+        and request.user.center_id == obj.center_id
+        and request.user.pk != obj.requested_by_id
+    )
     can_province_resolve = request.user.is_admin_country or request.user.is_admin_province
     return render(request, "maintenance/it_request_detail.html", {
         "page_title": f"درخواست {obj.number}",
