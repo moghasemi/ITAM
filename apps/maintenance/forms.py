@@ -88,6 +88,25 @@ class VisitForm(StyledModelForm):
         technician = cleaned.get("technician")
         if contract and technician and technician.contractor_id != contract.contractor_id:
             self.add_error("technician", "کارشناس انتخاب‌شده متعلق به پیمانکار این قرارداد نیست.")
+
+        scheduled_date = cleaned.get("scheduled_date")
+        scheduled_end_date = cleaned.get("scheduled_end_date")
+        if contract and scheduled_date:
+            if scheduled_date < contract.start_date or scheduled_date > contract.end_date:
+                self.add_error(
+                    "scheduled_date",
+                    "تاریخ بازدید باید در بازه اعتبار قرارداد باشد.",
+                )
+            if scheduled_end_date and scheduled_end_date < scheduled_date:
+                self.add_error(
+                    "scheduled_end_date",
+                    "آخرین مهلت انجام نمی‌تواند پیش از تاریخ برنامه‌ریزی باشد.",
+                )
+            if scheduled_end_date and scheduled_end_date > contract.end_date:
+                self.add_error(
+                    "scheduled_end_date",
+                    "آخرین مهلت انجام نمی‌تواند پس از پایان قرارداد باشد.",
+                )
         return cleaned
 
 
