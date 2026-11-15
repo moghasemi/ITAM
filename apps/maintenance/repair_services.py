@@ -557,26 +557,31 @@ def add_feedback_reply(*, feedback, body, actor, parent=None):
 
 
 @transaction.atomic
+@transaction.atomic
 def create_general_it_request(*, center, request_type, title, description, actor, asset=None):
-    if not actor or not actor.is_authenticated:
-        raise PermissionDenied("ورود به سامانه الزامی است.")
+    if not actor or not actor.is_authenticated or not actor.is_active:
+        raise PermissionDenied("ورود معتبر به سامانه الزامی است.")
+    if not center.is_active:
+        raise ValidationError("ثبت درخواست برای مرکز غیرفعال مجاز نیست.")
     if actor.center_id != center.pk and not _can_manage_center(actor, center):
         raise PermissionDenied("ثبت درخواست برای این مرکز مجاز نیست.")
     if asset and asset.center_id != center.pk:
         raise ValidationError("دارایی باید متعلق به همان مرکز باشد.")
-    request = GeneralITRequest.objects.create(
-        center=center, request_type=request_type, title=title.strip(),
-        description=description.strip(), requested_by=actor, asset=asset,
+    request = GeneralITRequest(
+        center=center, request_type=request_type, title=(title or "").strip(),
+        description=(description or "").strip(), requested_by=actor, asset=asset,
     )
+    request.full_clean()
+    request.save()
     GeneralITRequestEvent.objects.create(
         request=request, action="created", note="درخواست ثبت شد.", actor=actor,
     )
-    center_it_experts = User.objects.filter(
-        role=User.ROLE_ADMIN_IT, center=center, is_active=True,
-    )
+    center_experts = User.objects.filter(
+        role=User.ROLE_ADMIN_IT, center_id=center.pk, is_active=True
+    ).exclude(pk=actor.pk)
     Notification.push_many(
-        center_it_experts,
-        "درخواست جدید فناوری اطلاعات",
+        center_experts,
+        "درخواست جدید IT برای مرکز",
         f"{request.number}: {request.title}",
         url=reverse("maintenance:it_request_detail", args=[request.pk]),
         level="info",
@@ -590,16 +595,31 @@ def assign_general_it_request(*, request, expert, actor):
         raise PermissionDenied("فقط کارشناس IT مجاز همان مرکز می‌تواند درخواست را ارجاع دهد.")
     if expert.role != User.ROLE_ADMIN_IT or not expert.is_active or expert.center_id != request.center_id:
         raise ValidationError("کارشناس انتخاب‌شده باید فعال و متعلق به همان مرکز باشد.")
+    request = GeneralITRequest.objects.select_for_update().get(pk=request.pk)
+    if request.status not in (GeneralITRequest.STATUS_NEW, GeneralITRequest.STATUS_ASSIGNED):
+        raise ValidationError("فقط درخواست جدید یا ارجاع‌شده قابل تخصیص یا ارجاع مجدد است.")
+    if request.status == GeneralITRequest.STATUS_ASSIGNED and request.assigned_to_id == expert.pk:
+        return request
+    previous_expert = request.assigned_to
     request.assigned_to = expert
     request.status = GeneralITRequest.STATUS_ASSIGNED
     request.save(update_fields=["assigned_to", "status", "updated_at"])
+    assignment_note = (
+        f"از {previous_expert.display_name} به {expert.display_name} ارجاع مجدد شد."
+        if previous_expert else f"به {expert.display_name} ارجاع شد."
+    )
     GeneralITRequestEvent.objects.create(
-        request=request, action="assigned", note=f"به {expert.display_name} ارجاع شد.", actor=actor,
+        request=request, action="assigned", note=assignment_note, actor=actor,
     )
     Notification.push(
         request.requested_by, "درخواست IT به کارشناس ارجاع شد",
         request.number, url=reverse("maintenance:it_request_detail", args=[request.pk]),
     )
+    if expert.pk != actor.pk:
+        Notification.push(
+            expert, "درخواست IT جدید به شما ارجاع شد",
+            request.number, url=reverse("maintenance:it_request_detail", args=[request.pk]),
+        )
     return request
 
 
