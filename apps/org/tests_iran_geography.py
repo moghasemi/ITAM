@@ -24,10 +24,8 @@ class IranGeographyLoaderTests(TestCase):
 
         self.assertEqual(provinces.count(), 31)
         self.assertEqual(counties.count(), 484)
-        self.assertEqual(TreatmentManagement.objects.count(), 31)
-        self.assertEqual(
-            TreatmentManagement.objects.values("province_id").distinct().count(), 31
-        )
+        # Geography loading is intentionally separate from treatment management.
+        self.assertEqual(TreatmentManagement.objects.count(), 0)
         active_provinces = list(
             provinces.filter(is_active=True).values_list("name", flat=True)
         )
@@ -59,8 +57,7 @@ class IranGeographyLoaderTests(TestCase):
             OrganizationalUnit.objects.filter(code__startswith="IR-COUNTY-").count(),
             484,
         )
-        self.assertEqual(TreatmentManagement.objects.count(), 31)
-
+        self.assertEqual(TreatmentManagement.objects.count(), 0)
 
     def test_loader_preserves_manual_activation_changes(self):
         call_command("load_iran_geography")
@@ -78,14 +75,19 @@ class IranGeographyLoaderTests(TestCase):
 
     def test_loader_preserves_manual_treatment_management_activation(self):
         call_command("load_iran_geography")
-        management = TreatmentManagement.objects.get(province__code="IR-PROV-111")
-        management.is_active = False
-        management.save(update_fields=["is_active", "updated_at"])
+        province = OrganizationalUnit.objects.get(code="IR-PROV-111")
+        management = TreatmentManagement.objects.create(
+            province=province,
+            name=f"مدیریت درمان استان {province.name}",
+            code=f"TM-{province.code}",
+            is_active=False,
+        )
 
         call_command("load_iran_geography")
 
         management.refresh_from_db()
         self.assertFalse(management.is_active)
+        self.assertEqual(TreatmentManagement.objects.count(), 1)
 
     def test_loader_reuses_legacy_demo_hierarchy_and_keeps_center_link(self):
         national = OrganizationalUnit.objects.create(
