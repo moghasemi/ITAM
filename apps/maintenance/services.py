@@ -365,7 +365,9 @@ def mark_missed_visits(user=None) -> int:
         "contract", "contract__contractor", "technician", "center"
     ).filter(
         status__in=[VISIT_PLANNED, VISIT_IN_PROGRESS],
-        scheduled_end_date__lt=today,
+    ).filter(
+        Q(scheduled_end_date__lt=today)
+        | Q(scheduled_end_date__isnull=True, scheduled_date__lt=today)
     )
     count = 0
     for visit in queryset:
