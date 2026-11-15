@@ -687,6 +687,7 @@ def hardware_change_report(request):
 # ---------------------------------------------------------------------------
 # ادغام ایجنت سخت‌افزاری HWAgent
 # ---------------------------------------------------------------------------
+@login_required
 def asset_hwagent_upload(request, asset_pk: int):
     """بارگذاری مستقیم فایل JSON خروجی HWAgent برای یک دارایی مشخص."""
     asset = get_object_or_404(visible_assets(request.user), pk=asset_pk)
@@ -710,6 +711,12 @@ def asset_hwagent_upload(request, asset_pk: int):
 
     if not json_file and not raw_content:
         messages.error(request, "لطفاً یک فایل JSON انتخاب کنید یا محتوای آن را الصاق نمایید.")
+        return redirect("assets:hwagent_upload", asset_pk=asset.pk)
+    if json_file and json_file.size > MAX_HWAGENT_PAYLOAD_BYTES:
+        messages.error(request, "حجم فایل JSON از حد مجاز ۲ مگابایت بیشتر است.")
+        return redirect("assets:hwagent_upload", asset_pk=asset.pk)
+    if raw_content and len(raw_content.encode("utf-8")) > MAX_HWAGENT_PAYLOAD_BYTES:
+        messages.error(request, "حجم محتوای JSON از حد مجاز ۲ مگابایت بیشتر است.")
         return redirect("assets:hwagent_upload", asset_pk=asset.pk)
 
     try:
@@ -742,6 +749,7 @@ def asset_hwagent_upload(request, asset_pk: int):
         return redirect("assets:hwagent_upload", asset_pk=asset.pk)
 
 
+@login_required
 def hwagent_batch_import(request):
     """بارگذاری دسته‌ای فایل‌های JSON تولید شده توسط HWAgent با اعتبارسنجی قطعی دامنه مرکز."""
     if not (request.user.is_superuser or request.user.has_role("admin_it", "admin_province", "admin_country", "admin_county")):
@@ -756,16 +764,22 @@ def hwagent_batch_import(request):
         if not files:
             messages.error(request, "هیچ فایلی برای بارگذاری انتخاب نشده است.")
             return redirect("assets:hwagent_batch_import")
+        if any(getattr(upload, "size", 0) > MAX_HWAGENT_PAYLOAD_BYTES for upload in files):
+            messages.error(request, "هر فایل JSON باید حداکثر ۲ مگابایت باشد.")
+            return redirect("assets:hwagent_batch_import")
 
         # استخراج مرکز منحصراً بر اساس دامنه احراز هویت شده کاربر
         if request.user.is_superuser or request.user.has_role("admin_country", "admin_province", "admin_county"):
             center_id = request.POST.get("center")
-            if center_id:
-                center = scoped_centers.filter(pk=center_id).first()
-                if not center:
-                    raise PermissionDenied("مرکز انتخاب‌شده خارج از دامنه مجاز شما است.")
-            else:
-                center = getattr(request.user, "center", None) or scoped_centers.first()
+            if not center_id:
+                raise PermissionDenied("برای بارگذاری دسته‌ای باید مرکز مقصد را صریحاً انتخاب کنید.")
+            try:
+                center_id = int(center_id)
+            except (TypeError, ValueError):
+                raise PermissionDenied("شناسه مرکز مقصد معتبر نیست.")
+            center = scoped_centers.filter(pk=center_id).first()
+            if not center:
+                raise PermissionDenied("مرکز انتخاب‌شده خارج از دامنه مجاز شما است.")
         else:
             # برای کارشناس مرکز، مقدار ارسالی فرم کلاینت نادیده گرفته شده و صرفاً مرکز خود کاربر اعمال می‌شود
             center = request.user.center
@@ -799,6 +813,7 @@ def hwagent_batch_import(request):
             {
                 "results": results,
                 "centers": scoped_centers,
+                "selected_center": center,
                 "page_title": "نتیجه بارگذاری دسته‌ای HWAgent",
                 "active_menu": "assets",
             },
@@ -809,6 +824,10 @@ def hwagent_batch_import(request):
         "assets/hwagent_batch_import.html",
         {
             "centers": scoped_centers,
+            "selected_center": (
+                scoped_centers.filter(pk=request.user.center_id).first()
+                if request.user.center_id else None
+            ),
             "page_title": "بارگذاری دسته‌ای فایل‌های HWAgent",
             "active_menu": "assets",
         },
