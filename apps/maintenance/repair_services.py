@@ -457,6 +457,7 @@ def resolve_repair_cost_dispute(*, repair, decision, note, actor, attachment=Non
 
 
 @transaction.atomic
+@transaction.atomic
 def create_referral(*, subject, description, recipient_role, recipient_name,
                     actor, center=None, repair_request=None, recipient_user=None,
                     attachment=None):
