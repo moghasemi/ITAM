@@ -29,6 +29,8 @@ class CenterItOutboxAuthorizationTests(TestCase):
         self.assertNotContains(response, "ارسال رخدادهای در انتظار")
         self.assertNotContains(response, "بازگردانی رخدادهای متوقف")
         self.assertNotContains(response, "مقصدهای ارسال")
+        self.assertNotContains(response, "تنظیمات سامانه")
+        self.assertNotContains(response, "گونه‌های دارایی و قطعه")
 
     def test_center_it_cannot_dispatch_or_requeue_outbox_events(self):
         self.client.login(username="center-it-outbox", password="Strong-Test-Password-2026!")
