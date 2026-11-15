@@ -139,18 +139,15 @@ def visible_repair_feedback(user):
         return RepairFeedback.objects.select_related(
             "repairer", "center", "author", "repair_request"
         )
-    province_ids = user.get_scoped_centers().values("treatment_management__province_id")
-    # Provincial IT experts and the provincial IT head can review all feedback
-    # in their province; center experts are limited to their assigned centers.
-    if (user.is_admin_province or user.role == User.ROLE_ADMIN_IT) and _province_id_for_user(user):
+    # Only province/country administrators may review feedback across a
+    # province. Center IT experts remain limited to their own assigned centers.
+    if user.is_admin_province and _province_id_for_user(user):
         return RepairFeedback.objects.filter(
             center__treatment_management__province_id=_province_id_for_user(user)
         ).select_related("repairer", "center", "author", "repair_request")
     return RepairFeedback.objects.filter(
         center__in=user.get_scoped_centers()
     ).select_related("repairer", "center", "author", "repair_request")
-
-
 def set_repairer_active(*, repairer, active, reason, actor):
     if not reason or not reason.strip():
         raise ValidationError("برای فعال یا غیرفعال کردن تعمیرکار، ثبت دلیل الزامی است.")
