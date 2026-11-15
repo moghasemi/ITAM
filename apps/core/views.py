@@ -17,7 +17,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import ListView, UpdateView
 
-from apps.accounts.permissions import AdminItRequiredMixin, StaffRequiredMixin
+from apps.accounts.models import User
+from apps.accounts.permissions import CountryAdminRequiredMixin, StaffRequiredMixin
 from apps.assets.models import Asset, HardwareSnapshot
 from apps.maintenance.models import MaintenanceVisit
 from apps.maintenance.services import visible_visits
@@ -225,7 +226,7 @@ def notifications_read_all(request):
 # ---------------------------------------------------------------------------
 # تنظیمات سامانه
 # ---------------------------------------------------------------------------
-class SettingUpdateView(AdminItRequiredMixin, PageContextMixin, UpdateView):
+class SettingUpdateView(CountryAdminRequiredMixin, PageContextMixin, UpdateView):
     model = SystemSetting
     form_class = SystemSettingForm
     template_name = "core/setting_form.html"
@@ -243,7 +244,7 @@ class SettingUpdateView(AdminItRequiredMixin, PageContextMixin, UpdateView):
         return response
 
 
-class HolidayListView(AdminItRequiredMixin, BaseListView):
+class HolidayListView(CountryAdminRequiredMixin, BaseListView):
     model = Holiday
     template_name = "core/holiday_list.html"
     page_title = "تعطیلات رسمی"
@@ -251,7 +252,7 @@ class HolidayListView(AdminItRequiredMixin, BaseListView):
     paginate_by = 30
 
 
-class HolidayUpdateView(AdminItRequiredMixin, PageContextMixin, UpdateView):
+class HolidayUpdateView(CountryAdminRequiredMixin, PageContextMixin, UpdateView):
     """ویرایش تعطیلی رسمی."""
 
     model = Holiday
@@ -264,7 +265,7 @@ class HolidayUpdateView(AdminItRequiredMixin, PageContextMixin, UpdateView):
 
 @login_required
 def holiday_create(request):
-    if not request.user.has_role("admin_it"):
+    if not request.user.is_admin_country:
         raise PermissionDenied("دسترسی ندارید.")
     form = HolidayForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -281,7 +282,7 @@ def holiday_create(request):
 
 @login_required
 def holiday_delete(request, pk: int):
-    if not request.user.has_role("admin_it"):
+    if not request.user.is_admin_country:
         raise PermissionDenied("دسترسی ندارید.")
     holiday = get_object_or_404(Holiday, pk=pk)
     if request.method == "POST":
@@ -418,9 +419,20 @@ class AuditLogListView(StaffRequiredMixin, BaseListView):
 
     def get_queryset(self):
         queryset = AuditLog.objects.select_related("user")
-        if not self.request.user.is_admin_province:
-            # AuditLog has no center FK: fail closed for non-provincial roles.
-            queryset = queryset.filter(user=self.request.user)
+        user = self.request.user
+        if user.is_admin_country:
+            pass
+        elif user.role in (User.ROLE_ADMIN_PROVINCE, User.ROLE_ADMIN_COUNTY):
+            scope = Q(user__center__in=user.get_scoped_centers())
+            if user.org_unit_id:
+                scope |= Q(user__org_unit_id=user.org_unit_id)
+            queryset = queryset.filter(scope)
+        elif user.role == User.ROLE_ADMIN_IT and user.center_id:
+            queryset = queryset.filter(user__center_id=user.center_id)
+        else:
+            # AuditLog has no direct organizational FK; fail closed for roles
+            # without an explicit center/province/county audit scope.
+            queryset = queryset.filter(user=user)
         term = (self.request.GET.get("q") or "").strip()
         action = (self.request.GET.get("action") or "").strip()
         model_name = (self.request.GET.get("model") or "").strip()
