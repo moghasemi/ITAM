@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import PermissionDenied, RequestDataTooBig, ValidationError
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 import json
@@ -977,7 +977,22 @@ def api_hwagent_sync(request):
             )
 
         # ۴. دریافت بدنه درخواست و محاسبه هش
-        raw_body = request.body
+        try:
+            raw_body = request.body
+        except RequestDataTooBig:
+            AgentSyncAuditLog.objects.create(
+                agent=agent,
+                center=agent.center,
+                remote_ip=remote_ip,
+                http_status=413,
+                success=False,
+                rejection_reason="حجم داده ارسالی بیش از حد مجاز است.",
+                execution_duration_ms=int((time.time() - start_time) * 1000),
+            )
+            return JsonResponse(
+                {"status": "error", "error": "حجم داده ارسالی بیش از حد مجاز است."},
+                status=413,
+            )
         if len(raw_body) > MAX_HWAGENT_PAYLOAD_BYTES:
             AgentSyncAuditLog.objects.create(
                 agent=agent,
