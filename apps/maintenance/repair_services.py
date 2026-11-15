@@ -349,12 +349,16 @@ def complete_repair_request(*, repair, outcome, final_cost, actor,
         raise ValidationError("فقط درخواست تاییدشده قابل ثبت نتیجه تعمیر است.")
     if not outcome or not outcome.strip():
         raise ValidationError("شرح نتیجه تعمیر الزامی است.")
-    if final_cost is None or Decimal(final_cost) < 0:
-        raise ValidationError("هزینه نهایی معتبر الزامی است.")
+    if final_cost is not None and Decimal(final_cost) < 0:
+        raise ValidationError("هزینه نهایی نمی‌تواند منفی باشد.")
     for value in (work_quality, completion_speed, cost_fairness):
         if int(value) < 1 or int(value) > 5:
             raise ValidationError("هر سه امتیاز باید بین ۱ تا ۵ باشند.")
-    if Decimal(final_cost) > repair.estimate_amount and not (final_cost_reason or "").strip():
+    if (
+        final_cost is not None
+        and Decimal(final_cost) > repair.estimate_amount
+        and not (final_cost_reason or "").strip()
+    ):
         raise ValidationError("برای هزینه بالاتر از برآورد، توضیح افزایش هزینه الزامی است.")
 
     previous = repair.status
@@ -363,7 +367,10 @@ def complete_repair_request(*, repair, outcome, final_cost, actor,
     repair.final_cost_reason = (final_cost_reason or "").strip()
     repair.completion_attachment = completion_attachment or ""
     repair.completed_at = timezone.now()
-    disputed = Decimal(final_cost) > repair.estimate_amount
+    disputed = (
+        final_cost is not None
+        and Decimal(final_cost) > repair.estimate_amount
+    )
     repair.status = RepairRequest.STATUS_DISPUTED if disputed else RepairRequest.STATUS_COMPLETED
     repair.save(update_fields=[
         "outcome", "final_cost", "final_cost_reason", "completion_attachment",
@@ -386,7 +393,10 @@ def complete_repair_request(*, repair, outcome, final_cost, actor,
         "نتیجه تعمیر و ارزیابی ثبت شد." + (" اختلاف هزینه برای تعیین تکلیف باز ماند." if disputed else ""),
         actor,
         previous,
-        metadata={"estimate": str(repair.estimate_amount), "final_cost": str(final_cost)},
+        metadata={
+            "estimate": str(repair.estimate_amount),
+            "final_cost": str(final_cost) if final_cost is not None else None,
+        },
     )
     province_admins = User.objects.filter(
         role=User.ROLE_ADMIN_PROVINCE,
