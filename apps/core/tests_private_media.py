@@ -149,6 +149,38 @@ class PrivateMediaAuthorizationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         response.file_to_stream.close()
 
+    def test_province_admin_with_explicit_org_unit_can_download_centerless_referral(self):
+        national = self.center_a.parent_unit.parent.parent
+        empty_province = OrganizationalUnit.objects.create(
+            name="استان بدون مرکز فعال", code="MEDIA-EMPTY-PROV",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national,
+        )
+        province_admin = User.objects.create_user(
+            username="media-empty-province-admin",
+            password="test-password",
+            role=User.ROLE_ADMIN_PROVINCE,
+            org_unit=empty_province,
+        )
+        referral = GeneralReferral.objects.create(
+            subject="ارجاع استان بدون مرکز",
+            description="ارجاع سطح استان",
+            province=empty_province,
+            recipient_role="مدیر مالی",
+            recipient_name="مسئول مالی",
+            created_by=self.user_a,
+            resolution_attachment=SimpleUploadedFile(
+                "empty-province.pdf", b"%PDF-1.4\\nempty-province"
+            ),
+            status=GeneralReferral.STATUS_RESOLVED,
+            outcome="نتیجه ثبت شد",
+        )
+        path = referral.resolution_attachment.name
+        request = RequestFactory().get(f"/media/{path}")
+        request.user = province_admin
+        response = private_media(request, path)
+        self.assertEqual(response.status_code, 200)
+        response.file_to_stream.close()
+
     def test_technician_cannot_download_misbound_hardware_or_visit_photos(self):
         import datetime as dt
         from django.utils import timezone
