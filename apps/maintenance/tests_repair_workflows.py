@@ -502,7 +502,7 @@ class RepairAndReferralWorkflowTests(TestCase):
         referral.refresh_from_db()
         self.assertEqual(referral.status, GeneralReferral.STATUS_RESOLVED)
 
-    def test_center_it_only_sees_center_or_assigned_referrals(self):
+    def test_center_it_sees_center_and_province_level_referrals(self):
         own_referral = create_referral(
             subject="ارجاع مرکز خود",
             description="پیگیری برای مرکز خود",
@@ -556,13 +556,13 @@ class RepairAndReferralWorkflowTests(TestCase):
         visible_ids = {row.pk for row in response.context["rows"]}
         self.assertIn(own_referral.pk, visible_ids)
         self.assertIn(assigned_referral.pk, visible_ids)
-        self.assertNotIn(province_referral.pk, visible_ids)
+        self.assertIn(province_referral.pk, visible_ids)
         self.assertNotIn(other_referral.pk, visible_ids)
 
         own_file = self.client.get(f"/media/{own_referral.attachment.name}")
         province_file = self.client.get(f"/media/{province_referral.attachment.name}")
         self.assertEqual(own_file.status_code, 200)
-        self.assertEqual(province_file.status_code, 404)
+        self.assertEqual(province_file.status_code, 200)
 
     def test_province_referral_can_only_be_resolved_by_recipient_or_province_manager(self):
         referral = create_referral(
