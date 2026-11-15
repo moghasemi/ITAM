@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from django.contrib import messages
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Q
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
@@ -73,11 +73,26 @@ def _require_it_staff(user):
 @login_required
 def repairer_list(request):
     _require_it_staff(request.user)
+    visible_repairs = visible_repair_requests(request.user)
+    visible_feedback = visible_repair_feedback(request.user)
     rows = visible_repairers(request.user).annotate(
-        repair_count=Count("repair_requests", distinct=True),
-        average_quality=Avg("feedback__work_quality"),
-        average_speed=Avg("feedback__completion_speed"),
-        average_cost_fairness=Avg("feedback__cost_fairness"),
+        repair_count=Count(
+            "repair_requests",
+            filter=Q(repair_requests__in=visible_repairs),
+            distinct=True,
+        ),
+        average_quality=Avg(
+            "feedback__work_quality",
+            filter=Q(feedback__in=visible_feedback),
+        ),
+        average_speed=Avg(
+            "feedback__completion_speed",
+            filter=Q(feedback__in=visible_feedback),
+        ),
+        average_cost_fairness=Avg(
+            "feedback__cost_fairness",
+            filter=Q(feedback__in=visible_feedback),
+        ),
     ).prefetch_related("status_events", "profile_events")
     return render(request, "maintenance/workflow_list.html", {
         "page_title": "تعمیرکاران مستقل",
