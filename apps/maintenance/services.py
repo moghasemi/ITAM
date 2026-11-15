@@ -413,9 +413,17 @@ def complete_visit(
     pending = visible_checks(user, visit).filter(checked=False).count()
     forced_reason = ""
     if pending and not force:
-        raise ValidationError(
-            f"{pending} برگه بازدید تکمیل نشده است. برای پایان اجباری گزینه «پایان با ناقص» را انتخاب کنید."
-        )
+        if can_force_complete_visit(user):
+            message = (
+                f"{pending} برگه بازدید تکمیل نشده است. برای پایان با وضعیت ناقص، "
+                "گزینه مربوط را انتخاب و علت را ثبت کنید."
+            )
+        else:
+            message = (
+                f"{pending} برگه بازدید تکمیل نشده است. ابتدا همه برگه‌های مجاز را "
+                "تکمیل کنید یا از مدیر IT بخواهید وضعیت را بررسی کند."
+            )
+        raise ValidationError(message)
     if pending and force:
         if not can_force_complete_visit(user):
             raise PermissionDenied("پایان بازدید با برگه ناقص فقط برای مدیر IT مجاز است.")
