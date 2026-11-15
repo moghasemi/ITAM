@@ -190,6 +190,13 @@ def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
                 centers.filter(pk=visit.center_id).exists()
                 and visit.contract.covers_center(visit.center)
             )
+        if (
+            user.org_unit_id
+            and user.org_unit.unit_type == "province"
+            and user.org_unit.is_active
+            and visit.contract.province_id == user.org_unit_id
+        ):
+            return True
         return bool(
             visit.contract_id
             and visit.contract.province_id
