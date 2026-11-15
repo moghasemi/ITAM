@@ -502,6 +502,68 @@ class RepairAndReferralWorkflowTests(TestCase):
         referral.refresh_from_db()
         self.assertEqual(referral.status, GeneralReferral.STATUS_RESOLVED)
 
+    def test_center_it_only_sees_center_or_assigned_referrals(self):
+        own_referral = create_referral(
+            subject="ارجاع مرکز خود",
+            description="پیگیری برای مرکز خود",
+            recipient_role="مسئول استان",
+            recipient_name="مسئول نمونه",
+            center=self.center,
+            actor=self.it_expert,
+            attachment=SimpleUploadedFile("own-referral.pdf", b"%PDF-1.4\\nown"),
+        )
+        province_referral = create_referral(
+            subject="ارجاع عمومی استان",
+            description="موضوع مربوط به کل استان",
+            recipient_role="مسئول استان",
+            recipient_name="مسئول نمونه",
+            actor=self.province_admin,
+            attachment=SimpleUploadedFile("province-referral.pdf", b"%PDF-1.4\\nprovince"),
+        )
+        assigned_referral = create_referral(
+            subject="ارجاع خطاب به کارشناس مرکز",
+            description="ارجاع صریح به کارشناس مرکز",
+            recipient_role="کارشناس IT مرکز",
+            recipient_name=self.it_expert.display_name,
+            recipient_user=self.it_expert,
+            actor=self.province_admin,
+        )
+
+        other_county = OrganizationalUnit.objects.create(
+            name="شهرستان دیگر ارجاع", code="WF-REF-COUNTY-OTHER",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
+        )
+        other_center = Center.objects.create(
+            name="مرکز دیگر ارجاع", code="WF-REF-CENTER-OTHER",
+            parent_unit=other_county, is_demo=True,
+        )
+        other_expert = User.objects.create_user(
+            username="wf-ref-other-center", password="test-password",
+            role=User.ROLE_ADMIN_IT, center=other_center,
+        )
+        other_referral = create_referral(
+            subject="ارجاع مرکز دیگر",
+            description="موضوع متعلق به مرکز دیگر",
+            recipient_role="مسئول استان",
+            recipient_name="مسئول نمونه",
+            center=other_center,
+            actor=other_expert,
+        )
+
+        self.client.force_login(self.it_expert)
+        response = self.client.get(reverse("maintenance:referral_list"))
+        self.assertEqual(response.status_code, 200)
+        visible_ids = {row.pk for row in response.context["rows"]}
+        self.assertIn(own_referral.pk, visible_ids)
+        self.assertIn(assigned_referral.pk, visible_ids)
+        self.assertNotIn(province_referral.pk, visible_ids)
+        self.assertNotIn(other_referral.pk, visible_ids)
+
+        own_file = self.client.get(f"/media/{own_referral.attachment.name}")
+        province_file = self.client.get(f"/media/{province_referral.attachment.name}")
+        self.assertEqual(own_file.status_code, 200)
+        self.assertEqual(province_file.status_code, 404)
+
     def test_province_referral_can_only_be_resolved_by_recipient_or_province_manager(self):
         referral = create_referral(
             subject="ارجاع سراسری نمونه",
