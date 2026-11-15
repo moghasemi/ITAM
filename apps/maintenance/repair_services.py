@@ -777,25 +777,43 @@ def escalate_general_it_request(*, request, actor, bypass_reason=""):
         raise PermissionDenied("فقط کارشناس IT همان مرکز می‌تواند درخواست را به استان ارسال کند.")
     request = GeneralITRequest.objects.select_for_update().get(pk=request.pk)
     if request.status in (
-        GeneralITRequest.STATUS_REJECTED,
         GeneralITRequest.STATUS_RESOLVED,
         GeneralITRequest.STATUS_ESCALATED,
     ):
-        raise ValidationError("درخواست ردشده، ارسال‌شده یا مختومه قابل ارسال مجدد نیست.")
-    if request.manager_approval == GeneralITRequest.MANAGER_REJECTED:
-        raise ValidationError("درخواست توسط مدیر مرکز رد شده و قابل ارجاع نیست.")
-    if request.manager_approval == GeneralITRequest.MANAGER_PENDING:
+        raise ValidationError("درخواست ارسال‌شده یا مختومه قابل ارسال مجدد نیست.")
+    if request.status == GeneralITRequest.STATUS_REJECTED and (
+        request.manager_approval != GeneralITRequest.MANAGER_REJECTED
+    ):
+        raise ValidationError("وضعیت رد درخواست با وضعیت بررسی مدیر سازگار نیست.")
+
+    approval_before_escalation = request.manager_approval
+    if request.manager_approval in (
+        GeneralITRequest.MANAGER_PENDING,
+        GeneralITRequest.MANAGER_REJECTED,
+    ):
         if not (bypass_reason or "").strip():
-            raise ValidationError("عبور از تایید مدیر مرکز نیازمند ثبت دلیل است.")
+            raise ValidationError("عبور از تصمیم مدیر مرکز نیازمند ثبت دلیل است.")
         request.manager_approval = GeneralITRequest.MANAGER_BYPASSED
         request.manager_bypass_reason = bypass_reason.strip()
     request.status = GeneralITRequest.STATUS_ESCALATED
     request.save(update_fields=[
         "status", "manager_approval", "manager_bypass_reason", "updated_at",
     ])
+    escalation_note = (
+        bypass_reason.strip()
+        if approval_before_escalation in (
+            GeneralITRequest.MANAGER_PENDING,
+            GeneralITRequest.MANAGER_REJECTED,
+        )
+        else (
+            "با تایید مدیر مرکز به استان ارسال شد."
+            if approval_before_escalation == GeneralITRequest.MANAGER_APPROVED
+            else "به دلیل عدم نیاز به تایید مدیر مرکز به استان ارسال شد."
+        )
+    )
     GeneralITRequestEvent.objects.create(
         request=request, action="escalated",
-        note=(bypass_reason.strip() if bypass_reason else "با تایید مدیر مرکز به استان ارسال شد."),
+        note=escalation_note,
         actor=actor,
     )
     province_admins = User.objects.filter(
