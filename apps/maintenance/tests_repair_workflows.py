@@ -32,7 +32,6 @@ from apps.maintenance.repair_services import (
     resubmit_repair_request,
     set_repairer_active,
     visible_repair_feedback,
-    escalate_general_it_request,
     visible_repair_requests,
     visible_general_it_requests,
 )
