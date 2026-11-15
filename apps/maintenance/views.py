@@ -356,6 +356,9 @@ def check_edit(request, pk: int):
     get_object_or_404(visible_checks(request.user, check.visit), pk=check.pk)
     if not can_manage_visit(request.user, check.visit):
         raise PermissionDenied("اجازه ثبت این برگه بازدید را ندارید.")
+    if check.visit.status in (VISIT_DONE, VISIT_CANCELED) or check.visit.it_confirmed_at:
+        messages.error(request, "برگه‌های بازدید پس از پایان یا تایید نهایی قابل ویرایش نیستند.")
+        return redirect("maintenance:visit_detail", pk=check.visit_id)
 
     form = VisitCheckForm(request.POST or None, request.FILES or None, instance=check)
     if request.method == "POST" and form.is_valid():
