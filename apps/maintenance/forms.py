@@ -110,6 +110,13 @@ class VisitCheckForm(StyledModelForm):
 
 
 class VisitCompleteForm(StyledForm):
+    def __init__(self, *args, can_force=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not can_force:
+            self.fields.pop("force", None)
+            self.fields.pop("force_reason", None)
+
+
     report_text = forms.CharField(
         label="گزارش بازدید", required=False, widget=forms.Textarea(attrs={"rows": 4})
     )
