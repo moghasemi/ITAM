@@ -91,7 +91,13 @@ class RepairDecisionForm(StyledForm):
 
 class RepairCompletionForm(StyledForm):
     outcome = forms.CharField(label="نتیجه و اقدامات تعمیر", widget=forms.Textarea(attrs={"rows": 4}))
-    final_cost = forms.DecimalField(label="هزینه نهایی", min_value=0, max_digits=14, decimal_places=2)
+    final_cost = forms.DecimalField(
+        label="هزینه نهایی (در صورت اطلاع)",
+        min_value=0,
+        max_digits=14,
+        decimal_places=2,
+        required=False,
+    )
     final_cost_reason = forms.CharField(
         label="توضیح افزایش هزینه", required=False, widget=forms.Textarea(attrs={"rows": 2})
     )
