@@ -28,6 +28,7 @@ from django.views.generic import CreateView, DetailView, UpdateView
 
 from apps.accounts.permissions import (
     AdminItRequiredMixin,
+    CountryAdminRequiredMixin,
     AnyRoleRequiredMixin,
     RepairStaffRequiredMixin,
 )
@@ -596,7 +597,7 @@ def attachment_delete(request, pk: int):
 # ---------------------------------------------------------------------------
 # گونه‌های دارایی و قطعات
 # ---------------------------------------------------------------------------
-class CategoryListView(AdminItRequiredMixin, BaseListView):
+class CategoryListView(CountryAdminRequiredMixin, BaseListView):
     model = AssetCategory
     template_name = "assets/category_list.html"
     page_title = "گونه‌های دارایی"
@@ -607,7 +608,7 @@ class CategoryListView(AdminItRequiredMixin, BaseListView):
         return AssetCategory.objects.annotate(assets_total=Count("assets", distinct=True)).order_by("name")
 
 
-class CategoryCreateView(AdminItRequiredMixin, BaseCreateView):
+class CategoryCreateView(CountryAdminRequiredMixin, BaseCreateView):
     model = AssetCategory
     form_class = CategoryForm
     template_name = "assets/simple_form.html"
@@ -617,7 +618,7 @@ class CategoryCreateView(AdminItRequiredMixin, BaseCreateView):
     success_message = "گونه دارایی ثبت شد."
 
 
-class CategoryUpdateView(AdminItRequiredMixin, BaseUpdateView):
+class CategoryUpdateView(CountryAdminRequiredMixin, BaseUpdateView):
     model = AssetCategory
     form_class = CategoryForm
     template_name = "assets/simple_form.html"
@@ -626,7 +627,7 @@ class CategoryUpdateView(AdminItRequiredMixin, BaseUpdateView):
     success_url = reverse_lazy("assets:category_list")
 
 
-class ComponentTypeListView(AdminItRequiredMixin, BaseListView):
+class ComponentTypeListView(CountryAdminRequiredMixin, BaseListView):
     model = ComponentType
     template_name = "assets/component_type_list.html"
     page_title = "گونه‌های قطعه سخت‌افزاری"
@@ -639,7 +640,7 @@ class ComponentTypeListView(AdminItRequiredMixin, BaseListView):
         )
 
 
-class ComponentTypeCreateView(AdminItRequiredMixin, BaseCreateView):
+class ComponentTypeCreateView(CountryAdminRequiredMixin, BaseCreateView):
     model = ComponentType
     form_class = ComponentTypeForm
     template_name = "assets/simple_form.html"
@@ -649,7 +650,7 @@ class ComponentTypeCreateView(AdminItRequiredMixin, BaseCreateView):
     success_message = "گونه قطعه ثبت شد."
 
 
-class ComponentTypeUpdateView(AdminItRequiredMixin, BaseUpdateView):
+class ComponentTypeUpdateView(CountryAdminRequiredMixin, BaseUpdateView):
     model = ComponentType
     form_class = ComponentTypeForm
     template_name = "assets/simple_form.html"
