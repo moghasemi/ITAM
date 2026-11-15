@@ -49,6 +49,22 @@ from .repair_services import (
 )
 
 
+def _province_scope_ids(user):
+    ids = set(
+        user.get_scoped_centers().filter(
+            treatment_management__province_id__isnull=False
+        ).values_list("treatment_management__province_id", flat=True)
+    )
+    if (
+        user.is_admin_province
+        and user.org_unit_id
+        and user.org_unit.unit_type == "province"
+        and user.org_unit.is_active
+    ):
+        ids.add(user.org_unit_id)
+    return ids
+
+
 def _require_it_staff(user):
     if not user.is_authenticated or (user.role != User.ROLE_ADMIN_IT and not user.is_admin_country and not user.is_admin_province):
         raise PermissionDenied("این بخش فقط برای مدیران و کارشناسان فناوری اطلاعات مجاز است.")
@@ -340,14 +356,16 @@ def referral_list(request):
     if not request.user.is_authenticated:
         raise PermissionDenied("ورود به سامانه الزامی است.")
     rows = GeneralReferral.objects.select_related("center", "province", "repair_request", "created_by")
-    can_create = request.user.role == User.ROLE_ADMIN_IT or request.user.is_admin_province
+    can_create = (
+        request.user.role == User.ROLE_ADMIN_IT
+        or request.user.is_admin_province
+        or request.user.is_admin_country
+    )
     if not request.user.is_admin_country:
         from django.db.models import Q
         if can_create:
             scoped_centers = request.user.get_scoped_centers()
-            province_ids = scoped_centers.filter(
-                treatment_management__province_id__isnull=False
-            ).values_list("treatment_management__province_id", flat=True).distinct()
+            province_ids = _province_scope_ids(request.user)
             rows = rows.filter(
                 Q(center__in=scoped_centers)
                 | Q(center__isnull=True, province_id__in=province_ids)
@@ -357,9 +375,7 @@ def referral_list(request):
             rows = rows.filter(recipient_user=request.user)
     scoped_centers = request.user.get_scoped_centers()
     scoped_center_ids = set(scoped_centers.values_list("pk", flat=True))
-    scoped_province_ids = set(scoped_centers.filter(
-        treatment_management__province_id__isnull=False
-    ).values_list("treatment_management__province_id", flat=True))
+    scoped_province_ids = _province_scope_ids(request.user)
     rows = list(rows)
     for row in rows:
         row.can_resolve = (
@@ -412,9 +428,7 @@ def referral_resolve(request, pk: int):
         from django.db.models import Q
         if request.user.is_admin_province or request.user.role == User.ROLE_ADMIN_IT:
             scoped_centers = request.user.get_scoped_centers()
-            province_ids = scoped_centers.filter(
-                treatment_management__province_id__isnull=False
-            ).values_list("treatment_management__province_id", flat=True).distinct()
+            province_ids = _province_scope_ids(request.user)
             referrals = referrals.filter(
                 Q(center__in=scoped_centers)
                 | Q(center__isnull=True, province_id__in=province_ids)
@@ -424,9 +438,7 @@ def referral_resolve(request, pk: int):
             referrals = referrals.filter(recipient_user=request.user)
     referral = get_object_or_404(referrals, pk=pk)
     if not request.user.is_admin_country:
-        province_ids = set(request.user.get_scoped_centers().filter(
-            treatment_management__province_id__isnull=False
-        ).values_list("treatment_management__province_id", flat=True))
+        province_ids = _province_scope_ids(request.user)
         province_manager = request.user.is_admin_province and (
             referral.province_id in province_ids
             or (
@@ -451,15 +463,9 @@ def referral_resolve(request, pk: int):
 
 
 def _visible_it_requests(user):
-    if not user or not user.is_authenticated:
-        return GeneralITRequest.objects.none()
-    if user.is_admin_country:
-        return GeneralITRequest.objects.all()
-    if user.role == User.ROLE_REQUESTER:
-        return GeneralITRequest.objects.filter(requested_by=user)
-    if user.role == User.ROLE_MANAGER:
-        return GeneralITRequest.objects.filter(center_id=user.center_id)
-    return GeneralITRequest.objects.filter(center__in=user.get_scoped_centers()) | GeneralITRequest.objects.filter(requested_by=user)
+    from apps.maintenance.repair_services import visible_general_it_requests
+
+    return visible_general_it_requests(user)
 
 
 @login_required
@@ -497,9 +503,12 @@ def it_request_create(request):
 @login_required
 def it_request_detail(request, pk: int):
     obj = get_object_or_404(_visible_it_requests(request.user), pk=pk)
-    can_manage = request.user.role == User.ROLE_ADMIN_IT and request.user.get_scoped_centers().filter(pk=obj.center_id).exists()
+    can_manage = request.user.is_admin_country or (
+        request.user.role == User.ROLE_ADMIN_IT
+        and request.user.get_scoped_centers().filter(pk=obj.center_id).exists()
+    )
     can_manager_review = request.user.role == User.ROLE_MANAGER and request.user.center_id == obj.center_id
-    can_province_resolve = request.user.is_admin_province
+    can_province_resolve = request.user.is_admin_country or request.user.is_admin_province
     return render(request, "maintenance/it_request_detail.html", {
         "page_title": f"درخواست {obj.number}",
         "item": obj,

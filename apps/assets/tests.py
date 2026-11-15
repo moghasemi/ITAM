@@ -621,6 +621,91 @@ class MultiCenterAndHWAgentTests(TestCase):
         self.assertEqual(data["asset_tag"], "TAG-SUB")
 
 
+    def test_api_hwagent_sync_rejects_invalid_nonce_format(self):
+        import json
+        import uuid
+        from django.test import Client
+        from django.utils import timezone
+        from apps.assets.models import AgentCredential, AgentNonce
+
+        credential, token = AgentCredential.generate(self.center_sub, name="nonce-validation")
+        response = Client().post(
+            "/api/v1/hardware/agent-sync/",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+            HTTP_X_ITAM_TIMESTAMP=timezone.now().isoformat(),
+            HTTP_X_ITAM_NONCE="invalid nonce",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(AgentNonce.objects.filter(agent=credential).exists())
+
+    def test_api_hwagent_sync_rejects_non_object_json(self):
+        import json
+        from django.test import Client
+        from django.utils import timezone
+        from apps.assets.models import AgentCredential, AgentNonce
+
+        credential, token = AgentCredential.generate(self.center_sub, name="json-shape-validation")
+        nonce = "json-shape-test-001"
+        response = Client().post(
+            "/api/v1/hardware/agent-sync/",
+            data=json.dumps([]),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+            HTTP_X_ITAM_TIMESTAMP=timezone.now().isoformat(),
+            HTTP_X_ITAM_NONCE=nonce,
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(AgentNonce.objects.filter(agent=credential, nonce=nonce).exists())
+
+    def test_api_hwagent_sync_prunes_nonces_outside_replay_window(self):
+        import json
+        import uuid
+        import datetime as dt
+        from django.test import Client
+        from django.utils import timezone
+        from apps.assets.models import AgentCredential, AgentNonce
+
+        credential, token = AgentCredential.generate(self.center_sub, name="nonce-retention")
+        old_nonce = AgentNonce.objects.create(agent=credential, nonce="old-nonce")
+        AgentNonce.objects.filter(pk=old_nonce.pk).update(
+            created_at=timezone.now() - dt.timedelta(hours=1)
+        )
+        payload = {
+            "computerName": "PC-SUB-01",
+            "os": "Windows 10 Pro",
+            "baseboard": {"manufacturer": "Dell Inc.", "product": "0M5C58", "serial": "DELL-MB-1"},
+            "cpu": {"name": "Intel Core i5-10400", "cores": 6, "threads": 12, "speed": 2900},
+            "ram": [{"slot": "DIMM 1", "capacityGB": 8, "speedMHz": 2666, "manufacturer": "Hynix", "partNumber": "HMA81GU6CJR8N", "serial": "HYN-1"}],
+            "disks": [{"name": "KIOXIA 512GB", "mediaType": "SSD", "sizeGB": 512, "serial": "KIOX-99"}],
+            "network": [{"name": "Ethernet", "mac": "12:34:56:78:9A:BC"}],
+        }
+        response = Client().post(
+            "/api/v1/hardware/agent-sync/",
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+            HTTP_X_ITAM_TIMESTAMP=timezone.now().isoformat(),
+            HTTP_X_ITAM_NONCE=str(uuid.uuid4()),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(AgentNonce.objects.filter(pk=old_nonce.pk).exists())
+
+    def test_api_hwagent_sync_rejects_declared_oversized_body_before_authentication(self):
+        from django.test import RequestFactory
+        from apps.assets.views import MAX_HWAGENT_PAYLOAD_BYTES, api_hwagent_sync
+
+        request = RequestFactory().post(
+            "/api/v1/hardware/agent-sync/",
+            data=b"",
+            content_type="application/json",
+        )
+        request.META["CONTENT_LENGTH"] = str(MAX_HWAGENT_PAYLOAD_BYTES + 1)
+        response = api_hwagent_sync(request)
+        self.assertEqual(response.status_code, 413)
+
+
 class AssetScopeAndRelationshipTests(TestCase):
     def setUp(self):
         from apps.org.models import Center, Department, Location, OrganizationalUnit
@@ -1060,18 +1145,19 @@ class SnapshotAccessBoundaryTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("attachment", response["Content-Disposition"])
+        self.assertEqual(response["Cache-Control"], "private, no-store")
 
     def test_it_user_cannot_download_foreign_center_attachment(self):
         response = self.client.get(
             reverse("assets:attachment_download", args=[self.attachment_b.pk])
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
 
     def test_it_user_cannot_delete_foreign_center_attachment(self):
         response = self.client.post(
             reverse("assets:attachment_delete", args=[self.attachment_b.pk])
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
         self.assertTrue(self.attachment_b.file.storage.exists(self.attachment_b.file.name))
 
     def test_snapshot_photo_download_is_limited_to_visible_asset(self):
@@ -1091,7 +1177,7 @@ class SnapshotAccessBoundaryTests(TestCase):
             reverse("assets:snapshot_file", args=[foreign.pk, "case_photo"])
         )
         self.assertEqual(own_response.status_code, 200)
-        self.assertEqual(foreign_response.status_code, 403)
+        self.assertEqual(foreign_response.status_code, 404)
 
     def test_snapshot_item_photo_download_is_limited_to_visible_asset(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -1114,7 +1200,7 @@ class SnapshotAccessBoundaryTests(TestCase):
             reverse("assets:snapshot_item_photo", args=[foreign_item.pk])
         )
         self.assertEqual(own_response.status_code, 200)
-        self.assertEqual(foreign_response.status_code, 403)
+        self.assertEqual(foreign_response.status_code, 404)
 
     def test_anonymous_user_is_denied_pending_snapshot_list(self):
         from django.test import Client

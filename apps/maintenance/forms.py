@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 from django import forms
+from django.utils import timezone
 
 from apps.assets.models import Asset
 from apps.core.constants import CHECK_CONDITION_CHOICES, VISIT_STATUS_CHOICES
 from apps.core.forms import JalaliDateField, StyledForm, StyledModelForm
 from apps.accounts.models import User
 from apps.org.models import Contract, Contractor
+from apps.org.services import visible_contracts
 
 from .models import MaintenanceVisit, VisitAssetCheck
 
@@ -56,7 +58,7 @@ class VisitForm(StyledModelForm):
         model = MaintenanceVisit
         fields = [
             "contract", "sequence_number", "period_label",
-            "scheduled_date", "scheduled_end_date", "technician", "status",
+            "scheduled_date", "scheduled_end_date", "technician",
         ]
 
     def __init__(self, *args, user=None, **kwargs):
@@ -65,13 +67,12 @@ class VisitForm(StyledModelForm):
             self.fields["contract"].queryset = Contract.objects.none()
             self.fields["technician"].queryset = User.objects.none()
             return
-        if user.is_admin_country:
-            contracts = Contract.objects.all()
-        elif user.has_role("technician"):
-            contracts = user.get_active_contractor_contracts()
-        else:
-            province_ids = user.get_scoped_centers().values("parent_unit__parent_id")
-            contracts = Contract.objects.filter(province_id__in=province_ids).distinct()
+        today = timezone.localdate()
+        contracts = visible_contracts(user).filter(
+            status=Contract.STATUS_ACTIVE,
+            start_date__lte=today,
+            end_date__gte=today,
+        )
         self.fields["contract"].queryset = contracts.select_related(
             "contractor"
         ).order_by("-start_date")
@@ -83,10 +84,29 @@ class VisitForm(StyledModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        contract = cleaned.get("contract")
+        contract = cleaned.get("contract") or getattr(self.instance, "contract", None)
         technician = cleaned.get("technician")
         if contract and technician and technician.contractor_id != contract.contractor_id:
             self.add_error("technician", "کارشناس انتخاب‌شده متعلق به پیمانکار این قرارداد نیست.")
+
+        scheduled_date = cleaned.get("scheduled_date")
+        scheduled_end_date = cleaned.get("scheduled_end_date")
+        if contract and scheduled_date:
+            if scheduled_date < contract.start_date or scheduled_date > contract.end_date:
+                self.add_error(
+                    "scheduled_date",
+                    "تاریخ بازدید باید در بازه اعتبار قرارداد باشد.",
+                )
+            if scheduled_end_date and scheduled_end_date < scheduled_date:
+                self.add_error(
+                    "scheduled_end_date",
+                    "آخرین مهلت انجام نمی‌تواند پیش از تاریخ برنامه‌ریزی باشد.",
+                )
+            if scheduled_end_date and scheduled_end_date > contract.end_date:
+                self.add_error(
+                    "scheduled_end_date",
+                    "آخرین مهلت انجام نمی‌تواند پس از پایان قرارداد باشد.",
+                )
         return cleaned
 
 
@@ -109,6 +129,13 @@ class VisitCheckForm(StyledModelForm):
 
 
 class VisitCompleteForm(StyledForm):
+    def __init__(self, *args, can_force=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not can_force:
+            self.fields.pop("force", None)
+            self.fields.pop("force_reason", None)
+
+
     report_text = forms.CharField(
         label="گزارش بازدید", required=False, widget=forms.Textarea(attrs={"rows": 4})
     )
@@ -118,6 +145,11 @@ class VisitCompleteForm(StyledForm):
     )
     force = forms.BooleanField(
         label="پایان بازدید با برگه‌های تکمیل‌نشده", required=False
+    )
+    force_reason = forms.CharField(
+        label="علت پایان با برگه‌های تکمیل‌نشده",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
     )
 
 

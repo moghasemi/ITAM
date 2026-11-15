@@ -2,21 +2,24 @@
 import datetime as dt
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.test import TestCase, Client
+from django.test import TestCase, Client, RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.core.constants import EVENT_VISIT_COMPLETED, EVENT_VISIT_MISSED, EVENT_VISIT_PLANNED, VISIT_DONE, VISIT_MISSED, VISIT_PLANNED
+from apps.core.models import Notification
+from apps.integrations.models import OutboxEvent
 from apps.assets.models import Asset, AssetCategory
 from apps.org.models import Center, Contract, ContractCenterAssignment, Contractor, OrganizationalUnit
 
 from .forms import VisitForm
 from .models import MaintenanceVisit, VisitAssetCheck
 from .services import (
-    can_confirm_visit, can_manage_visit, confirm_visit, save_check,
+    can_confirm_visit, can_manage_visit, confirm_visit, complete_visit, mark_missed_visits, save_check,
     visible_checks, visible_visits,
 )
-from .views import VisitCreateView
+from .views import VisitCreateView, VisitUpdateView, _emit_visit_planned
 
 
 class ProvincialMaintenanceScopeTests(TestCase):
@@ -212,7 +215,7 @@ class ProvincialMaintenanceScopeTests(TestCase):
         # A visit whose center is local but whose contract belongs to another
         # province must also be hidden from provincial and center IT users.
         misbound_local_center_visit = MaintenanceVisit.objects.create(
-            number="MNT-VISIT-MISBOUND-LOCAL-CENTER",
+            number="MNT-MISBOUND-LOCAL",
             contract=second_contract,
             contractor=self.contractor,
             center=self.center,
@@ -354,6 +357,190 @@ class ProvincialMaintenanceScopeTests(TestCase):
         ).exists())
 
 
+
+
+    def test_country_admin_can_schedule_current_province_visit(self):
+        country_admin = User.objects.create_user(
+            username="maintenance-country-admin",
+            password="TestPass!9382",
+            role=User.ROLE_ADMIN_COUNTRY,
+        )
+        view = VisitCreateView()
+        view.request = type("Request", (), {"user": country_admin})()
+        visit = MaintenanceVisit(
+            contract=self.contract,
+            contractor=self.contractor,
+            scheduled_date=timezone.localdate(),
+        )
+        view._bind_visit_center(visit)
+        self.assertIsNone(visit.center)
+        self.assertEqual(visit.contractor_id, self.contractor.pk)
+
+    def test_visit_form_hides_workflow_status_and_excludes_expired_contracts(self):
+        expired = Contract.objects.create(
+            contractor=self.contractor,
+            province=self.province,
+            number="MNT-CONTRACT-EXPIRED",
+            title="Expired contract",
+            start_date=timezone.localdate() - dt.timedelta(days=100),
+            end_date=timezone.localdate() - dt.timedelta(days=1),
+            visit_interval_days=30,
+        )
+        form = VisitForm(user=self.provincial_admin)
+        self.assertNotIn("status", form.fields)
+        self.assertFalse(form.fields["contract"].queryset.filter(pk=expired.pk).exists())
+
+    def test_visit_update_form_keeps_contract_and_sequence_immutable(self):
+        request = RequestFactory().get("/maintenance/visits/")
+        request.user = self.provincial_admin
+        view = VisitUpdateView()
+        view.request = request
+        view.args = ()
+        view.kwargs = {}
+        view.object = self.visit
+        form = view.get_form()
+        self.assertNotIn("contract", form.fields)
+        self.assertNotIn("sequence_number", form.fields)
+        self.assertNotIn("status", form.fields)
+
+    def test_requesters_cannot_view_contractor_visit_reports(self):
+        requester = User.objects.create_user(
+            username="maintenance-requester",
+            password="TestPass!9382",
+            role=User.ROLE_REQUESTER,
+            center=self.center,
+        )
+        self.assertFalse(visible_visits(requester).filter(pk=self.visit.pk).exists())
+        self.assertFalse(visible_checks(requester, self.visit).exists())
+
+    def test_technician_only_sees_visits_assigned_to_them_or_unassigned(self):
+        technician_a = User.objects.create_user(
+            username="maintenance-tech-a",
+            password="TestPass!9382",
+            role=User.ROLE_TECHNICIAN,
+            contractor=self.contractor,
+        )
+        technician_b = User.objects.create_user(
+            username="maintenance-tech-b",
+            password="TestPass!9382",
+            role=User.ROLE_TECHNICIAN,
+            contractor=self.contractor,
+        )
+        self.visit.technician = technician_a
+        self.visit.save(update_fields=["technician", "updated_at"])
+        self.assertTrue(visible_visits(technician_a).filter(pk=self.visit.pk).exists())
+        self.assertFalse(visible_visits(technician_b).filter(pk=self.visit.pk).exists())
+        self.assertFalse(can_manage_visit(technician_b, self.visit))
+
+        self.visit.technician = None
+        self.visit.save(update_fields=["technician", "updated_at"])
+        self.assertTrue(visible_visits(technician_a).filter(pk=self.visit.pk).exists())
+        self.assertTrue(visible_visits(technician_b).filter(pk=self.visit.pk).exists())
+
+    def test_force_completion_requires_authorized_actor_and_audited_reason(self):
+        from django.core.exceptions import PermissionDenied
+
+        technician = User.objects.create_user(
+            username="maintenance-force-tech",
+            password="TestPass!9382",
+            role=User.ROLE_TECHNICIAN,
+            contractor=self.contractor,
+        )
+        with self.assertRaises(PermissionDenied):
+            complete_visit(
+                self.visit,
+                technician,
+                force=True,
+                force_reason="دلیل آزمایشی",
+            )
+        with self.assertRaises(ValidationError):
+            complete_visit(self.visit, self.provincial_admin, force=True)
+
+        complete_visit(
+            self.visit,
+            self.provincial_admin,
+            force=True,
+            force_reason="عدم دسترسی به تجهیز در زمان بازدید",
+        )
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.status, VISIT_DONE)
+        self.assertIsNone(self.visit.technician_id)
+        self.assertIn("عدم دسترسی به تجهیز", self.visit.report_text)
+
+    def test_completed_visit_cannot_be_reconfirmed_or_have_checks_edited(self):
+        technician = User.objects.create_user(
+            username="maintenance-confirmed-tech",
+            password="TestPass!9382",
+            role=User.ROLE_TECHNICIAN,
+            contractor=self.contractor,
+        )
+        self.visit.technician = technician
+        self.visit.status = VISIT_DONE
+        self.visit.save(update_fields=["technician", "status", "updated_at"])
+        confirm_visit(self.visit, self.center_it, "تایید اولیه")
+        confirmation_event = OutboxEvent.objects.filter(
+            event_type=EVENT_VISIT_COMPLETED,
+            aggregate_type="MaintenanceVisit",
+            aggregate_id=str(self.visit.pk),
+            payload__event_stage="it_confirmed",
+        ).first()
+        self.assertIsNotNone(confirmation_event)
+        self.assertFalse(confirmation_event.payload["awaiting_it_confirmation"])
+        self.assertTrue(
+            Notification.objects.filter(
+                user=technician,
+                title=f"گزارش بازدید {self.visit.number} تایید شد",
+            ).exists()
+        )
+        with self.assertRaises(ValidationError):
+            confirm_visit(self.visit, self.center_it, "تلاش برای بازنویسی تایید")
+        with self.assertRaises(ValidationError):
+            save_check(
+                self.own_check,
+                self.provincial_admin,
+                notes="تغییر پس از تایید",
+            )
+
+    def test_overdue_visit_without_end_date_is_marked_missed(self):
+        self.visit.scheduled_date = timezone.localdate() - dt.timedelta(days=1)
+        self.visit.scheduled_end_date = None
+        self.visit.status = VISIT_PLANNED
+        self.visit.save(update_fields=["scheduled_date", "scheduled_end_date", "status", "updated_at"])
+
+        changed = mark_missed_visits(user=self.provincial_admin)
+        self.visit.refresh_from_db()
+
+        self.assertEqual(changed, 1)
+        self.assertEqual(self.visit.status, VISIT_MISSED)
+        self.assertTrue(
+            OutboxEvent.objects.filter(
+                event_type=EVENT_VISIT_MISSED,
+                aggregate_type="MaintenanceVisit",
+                aggregate_id=str(self.visit.pk),
+            ).exists()
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.center_it,
+                title=f"بازدید {self.visit.number} انجام نشد",
+            ).exists()
+        )
+
+    def test_manual_visit_planning_emits_outbox_event(self):
+        _emit_visit_planned(self.visit, self.provincial_admin)
+        self.assertTrue(
+            OutboxEvent.objects.filter(
+                event_type=EVENT_VISIT_PLANNED,
+                aggregate_type="MaintenanceVisit",
+                aggregate_id=str(self.visit.pk),
+            ).exists()
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.center_it,
+                title=f"بازدید {self.visit.number} برنامه‌ریزی شد",
+            ).exists()
+        )
 
     def test_inactive_center_assets_do_not_block_visit_completion(self):
         from .services import complete_visit, populate_checks

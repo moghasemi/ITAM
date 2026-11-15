@@ -25,15 +25,15 @@ urlpatterns = [
     path("reports/", include("apps.reports.urls")),
 ]
 
+# Uploaded media is private in development and production alike. Never expose
+# MEDIA_ROOT through Django's debug static-file helper.
+urlpatterns += [
+    re_path(r"^media/(?P<path>.*)$", private_media, name="private_media"),
+]
+
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATICFILES_DIRS[0])
-else:
-    # Uploaded media is private: each request is checked against its owning record.
+elif not getattr(settings, "USE_WHITENOISE", False):
     urlpatterns += [
-        re_path(r"^media/(?P<path>.*)$", private_media, name="private_media"),
+        re_path(r"^static/(?P<path>.*)$", staticfiles_serve, {"insecure": True}),
     ]
-    if not getattr(settings, "USE_WHITENOISE", False):
-        urlpatterns += [
-            re_path(r"^static/(?P<path>.*)$", staticfiles_serve, {"insecure": True}),
-        ]

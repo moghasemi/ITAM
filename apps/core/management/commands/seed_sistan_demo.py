@@ -36,7 +36,7 @@ from apps.maintenance.repair_services import (
 )
 from apps.org.models import (
     Center, Contract, ContractCenterAssignment, Contractor, Department,
-    Location, OrganizationalUnit, SlaPolicy,
+    Location, OrganizationalUnit, SlaPolicy, TreatmentManagement,
 )
 from apps.tickets.models import Ticket
 from apps.tickets.services import create_ticket
@@ -131,7 +131,8 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
-        if not settings.DEBUG or not settings.DATABASES["default"]["ENGINE"].endswith("sqlite3"):
+        is_sqlite = settings.DATABASES["default"]["ENGINE"].endswith("sqlite3")
+        if not settings.RUNNING_TESTS and (not settings.DEBUG or not is_sqlite):
             raise CommandError("این فرمان فقط در محیط توسعه DEBUG=True و پایگاه SQLite مجاز است.")
         password = options["admin_password"]
         if len(password) < 12:
@@ -150,7 +151,14 @@ class Command(BaseCommand):
         province = OrganizationalUnit.objects.get(code="IR-PROV-111")
         if province.name != "سیستان و بلوچستان":
             raise CommandError("کد استان ۱۱۱ با داده مورد انتظار مطابقت ندارد.")
-        management = province.treatment_management
+        management, _ = TreatmentManagement.objects.get_or_create(
+            province=province,
+            defaults={
+                "name": f"مدیریت درمان استان {province.name}",
+                "code": f"TM-{province.code}",
+                "is_active": province.is_active,
+            },
+        )
         if not province.is_active or not management.is_active:
             raise CommandError("استان یا مدیریت درمان سیستان و بلوچستان غیرفعال است؛ فرمان seed وضعیت عملیاتی را تغییر نمی‌دهد.")
         self.stdout.write(self.style.MIGRATE_HEADING("۲) ایجاد مراکز کاملاً آزمایشی"))

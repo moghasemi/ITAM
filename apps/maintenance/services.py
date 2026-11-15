@@ -25,6 +25,7 @@ from apps.core.constants import (
 from apps.core.models import Notification
 from apps.core.utils import log_action
 from apps.integrations.models import OutboxEvent
+from apps.org.models import ContractCenterAssignment
 
 from .models import MaintenanceVisit, VisitAssetCheck
 
@@ -34,6 +35,40 @@ def _it_experts_for_center(center_id):
         return User.objects.none()
     return User.objects.filter(
         role=User.ROLE_ADMIN_IT, is_active=True, center_id=center_id
+    )
+
+
+def _it_experts_for_visit(visit):
+    if visit.center_id:
+        return _it_experts_for_center(visit.center_id)
+    today = timezone.localdate()
+    assignments = ContractCenterAssignment.objects.filter(
+        contract_id=visit.contract_id,
+        status=ContractCenterAssignment.STATUS_ACTIVE,
+        start_date__lte=today,
+    ).filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
+    return User.objects.filter(
+        role=User.ROLE_ADMIN_IT,
+        is_active=True,
+        center_id__in=assignments.values("center_id"),
+    ).distinct()
+
+
+def _visit_notification_users(visit):
+    users = list(_it_experts_for_visit(visit))
+    if visit.technician_id and visit.technician.is_active:
+        users.append(visit.technician)
+    return users
+
+
+def notify_visit_planned(visit):
+    Notification.push_many(
+        _visit_notification_users(visit),
+        f"بازدید {visit.number} برنامه‌ریزی شد",
+        f"بازدید دوره‌ای قرارداد {visit.contract.number} برای "
+        f"{visit.scheduled_date:%Y/%m/%d} برنامه‌ریزی شد.",
+        visit.get_absolute_url(),
+        level="info",
     )
 
 
@@ -51,7 +86,14 @@ def visible_visits(user):
         return queryset
     if user.role == User.ROLE_ADMIN_PROVINCE:
         centers = user.get_scoped_centers()
-        province_ids = centers.values("treatment_management__province_id")
+        if (
+            user.org_unit_id
+            and user.org_unit.unit_type == "province"
+            and user.org_unit.is_active
+        ):
+            province_ids = [user.org_unit_id]
+        else:
+            province_ids = centers.values("treatment_management__province_id")
         return queryset.filter(
             Q(
                 center__in=centers,
@@ -123,7 +165,9 @@ def visible_visits(user):
         return queryset.filter(
             contractor_id=user.contractor_id,
             contract__in=active_contracts,
-        ).filter(center_visits | checked_visits).distinct()
+        ).filter(center_visits | checked_visits).filter(
+            Q(technician__isnull=True) | Q(technician=user)
+        ).distinct()
     return queryset.none()
 
 
@@ -181,6 +225,13 @@ def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
                 centers.filter(pk=visit.center_id).exists()
                 and visit.contract.covers_center(visit.center)
             )
+        if (
+            user.org_unit_id
+            and user.org_unit.unit_type == "province"
+            and user.org_unit.is_active
+            and visit.contract.province_id == user.org_unit_id
+        ):
+            return True
         return bool(
             visit.contract_id
             and visit.contract.province_id
@@ -190,6 +241,8 @@ def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
         return user.get_scoped_centers().filter(pk=visit.center_id).exists()
     if user.has_role(User.ROLE_TECHNICIAN):
         centers = user.get_scoped_centers()
+        if visit.technician_id and visit.technician_id != user.pk:
+            return False
         if not user.contractor_id or visit.contract.contractor_id != user.contractor_id:
             return False
         if visit.center_id:
@@ -218,6 +271,8 @@ def _period_bounds(contract, index: int):
 @transaction.atomic
 def generate_visits(contract, *, user=None, populate=True) -> dict:
     """ساخت نوبت‌های بازدید دوره‌ای یک قرارداد بر اساس دوره تعریف‌شده."""
+    if not contract.is_current:
+        raise ValidationError("برای قرارداد غیرفعال یا خارج از بازه اعتبار، بازدید جدید برنامه‌ریزی نمی‌شود.")
     if not contract.visit_interval_days:
         raise ValidationError("دوره بازدید برای این قرارداد تعریف نشده است.")
 
@@ -261,6 +316,7 @@ def generate_visits(contract, *, user=None, populate=True) -> dict:
                 aggregate_id=visit.pk,
                 actor=user,
             )
+            notify_visit_planned(visit)
         else:
             existing += 1
         if populate:
@@ -300,12 +356,17 @@ def populate_checks(visit: MaintenanceVisit, only_missing: bool = True) -> int:
     return count
 
 
+@transaction.atomic
 def mark_missed_visits(user=None) -> int:
     """نشان‌دارکردن بازدیدهای گذشته از مهلت."""
     today = timezone.localdate()
-    queryset = MaintenanceVisit.objects.filter(
+    queryset = MaintenanceVisit.objects.select_for_update(of=("self",)).select_related(
+        "contract", "contract__contractor", "technician", "center"
+    ).filter(
         status__in=[VISIT_PLANNED, VISIT_IN_PROGRESS],
-        scheduled_end_date__lt=today,
+    ).filter(
+        Q(scheduled_end_date__lt=today)
+        | Q(scheduled_end_date__isnull=True, scheduled_date__lt=today)
     )
     count = 0
     for visit in queryset:
@@ -328,7 +389,7 @@ def mark_missed_visits(user=None) -> int:
             actor=user,
         )
         Notification.push_many(
-            list(_it_experts_for_center(visit.center_id)),
+            _visit_notification_users(visit),
             f"بازدید {visit.number} انجام نشد",
             f"مهلت بازدید دوره‌ای قرارداد {visit.contract.number} به پایان رسید.",
             visit.get_absolute_url(),
@@ -345,32 +406,75 @@ def mark_missed_visits(user=None) -> int:
 # ---------------------------------------------------------------------------
 @transaction.atomic
 def start_visit(visit: MaintenanceVisit, user):
+    visit = MaintenanceVisit.objects.select_for_update(of=("self",)).select_related(
+        "contract", "contract__contractor"
+    ).get(pk=visit.pk)
     if not can_manage_visit(user, visit):
         raise PermissionDenied("اجازه شروع این بازدید را ندارید.")
-    if visit.status == VISIT_DONE:
-        raise ValidationError("این بازدید پایان یافته است.")
+    if visit.status in (VISIT_DONE, VISIT_CANCELED):
+        raise ValidationError("بازدید پایان‌یافته یا لغوشده قابل شروع مجدد نیست.")
     populate_checks(visit)
     visit.status = VISIT_IN_PROGRESS
     visit.started_at = visit.started_at or timezone.now()
-    if not visit.technician_id:
+    if not visit.technician_id and user.role == User.ROLE_TECHNICIAN:
         visit.technician = user
     visit.save(update_fields=["status", "started_at", "technician", "updated_at"])
     log_action("status_change", visit, note="شروع بازدید دوره‌ای", user=user)
     return visit
 
 
+def can_force_complete_visit(user):
+    return bool(
+        user
+        and getattr(user, "is_authenticated", False)
+        and (
+            user.is_admin_country
+            or user.is_admin_province
+            or user.has_role(User.ROLE_ADMIN_IT)
+        )
+    )
+
+
 @transaction.atomic
-def complete_visit(visit: MaintenanceVisit, user, *, report_text="", recommendation="", force=False):
+def complete_visit(
+    visit: MaintenanceVisit,
+    user,
+    *,
+    report_text="",
+    recommendation="",
+    force=False,
+    force_reason="",
+):
+    visit = MaintenanceVisit.objects.select_for_update(of=("self",)).select_related(
+        "contract", "contract__contractor"
+    ).get(pk=visit.pk)
     if not can_manage_visit(user, visit):
         raise PermissionDenied("اجازه پایان این بازدید را ندارید.")
-    if visit.status == VISIT_DONE:
-        raise ValidationError("این بازدید پیش‌تر پایان یافته است.")
+    if visit.status in (VISIT_DONE, VISIT_CANCELED):
+        raise ValidationError("بازدید پایان‌یافته یا لغوشده قابل تکمیل نیست.")
 
     pending = visible_checks(user, visit).filter(checked=False).count()
+    forced_reason = ""
     if pending and not force:
-        raise ValidationError(
-            f"{pending} برگه بازدید تکمیل نشده است. برای پایان اجباری گزینه «پایان با ناقص» را انتخاب کنید."
-        )
+        if can_force_complete_visit(user):
+            message = (
+                f"{pending} برگه بازدید تکمیل نشده است. برای پایان با وضعیت ناقص، "
+                "گزینه مربوط را انتخاب و علت را ثبت کنید."
+            )
+        else:
+            message = (
+                f"{pending} برگه بازدید تکمیل نشده است. ابتدا همه برگه‌های مجاز را "
+                "تکمیل کنید یا از مدیر IT بخواهید وضعیت را بررسی کند."
+            )
+        raise ValidationError(message)
+    if pending and force:
+        if not can_force_complete_visit(user):
+            raise PermissionDenied("پایان بازدید با برگه ناقص فقط برای مدیر IT مجاز است.")
+        forced_reason = (force_reason or "").strip()
+        if not forced_reason:
+            raise ValidationError("برای پایان بازدید با برگه ناقص، ثبت علت الزامی است.")
+        reason_line = f"علت پایان با {pending} برگه تکمیل‌نشده: {forced_reason}"
+        report_text = f"{report_text.strip()}\n\n{reason_line}".strip()
 
     if report_text:
         visit.report_text = report_text
@@ -392,33 +496,71 @@ def complete_visit(visit: MaintenanceVisit, user, *, report_text="", recommendat
             "faulty_count": visit.faulty_count,
             "duration_minutes": visit.duration_minutes,
             "report_text": visit.report_text,
+            "completed_with_incomplete_checks": bool(pending and force),
+            "incomplete_checks_count": pending if force else 0,
+            "event_stage": "contractor_completed",
+            "awaiting_it_confirmation": True,
         },
         aggregate_type="MaintenanceVisit",
         aggregate_id=visit.pk,
         actor=user,
     )
     Notification.push_many(
-        list(_it_experts_for_center(visit.center_id)),
+        _visit_notification_users(visit),
         f"پایان بازدید {visit.number}",
         f"بازدید دوره‌ای قرارداد {visit.contract.number} تکمیل شد و در انتظار تایید است.",
         visit.get_absolute_url(),
         level="info",
     )
-    log_action("status_change", visit, note="پایان بازدید دوره‌ای", user=user)
+    audit_note = "پایان بازدید دوره‌ای"
+    if pending and force:
+        audit_note += f" با {pending} برگه ناقص؛ علت: {forced_reason}"
+    log_action("status_change", visit, note=audit_note, user=user)
     return visit
 
 
 @transaction.atomic
 def confirm_visit(visit: MaintenanceVisit, user, note: str = ""):
     """تایید بازدید توسط کارشناس فناوری اطلاعات مرکز."""
+    visit = MaintenanceVisit.objects.select_for_update(of=("self",)).select_related(
+        "contract", "contract__contractor", "technician"
+    ).get(pk=visit.pk)
     if not can_confirm_visit(user, visit):
         raise PermissionDenied("تایید بازدید فقط توسط کارشناس فناوری اطلاعات مجاز همان دامنه انجام می‌شود.")
     if visit.status != VISIT_DONE:
         raise ValidationError("بازدید باید ابتدا توسط پیمانکار تکمیل شود.")
+    if visit.it_confirmed_at:
+        raise ValidationError("این بازدید قبلاً توسط کارشناس IT تایید شده است.")
     visit.it_confirmed_by = user
     visit.it_confirmed_at = timezone.now()
     visit.it_note = note[:300]
     visit.save(update_fields=["it_confirmed_by", "it_confirmed_at", "it_note", "updated_at"])
+    OutboxEvent.emit(
+        EVENT_VISIT_COMPLETED,
+        {
+            "event_stage": "it_confirmed",
+            "awaiting_it_confirmation": False,
+            "it_confirmed": True,
+            "visit_id": visit.pk,
+            "number": visit.number,
+            "contract": visit.contract.number,
+            "contractor": visit.contract.contractor.name,
+            "confirmed_at": visit.it_confirmed_at.isoformat(),
+            "confirmed_by": user.display_name,
+            "confirmation_note": visit.it_note,
+        },
+        aggregate_type="MaintenanceVisit",
+        aggregate_id=visit.pk,
+        actor=user,
+    )
+    if visit.technician_id and visit.technician.is_active:
+        Notification.push(
+            visit.technician,
+            f"گزارش بازدید {visit.number} تایید شد",
+            f"بازدید قرارداد {visit.contract.number} توسط کارشناس IT تایید شد.",
+            visit.get_absolute_url(),
+            level="success",
+        )
     log_action("approve", visit, note="تایید بازدید دوره‌ای", user=user)
     return visit
 
@@ -428,8 +570,20 @@ def save_check(check: VisitAssetCheck, user, *, condition=None, actions_taken=No
                parts_replaced=None, notes=None, next_due_date=None, photo=None,
                hardware_snapshot=None, checked=True):
     """ثبت نتیجه بازدید یک تجهیز."""
+    visit_id = VisitAssetCheck.objects.filter(pk=check.pk).values_list(
+        "visit_id", flat=True
+    ).get()
+    locked_visit = MaintenanceVisit.objects.select_for_update(of=("self",)).get(
+        pk=visit_id
+    )
+    check = VisitAssetCheck.objects.select_for_update(of=("self",)).select_related(
+        "asset"
+    ).get(pk=check.pk, visit_id=visit_id)
+    check.visit = locked_visit
     if not can_manage_visit(user, check.visit):
         raise PermissionDenied("اجازه ثبت نتیجه این برگه بازدید را ندارید.")
+    if check.visit.status in (VISIT_DONE, VISIT_CANCELED) or check.visit.it_confirmed_at:
+        raise ValidationError("برگه‌های بازدید پس از پایان، لغو یا تایید نهایی قابل ویرایش نیستند.")
     if (
         not check.asset.center_id
         or not user.get_scoped_centers().filter(pk=check.asset.center_id).exists()

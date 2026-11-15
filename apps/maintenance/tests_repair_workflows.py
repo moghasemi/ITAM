@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.core.models import AuditLog
+from apps.core.models import AuditLog, Notification
 from apps.assets.models import Asset, AssetCategory
 from apps.maintenance.repair_models import (
     GeneralITRequest, GeneralReferral, IndependentRepairer, RepairFeedback, RepairerProfileEvent,
@@ -32,6 +32,8 @@ from apps.maintenance.repair_services import (
     resubmit_repair_request,
     set_repairer_active,
     visible_repair_feedback,
+    visible_repair_requests,
+    visible_general_it_requests,
 )
 from apps.org.models import (
     Center, Contract, ContractCenterAssignment, Contractor,
@@ -98,6 +100,12 @@ class RepairAndReferralWorkflowTests(TestCase):
     def test_repair_requires_provincial_approval_and_records_cost_dispute(self):
         repair = self._repair()
         self.assertEqual(repair.status, RepairRequest.STATUS_PENDING)
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.province_admin,
+                title="درخواست تعمیر جدید در انتظار تایید",
+            ).exists()
+        )
 
         with self.assertRaises(PermissionDenied):
             decide_repair_request(
@@ -132,6 +140,33 @@ class RepairAndReferralWorkflowTests(TestCase):
         )
         self.assertEqual(repair.status, RepairRequest.STATUS_RESOLVED)
         self.assertEqual(repair.cost_increase_approved_by_id, self.province_admin.pk)
+
+    def test_retired_assets_cannot_receive_new_independent_repair_requests(self):
+        self.asset.status = "retired"
+        self.asset.save(update_fields=["status", "updated_at"])
+        with self.assertRaises(ValidationError):
+            self._repair()
+
+    def test_repair_can_be_completed_when_final_cost_is_unknown(self):
+        repair = self._repair()
+        repair = decide_repair_request(
+            repair=repair,
+            decision="approve",
+            note="تایید برآورد",
+            actor=self.province_admin,
+        )
+        repair = complete_repair_request(
+            repair=repair,
+            actor=self.it_expert,
+            outcome="تعمیر انجام شد؛ مبلغ نهایی هنوز مشخص نیست.",
+            final_cost=None,
+            work_quality=4,
+            completion_speed=4,
+            cost_fairness=5,
+        )
+        self.assertEqual(repair.status, RepairRequest.STATUS_COMPLETED)
+        self.assertIsNone(repair.final_cost)
+        self.assertEqual(RepairFeedback.objects.filter(repair_request=repair).count(), 1)
 
     def test_rejected_cost_increase_keeps_repair_open_as_disputed(self):
         repair = self._repair()
@@ -176,11 +211,41 @@ class RepairAndReferralWorkflowTests(TestCase):
             estimate_amount=Decimal("1100000"),
         )
         self.assertEqual(repair.status, RepairRequest.STATUS_PENDING)
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.province_admin,
+                title="درخواست تعمیر اصلاح‌شده در انتظار تایید",
+            ).exists()
+        )
         repair = decide_repair_request(
             repair=repair, decision="reject", note="درخواست فاقد توجیه است.",
             actor=self.province_admin,
         )
         self.assertEqual(repair.status, RepairRequest.STATUS_REJECTED)
+        with self.assertRaises(ValidationError):
+            resubmit_repair_request(repair=repair, actor=self.it_expert)
+
+    def test_inactive_repairer_cannot_be_approved_or_resubmitted(self):
+        repair = self._repair()
+        set_repairer_active(
+            repairer=self.repairer,
+            active=False,
+            reason="پایان همکاری",
+            actor=self.province_admin,
+        )
+        with self.assertRaises(ValidationError):
+            decide_repair_request(
+                repair=repair,
+                decision="approve",
+                note="تایید",
+                actor=self.province_admin,
+            )
+        repair = decide_repair_request(
+            repair=repair,
+            decision="return",
+            note="تعمیرکار غیرفعال شده است.",
+            actor=self.province_admin,
+        )
         with self.assertRaises(ValidationError):
             resubmit_repair_request(repair=repair, actor=self.it_expert)
 
@@ -508,6 +573,103 @@ class RepairAndReferralWorkflowTests(TestCase):
         self.assertEqual(request.status, GeneralITRequest.STATUS_RESOLVED)
         self.assertEqual(request.provincial_decision, "تامین تجهیز تایید شد.")
 
+    def test_general_it_request_creation_notifies_and_assignment_is_state_guarded(self):
+        request = create_general_it_request(
+            center=self.center,
+            request_type="equipment",
+            title="درخواست تجهیز جدید",
+            description="نیاز به تجهیز جدید",
+            actor=self.requester,
+        )
+        self.assertTrue(request.events.filter(action="created").exists())
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.it_expert,
+                title="درخواست جدید فناوری اطلاعات",
+            ).exists()
+        )
+
+        second_expert = User.objects.create_user(
+            username="wf-second-center-it",
+            password="test-password",
+            role=User.ROLE_ADMIN_IT,
+            center=self.center,
+        )
+        assign_general_it_request(
+            request=request, expert=second_expert, actor=self.it_expert,
+        )
+        request.refresh_from_db()
+        self.assertEqual(request.status, GeneralITRequest.STATUS_ASSIGNED)
+        self.assertEqual(request.assigned_to_id, second_expert.pk)
+        self.assertTrue(
+            Notification.objects.filter(
+                user=second_expert,
+                title="درخواست IT جدید به شما ارجاع شد",
+            ).exists()
+        )
+
+        request.status = GeneralITRequest.STATUS_ESCALATED
+        request.save(update_fields=["status", "updated_at"])
+        with self.assertRaises(ValidationError):
+            assign_general_it_request(
+                request=request, expert=self.it_expert, actor=self.it_expert,
+            )
+
+    def test_issue_request_can_escalate_without_manager_bypass(self):
+        request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_ISSUE,
+            title="کمبود تجهیز",
+            description="شرح کمبود",
+            actor=self.requester,
+        )
+        self.assertEqual(
+            request.manager_approval,
+            GeneralITRequest.MANAGER_NOT_REQUIRED,
+        )
+        escalated = escalate_general_it_request(
+            request=request,
+            actor=self.it_expert,
+        )
+        self.assertEqual(escalated.status, GeneralITRequest.STATUS_ESCALATED)
+        self.assertEqual(
+            escalated.manager_approval,
+            GeneralITRequest.MANAGER_NOT_REQUIRED,
+        )
+
+    def test_technicians_cannot_view_center_repair_requests_or_other_general_it_requests(self):
+        repair = self._repair()
+        technician = User.objects.create_user(
+            username="wf-technician-scope",
+            password="test-password",
+            role=User.ROLE_TECHNICIAN,
+            center=self.center,
+        )
+        self.assertFalse(
+            visible_repair_requests(technician).filter(pk=repair.pk).exists()
+        )
+        self.assertTrue(
+            visible_repair_requests(self.it_expert).filter(pk=repair.pk).exists()
+        )
+
+        own_request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_ISSUE,
+            title="درخواست متعلق به تکنسین",
+            description="شرح درخواست خود تکنسین",
+            actor=technician,
+        )
+        other_request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_ISSUE,
+            title="درخواست متعلق به کاربر دیگر",
+            description="شرح درخواست دیگر",
+            actor=self.requester,
+        )
+        visible = visible_general_it_requests(technician)
+        self.assertTrue(visible.filter(pk=own_request.pk).exists())
+        self.assertFalse(visible.filter(pk=other_request.pk).exists())
+
     def test_stale_manager_review_cannot_replace_first_decision(self):
         request = create_general_it_request(
             center=self.center, request_type=GeneralITRequest.TYPE_REPLACEMENT,
@@ -529,4 +691,20 @@ class RepairAndReferralWorkflowTests(TestCase):
         request.refresh_from_db()
         self.assertEqual(request.manager_approval, GeneralITRequest.MANAGER_APPROVED)
         self.assertEqual(request.status, GeneralITRequest.STATUS_APPROVED)
+
+    def test_new_general_request_notifies_active_center_it_experts(self):
+        request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_ISSUE,
+            title="اختلال در سامانه",
+            description="کاربر امکان استفاده از سامانه را ندارد.",
+            actor=self.requester,
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.it_expert,
+                title="درخواست جدید فناوری اطلاعات",
+                url=f"/maintenance/requests/{request.pk}/",
+            ).exists()
+        )
 

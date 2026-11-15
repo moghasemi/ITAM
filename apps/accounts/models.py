@@ -282,3 +282,19 @@ class User(AbstractUser):
         if self.has_role(self.ROLE_TECHNICIAN):
             return self.contractor
         return None
+
+class LoginAttempt(models.Model):
+    """ثبت حداقلی تلاش‌های ناموفق ورود برای محدودسازی حملات حدس گذرواژه."""
+
+    ip_address = models.GenericIPAddressField("نشانی IP", null=True, blank=True)
+    username_hash = models.CharField("شناسه یک‌طرفه نام کاربری", max_length=64)
+    attempted_at = models.DateTimeField("زمان تلاش", default=timezone.now, db_index=True)
+
+    class Meta:
+        verbose_name = "تلاش ناموفق ورود"
+        verbose_name_plural = "تلاش‌های ناموفق ورود"
+        indexes = [
+            models.Index(fields=("username_hash", "attempted_at"), name="accounts_login_user_time_idx"),
+            models.Index(fields=("ip_address", "attempted_at"), name="accounts_login_ip_time_idx"),
+        ]
+

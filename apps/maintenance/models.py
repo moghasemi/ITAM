@@ -185,7 +185,7 @@ class MaintenanceVisit(TimeStampedModel):
         if self.status == VISIT_PLANNED:
             self.status = VISIT_IN_PROGRESS
             self.started_at = timezone.now()
-            if not self.technician_id:
+            if not self.technician_id and getattr(user, "role", None) == "technician":
                 self.technician = user
             self.save(update_fields=["status", "started_at", "technician", "updated_at"])
 
@@ -194,7 +194,7 @@ class MaintenanceVisit(TimeStampedModel):
         self.finished_at = timezone.now()
         if not self.started_at:
             self.started_at = self.finished_at
-        if not self.technician_id:
+        if not self.technician_id and getattr(user, "role", None) == "technician":
             self.technician = user
         if not self.technician_signature_name:
             self.technician_signature_name = user.display_name
@@ -205,6 +205,8 @@ class MaintenanceVisit(TimeStampedModel):
                 "started_at",
                 "technician",
                 "technician_signature_name",
+                "report_text",
+                "recommendation",
                 "updated_at",
             ]
         )

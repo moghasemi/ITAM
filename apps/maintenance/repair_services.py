@@ -52,6 +52,16 @@ def _province_id_for_user(user):
     return None
 
 
+def _province_admins(province_id):
+    if not province_id:
+        return User.objects.none()
+    return User.objects.filter(
+        role=User.ROLE_ADMIN_PROVINCE,
+        org_unit_id=province_id,
+        is_active=True,
+    )
+
+
 def _can_manage_center(user, center):
     return bool(
         user and user.is_authenticated
@@ -75,8 +85,41 @@ def visible_repair_requests(user):
         return Model.objects.none()
     if _is_country_admin(user):
         return Model.objects.all()
+    if user.role == User.ROLE_REQUESTER:
+        return Model.objects.filter(requested_by=user)
+    if user.role == User.ROLE_TECHNICIAN:
+        # HWAgent/contract technicians are not independent repairers and have
+        # no user-to-repairer assignment; never expose center repair requests.
+        return Model.objects.none()
+    if _is_province_admin(user):
+        province_id = _province_id_for_user(user)
+        if province_id:
+            return Model.objects.filter(
+                center__treatment_management__province_id=province_id
+            )
     return Model.objects.filter(center__in=user.get_scoped_centers())
 
+
+
+def visible_general_it_requests(user):
+    """Return general IT requests within role-specific visibility boundaries."""
+    if not user or not user.is_authenticated:
+        return GeneralITRequest.objects.none()
+    if _is_country_admin(user):
+        return GeneralITRequest.objects.all()
+    if user.role in (User.ROLE_REQUESTER, User.ROLE_TECHNICIAN):
+        return GeneralITRequest.objects.filter(requested_by=user)
+    if _is_province_admin(user):
+        province_id = _province_id_for_user(user)
+        if province_id:
+            return GeneralITRequest.objects.filter(
+                center__treatment_management__province_id=province_id
+            )
+    if user.role == User.ROLE_MANAGER:
+        return GeneralITRequest.objects.filter(center__in=user.get_scoped_centers())
+    return GeneralITRequest.objects.filter(
+        Q(center__in=user.get_scoped_centers()) | Q(requested_by=user)
+    ).distinct()
 
 def visible_repairers(user):
     if not user or not user.is_authenticated:
@@ -224,6 +267,10 @@ def create_repair_request(*, center, asset, repairer, fault_description,
         raise PermissionDenied("ثبت درخواست تعمیر فقط برای کارشناس فناوری اطلاعات مرکز مجاز است.")
     if not _can_manage_center(actor, center):
         raise PermissionDenied("مرکز خارج از حوزه مجاز شماست.")
+    if not center.is_active:
+        raise ValidationError("ثبت تعمیر برای مرکز غیرفعال مجاز نیست.")
+    if asset.status == "retired":
+        raise ValidationError("برای دارایی از رده خارج، درخواست تعمیر جدید ثبت نمی‌شود.")
     if asset.center_id != center.pk:
         raise ValidationError("دارایی انتخاب‌شده متعلق به مرکز درخواست نیست.")
     if not repairer.is_active:
@@ -250,6 +297,13 @@ def create_repair_request(*, center, asset, repairer, fault_description,
         repair, "submitted", "درخواست برای تایید مدیر استان ارسال شد.", actor,
         previous=RepairRequest.STATUS_DRAFT,
     )
+    Notification.push_many(
+        _province_admins(province_id),
+        "درخواست تعمیر جدید در انتظار تایید",
+        f"{repair.number}: {repair.asset.asset_tag}",
+        url=repair.get_absolute_url(),
+        level="info",
+    )
     return repair
 
 
@@ -261,6 +315,8 @@ def decide_repair_request(*, repair, decision, note, actor):
         raise ValidationError("فقط درخواست ارسال‌شده و در انتظار تایید قابل تصمیم‌گیری است.")
     if decision not in {"approve", "return", "reject"}:
         raise ValidationError("تصمیم نامعتبر است.")
+    if decision == "approve" and not locked.repairer.is_active:
+        raise ValidationError("تعمیرکار غیرفعال است؛ درخواست را به او تایید نکنید.")
     if decision in {"return", "reject"} and not (note or "").strip():
         raise ValidationError("برای عودت یا رد درخواست، توضیح الزامی است.")
     previous = locked.status
@@ -300,6 +356,8 @@ def resubmit_repair_request(*, repair, actor, fault_description=None,
     repair = RepairRequest.objects.select_for_update().get(pk=repair.pk)
     if repair.status != RepairRequest.STATUS_RETURNED:
         raise ValidationError("فقط درخواست عودت‌شده قابل اصلاح و ارسال مجدد است.")
+    if not repair.repairer.is_active:
+        raise ValidationError("تعمیرکار این درخواست غیرفعال شده است؛ درخواست جدیدی با تعمیرکار فعال ثبت کنید.")
     previous = repair.status
     if fault_description is not None:
         repair.fault_description = fault_description.strip()
@@ -314,6 +372,13 @@ def resubmit_repair_request(*, repair, actor, fault_description=None,
     repair.full_clean()
     repair.save()
     _record_repair_event(repair, "resubmitted", "درخواست اصلاح و مجدداً ارسال شد.", actor, previous)
+    Notification.push_many(
+        _province_admins(_province_id_for_center(repair.center)),
+        "درخواست تعمیر اصلاح‌شده در انتظار تایید",
+        f"{repair.number}: {repair.asset.asset_tag}",
+        url=repair.get_absolute_url(),
+        level="info",
+    )
     return repair
 
 
@@ -328,12 +393,16 @@ def complete_repair_request(*, repair, outcome, final_cost, actor,
         raise ValidationError("فقط درخواست تاییدشده قابل ثبت نتیجه تعمیر است.")
     if not outcome or not outcome.strip():
         raise ValidationError("شرح نتیجه تعمیر الزامی است.")
-    if final_cost is None or Decimal(final_cost) < 0:
-        raise ValidationError("هزینه نهایی معتبر الزامی است.")
+    if final_cost is not None and Decimal(final_cost) < 0:
+        raise ValidationError("هزینه نهایی نمی‌تواند منفی باشد.")
     for value in (work_quality, completion_speed, cost_fairness):
         if int(value) < 1 or int(value) > 5:
             raise ValidationError("هر سه امتیاز باید بین ۱ تا ۵ باشند.")
-    if Decimal(final_cost) > repair.estimate_amount and not (final_cost_reason or "").strip():
+    if (
+        final_cost is not None
+        and Decimal(final_cost) > repair.estimate_amount
+        and not (final_cost_reason or "").strip()
+    ):
         raise ValidationError("برای هزینه بالاتر از برآورد، توضیح افزایش هزینه الزامی است.")
 
     previous = repair.status
@@ -342,7 +411,10 @@ def complete_repair_request(*, repair, outcome, final_cost, actor,
     repair.final_cost_reason = (final_cost_reason or "").strip()
     repair.completion_attachment = completion_attachment or ""
     repair.completed_at = timezone.now()
-    disputed = Decimal(final_cost) > repair.estimate_amount
+    disputed = (
+        final_cost is not None
+        and Decimal(final_cost) > repair.estimate_amount
+    )
     repair.status = RepairRequest.STATUS_DISPUTED if disputed else RepairRequest.STATUS_COMPLETED
     repair.save(update_fields=[
         "outcome", "final_cost", "final_cost_reason", "completion_attachment",
@@ -365,15 +437,13 @@ def complete_repair_request(*, repair, outcome, final_cost, actor,
         "نتیجه تعمیر و ارزیابی ثبت شد." + (" اختلاف هزینه برای تعیین تکلیف باز ماند." if disputed else ""),
         actor,
         previous,
-        metadata={"estimate": str(repair.estimate_amount), "final_cost": str(final_cost)},
-    )
-    province_admins = User.objects.filter(
-        role=User.ROLE_ADMIN_PROVINCE,
-        org_unit_id=_province_id_for_center(repair.center),
-        is_active=True,
+        metadata={
+            "estimate": str(repair.estimate_amount),
+            "final_cost": str(final_cost) if final_cost is not None else None,
+        },
     )
     Notification.push_many(
-        province_admins,
+        _province_admins(_province_id_for_center(repair.center)),
         "نتیجه تعمیر ثبت شد",
         f"{repair.number}: " + ("اختلاف هزینه نیازمند تعیین تکلیف است." if disputed else "تعمیر تکمیل شد."),
         url=repair.get_absolute_url(),
@@ -456,6 +526,8 @@ def create_referral(*, subject, description, recipient_role, recipient_name,
         province = OrganizationalUnit.objects.filter(
             pk=province_id, unit_type=OrganizationalUnit.UNIT_PROVINCE
         ).first()
+    if recipient_user and not recipient_user.is_active:
+        raise ValidationError("کاربر گیرنده ارجاع غیرفعال است.")
     if recipient_user and province_id and not _is_country_admin(actor):
         if _province_id_for_user(recipient_user) != province_id:
             raise PermissionDenied("گیرنده ارجاع باید در همان استان مسئول باشد.")
@@ -558,18 +630,38 @@ def add_feedback_reply(*, feedback, body, actor, parent=None):
 
 @transaction.atomic
 def create_general_it_request(*, center, request_type, title, description, actor, asset=None):
-    if not actor or not actor.is_authenticated:
-        raise PermissionDenied("ورود به سامانه الزامی است.")
+    if not actor or not actor.is_authenticated or not actor.is_active:
+        raise PermissionDenied("ورود معتبر به سامانه الزامی است.")
+    if not center.is_active:
+        raise ValidationError("ثبت درخواست برای مرکز غیرفعال مجاز نیست.")
     if actor.center_id != center.pk and not _can_manage_center(actor, center):
         raise PermissionDenied("ثبت درخواست برای این مرکز مجاز نیست.")
     if asset and asset.center_id != center.pk:
         raise ValidationError("دارایی باید متعلق به همان مرکز باشد.")
-    request = GeneralITRequest.objects.create(
-        center=center, request_type=request_type, title=title.strip(),
-        description=description.strip(), requested_by=actor, asset=asset,
+    manager_approval = (
+        GeneralITRequest.MANAGER_PENDING
+        if request_type in (GeneralITRequest.TYPE_EQUIPMENT, GeneralITRequest.TYPE_REPLACEMENT)
+        else GeneralITRequest.MANAGER_NOT_REQUIRED
     )
+    request = GeneralITRequest(
+        center=center, request_type=request_type, title=(title or "").strip(),
+        description=(description or "").strip(), requested_by=actor, asset=asset,
+        manager_approval=manager_approval,
+    )
+    request.full_clean()
+    request.save()
     GeneralITRequestEvent.objects.create(
         request=request, action="created", note="درخواست ثبت شد.", actor=actor,
+    )
+    center_experts = User.objects.filter(
+        role=User.ROLE_ADMIN_IT, center_id=center.pk, is_active=True
+    ).exclude(pk=actor.pk)
+    Notification.push_many(
+        center_experts,
+        "درخواست جدید فناوری اطلاعات",
+        f"{request.number}: {request.title}",
+        url=reverse("maintenance:it_request_detail", args=[request.pk]),
+        level="info",
     )
     return request
 
@@ -580,16 +672,31 @@ def assign_general_it_request(*, request, expert, actor):
         raise PermissionDenied("فقط کارشناس IT مجاز همان مرکز می‌تواند درخواست را ارجاع دهد.")
     if expert.role != User.ROLE_ADMIN_IT or not expert.is_active or expert.center_id != request.center_id:
         raise ValidationError("کارشناس انتخاب‌شده باید فعال و متعلق به همان مرکز باشد.")
+    request = GeneralITRequest.objects.select_for_update().get(pk=request.pk)
+    if request.status not in (GeneralITRequest.STATUS_NEW, GeneralITRequest.STATUS_ASSIGNED):
+        raise ValidationError("فقط درخواست جدید یا ارجاع‌شده قابل تخصیص یا ارجاع مجدد است.")
+    if request.status == GeneralITRequest.STATUS_ASSIGNED and request.assigned_to_id == expert.pk:
+        return request
+    previous_expert = request.assigned_to
     request.assigned_to = expert
     request.status = GeneralITRequest.STATUS_ASSIGNED
     request.save(update_fields=["assigned_to", "status", "updated_at"])
+    assignment_note = (
+        f"از {previous_expert.display_name} به {expert.display_name} ارجاع مجدد شد."
+        if previous_expert else f"به {expert.display_name} ارجاع شد."
+    )
     GeneralITRequestEvent.objects.create(
-        request=request, action="assigned", note=f"به {expert.display_name} ارجاع شد.", actor=actor,
+        request=request, action="assigned", note=assignment_note, actor=actor,
     )
     Notification.push(
         request.requested_by, "درخواست IT به کارشناس ارجاع شد",
         request.number, url=reverse("maintenance:it_request_detail", args=[request.pk]),
     )
+    if expert.pk != actor.pk:
+        Notification.push(
+            expert, "درخواست IT جدید به شما ارجاع شد",
+            request.number, url=reverse("maintenance:it_request_detail", args=[request.pk]),
+        )
     return request
 
 

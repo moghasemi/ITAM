@@ -34,6 +34,17 @@ class LoginForm(AuthenticationForm):
         super().__init__(*args, **kwargs)
         apply_widget_classes(self)
 
+    def clean(self):
+        username = self.cleaned_data.get("username")
+        from apps.core.middleware import client_ip
+        from .rate_limit import is_login_throttled
+
+        if is_login_throttled(username, client_ip(self.request)):
+            raise forms.ValidationError(
+                "به دلیل چند تلاش ناموفق، ورود برای این نام کاربری موقتاً محدود شده است. ۱۵ دقیقه دیگر دوباره تلاش کنید."
+            )
+        return super().clean()
+
 
 class UserForm(StyledModelForm):
     """ایجاد و ویرایش کاربر توسط کارشناس IT."""

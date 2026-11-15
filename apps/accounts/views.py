@@ -125,17 +125,37 @@ def visible_users(current_user):
     scoped_centers = current_user.get_scoped_centers()
 
     if current_user.role == User.ROLE_ADMIN_PROVINCE:
-        return User.objects.filter(
-            Q(center__in=scoped_centers) |
-            Q(org_unit__parent=current_user.org_unit) |
-            Q(org_unit=current_user.org_unit)
-        ).exclude(is_superuser=True).exclude(role=User.ROLE_ADMIN_COUNTRY)
+        if current_user.org_unit_id:
+            scope = (
+                Q(center__in=scoped_centers)
+                | Q(org_unit__parent_id=current_user.org_unit_id)
+                | Q(org_unit_id=current_user.org_unit_id)
+            )
+        else:
+            # A province admin assigned through a center may manage that
+            # center's province, but a missing scope must never become
+            # Q(org_unit=None), which would expose unrelated unassigned users.
+            province_ids = scoped_centers.values("treatment_management__province_id")
+            if not scoped_centers.exists():
+                return User.objects.none()
+            scope = (
+                Q(center__in=scoped_centers)
+                | Q(org_unit_id__in=province_ids)
+                | Q(org_unit__parent_id__in=province_ids)
+            )
+        return User.objects.filter(scope).exclude(is_superuser=True).exclude(
+            role=User.ROLE_ADMIN_COUNTRY
+        )
 
     if current_user.role == User.ROLE_ADMIN_COUNTY:
-        return User.objects.filter(
-            Q(center__in=scoped_centers) |
-            Q(org_unit=current_user.org_unit)
-        ).exclude(is_superuser=True).exclude(role__in=[User.ROLE_ADMIN_COUNTRY, User.ROLE_ADMIN_PROVINCE])
+        if not current_user.org_unit_id and not scoped_centers.exists():
+            return User.objects.none()
+        scope = Q(center__in=scoped_centers)
+        if current_user.org_unit_id:
+            scope |= Q(org_unit_id=current_user.org_unit_id)
+        return User.objects.filter(scope).exclude(is_superuser=True).exclude(
+            role__in=[User.ROLE_ADMIN_COUNTRY, User.ROLE_ADMIN_PROVINCE]
+        )
 
     if current_user.role == User.ROLE_ADMIN_IT:
         if not current_user.center_id:
