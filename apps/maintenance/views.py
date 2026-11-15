@@ -290,6 +290,8 @@ def visit_start(request, pk: int):
 
 
 def visit_complete(request, pk: int):
+    if request.method != "POST":
+        return redirect("maintenance:visit_detail", pk=pk)
     form = VisitCompleteForm(request.POST or None)
     if not form.is_valid():
         messages.error(request, "اطلاعات فرم پایان بازدید ناقص است.")
