@@ -125,7 +125,6 @@ class PrivateMediaAuthorizationTests(TestCase):
             request.user = self.user_a
             response = private_media(request, path)
             self.assertEqual(response.status_code, 200, path)
-            response.file_to_stream.close()
 
     def test_other_center_staff_cannot_download_repair_or_referral_documents(self):
         paths = [
@@ -147,7 +146,6 @@ class PrivateMediaAuthorizationTests(TestCase):
         request.user = self.user_b
         response = private_media(request, path)
         self.assertEqual(response.status_code, 200)
-        response.file_to_stream.close()
 
     def test_province_admin_with_explicit_org_unit_can_download_centerless_referral(self):
         national = self.center_a.parent_unit.parent.parent
@@ -179,7 +177,6 @@ class PrivateMediaAuthorizationTests(TestCase):
         request.user = province_admin
         response = private_media(request, path)
         self.assertEqual(response.status_code, 200)
-        response.file_to_stream.close()
 
     def test_technician_cannot_download_misbound_hardware_or_visit_photos(self):
         import datetime as dt
