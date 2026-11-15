@@ -14,7 +14,6 @@ from apps.core.constants import (
     CHECK_HEALTHY,
     CHECK_NOT_SEEN,
     EVENT_VISIT_COMPLETED,
-    EVENT_VISIT_CONFIRMED,
     EVENT_VISIT_MISSED,
     EVENT_VISIT_PLANNED,
     VISIT_CANCELED,
@@ -499,6 +498,7 @@ def complete_visit(
             "report_text": visit.report_text,
             "completed_with_incomplete_checks": bool(pending and force),
             "incomplete_checks_count": pending if force else 0,
+            "event_stage": "contractor_completed",
             "awaiting_it_confirmation": True,
         },
         aggregate_type="MaintenanceVisit",
@@ -536,8 +536,11 @@ def confirm_visit(visit: MaintenanceVisit, user, note: str = ""):
     visit.it_note = note[:300]
     visit.save(update_fields=["it_confirmed_by", "it_confirmed_at", "it_note", "updated_at"])
     OutboxEvent.emit(
-        EVENT_VISIT_CONFIRMED,
+        EVENT_VISIT_COMPLETED,
         {
+            "event_stage": "it_confirmed",
+            "awaiting_it_confirmation": False,
+            "it_confirmed": True,
             "visit_id": visit.pk,
             "number": visit.number,
             "contract": visit.contract.number,
