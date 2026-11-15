@@ -782,9 +782,9 @@ def hwagent_batch_import(request):
                 raise PermissionDenied("مرکز انتخاب‌شده خارج از دامنه مجاز شما است.")
         else:
             # برای کارشناس مرکز، مقدار ارسالی فرم کلاینت نادیده گرفته شده و صرفاً مرکز خود کاربر اعمال می‌شود
-            center = request.user.center
+            center = scoped_centers.filter(pk=request.user.center_id).first() if request.user.center_id else None
             if not center:
-                raise PermissionDenied("کاربر به هیچ مرکزی منتسب نشده است.")
+                raise PermissionDenied("مرکز عملیاتی فعال و مجاز برای کاربر پیدا نشد.")
 
         auto_create = request.POST.get("auto_create") == "on"
 
@@ -895,6 +895,36 @@ def api_hwagent_sync(request):
             return JsonResponse(
                 {"status": "error", "error": "اعتبارنامه نامعتبر است یا منقضی/ابطال شده است."},
                 status=401,
+            )
+
+        # اعتبارنامه به یک مرکز عملیاتی فعال و دارای زنجیره جغرافیایی معتبر مقید است.
+        center = agent.center
+        center_is_operational = bool(
+            center
+            and center.is_active
+            and center.parent_unit_id
+            and center.parent_unit.is_active
+            and center.parent_unit.unit_type == "county"
+            and center.parent_unit.parent_id
+            and center.parent_unit.parent.is_active
+            and center.parent_unit.parent.unit_type == "province"
+            and center.treatment_management_id
+            and center.treatment_management.is_active
+            and center.treatment_management.province_id == center.parent_unit.parent_id
+        )
+        if not center_is_operational:
+            AgentSyncAuditLog.objects.create(
+                agent=agent,
+                center=center,
+                remote_ip=remote_ip,
+                http_status=403,
+                success=False,
+                rejection_reason="مرکز متصل به اعتبارنامه غیرفعال یا فاقد زنجیره سازمانی معتبر است.",
+                execution_duration_ms=int((time.time() - start_time) * 1000),
+            )
+            return JsonResponse(
+                {"status": "error", "error": "مرکز متصل به این اعتبارنامه فعال یا معتبر نیست."},
+                status=403,
             )
 
         # ۲. بررسی هدر Timestamp و مقابله با انحراف ساعت (Anti-Clock Skew)
