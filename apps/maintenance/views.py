@@ -30,6 +30,7 @@ from .forms import (
 from .models import MaintenanceVisit, VisitAssetCheck
 from .services import (
     can_confirm_visit,
+    can_force_complete_visit,
     can_manage_visit,
     complete_visit,
     confirm_visit,
