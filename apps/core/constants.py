@@ -287,6 +287,7 @@ EVENT_HARDWARE_BASELINE_LOCKED = "hardware.baseline_locked"
 EVENT_HARDWARE_DIFF_DETECTED = "hardware.diff_detected"
 EVENT_VISIT_PLANNED = "maintenance.visit_planned"
 EVENT_VISIT_COMPLETED = "maintenance.visit_completed"
+EVENT_VISIT_CONFIRMED = "maintenance.visit_confirmed"
 EVENT_VISIT_MISSED = "maintenance.visit_missed"
 
 EVENT_TYPE_CHOICES = (
@@ -304,5 +305,6 @@ EVENT_TYPE_CHOICES = (
     (EVENT_HARDWARE_DIFF_DETECTED, "کشف تغییر اقلام سخت‌افزاری"),
     (EVENT_VISIT_PLANNED, "برنامه‌ریزی بازدید دوره‌ای"),
     (EVENT_VISIT_COMPLETED, "پایان بازدید دوره‌ای"),
+    (EVENT_VISIT_CONFIRMED, "تایید بازدید توسط IT"),
     (EVENT_VISIT_MISSED, "بازدید انجام‌نشده"),
 )
