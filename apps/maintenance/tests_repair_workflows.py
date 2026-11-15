@@ -213,6 +213,30 @@ class RepairAndReferralWorkflowTests(TestCase):
         with self.assertRaises(ValidationError):
             resubmit_repair_request(repair=repair, actor=self.it_expert)
 
+    def test_inactive_repairer_cannot_be_approved_or_resubmitted(self):
+        repair = self._repair()
+        set_repairer_active(
+            repairer=self.repairer,
+            active=False,
+            reason="پایان همکاری",
+            actor=self.it_expert,
+        )
+        with self.assertRaises(ValidationError):
+            decide_repair_request(
+                repair=repair,
+                decision="approve",
+                note="تایید",
+                actor=self.province_admin,
+            )
+        repair = decide_repair_request(
+            repair=repair,
+            decision="return",
+            note="تعمیرکار غیرفعال شده است.",
+            actor=self.province_admin,
+        )
+        with self.assertRaises(ValidationError):
+            resubmit_repair_request(repair=repair, actor=self.it_expert)
+
     def test_repairer_deactivation_requires_reason_and_preserves_history(self):
         with self.assertRaises(ValidationError):
             set_repairer_active(
