@@ -506,7 +506,6 @@ def resolve_repair_cost_dispute(*, repair, decision, note, actor, attachment=Non
 
 
 @transaction.atomic
-@transaction.atomic
 def create_referral(*, subject, description, recipient_role, recipient_name,
                     actor, center=None, repair_request=None, recipient_user=None,
                     attachment=None):
@@ -629,7 +628,6 @@ def add_feedback_reply(*, feedback, body, actor, parent=None):
     )
 
 
-@transaction.atomic
 @transaction.atomic
 def create_general_it_request(*, center, request_type, title, description, actor, asset=None):
     if not actor or not actor.is_authenticated or not actor.is_active:
