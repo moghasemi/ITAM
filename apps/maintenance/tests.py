@@ -440,6 +440,7 @@ class ProvincialMaintenanceScopeTests(TestCase):
         )
         self.visit.refresh_from_db()
         self.assertEqual(self.visit.status, VISIT_DONE)
+        self.assertIsNone(self.visit.technician_id)
         self.assertIn("عدم دسترسی به تجهیز", self.visit.report_text)
 
     def test_completed_visit_cannot_be_reconfirmed_or_have_checks_edited(self):
