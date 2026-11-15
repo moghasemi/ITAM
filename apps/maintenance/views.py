@@ -7,12 +7,18 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.generic import CreateView, DetailView, UpdateView
 
 from apps.accounts.permissions import AnyRoleRequiredMixin, ProvinceAdminRequiredMixin
-from apps.core.constants import CHECK_HEALTHY, VISIT_DONE, VISIT_PLANNED, VISIT_IN_PROGRESS, VISIT_MISSED
+from apps.core.constants import (
+    CHECK_HEALTHY, EVENT_VISIT_PLANNED, VISIT_DONE, VISIT_PLANNED,
+    VISIT_IN_PROGRESS, VISIT_MISSED,
+)
 from apps.core.mixins import BaseListView, PageContextMixin, apply_search
 from apps.core.utils import log_action
+from apps.core.models import OutboxEvent
+from apps.org.services import visible_contracts
 
 from .forms import (
     VisitCheckForm,
@@ -34,6 +40,26 @@ from .services import (
     visible_visits,
     visit_statistics,
 )
+
+
+def _emit_visit_planned(visit, actor):
+    OutboxEvent.emit(
+        EVENT_VISIT_PLANNED,
+        {
+            "visit_id": visit.pk,
+            "number": visit.number,
+            "contract": visit.contract.number,
+            "sequence": visit.sequence_number,
+            "scheduled_date": visit.scheduled_date.isoformat(),
+            "scheduled_end_date": (
+                visit.scheduled_end_date.isoformat()
+                if visit.scheduled_end_date else None
+            ),
+        },
+        aggregate_type="MaintenanceVisit",
+        aggregate_id=visit.pk,
+        actor=actor,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -147,17 +173,20 @@ class VisitCreateView(ProvinceAdminRequiredMixin, PageContextMixin, CreateView):
     def _bind_visit_center(self, visit):
         contract = visit.contract
         user = self.request.user
-        centers = user.get_scoped_centers()
-        if not user.is_admin_country and not (
-            contract.province_id
-            and centers.filter(treatment_management__province_id=contract.province_id).exists()
-        ):
-            raise PermissionDenied("قرارداد خارج از دامنه استان مجاز شماست.")
-        if not user.is_admin_province:
-            raise PermissionDenied("برنامه‌ریزی بازدید استانی فقط توسط مدیر استان یا کشور مجاز است.")
+        today = timezone.localdate()
+        if not (user.is_admin_country or user.is_admin_province):
+            raise PermissionDenied("برنامه‌ریزی بازدید فقط توسط مدیر استان یا کشور مجاز است.")
+        if not visible_contracts(user).filter(
+            pk=contract.pk,
+            status=contract.STATUS_ACTIVE,
+            start_date__lte=today,
+            end_date__gte=today,
+        ).exists():
+            raise PermissionDenied("قرارداد خارج از دامنه یا فاقد اعتبار جاری است.")
         if not contract.province_id:
             raise ValidationError("استان قرارداد تعیین نشده است.")
         visit.center = None
+        visit.contractor = contract.contractor
 
     @transaction.atomic
     def form_valid(self, form):
@@ -169,6 +198,7 @@ class VisitCreateView(ProvinceAdminRequiredMixin, PageContextMixin, CreateView):
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
         populate_checks(self.object)
+        _emit_visit_planned(self.object, self.request.user)
         log_action("create", self.object, note="ثبت نوبت بازدید دستی", user=self.request.user)
         messages.success(self.request, "نوبت بازدید ثبت و برگه‌های تجهیزات ساخته شد.")
         return response
@@ -190,29 +220,41 @@ class VisitUpdateView(ProvinceAdminRequiredMixin, PageContextMixin, UpdateView):
         return kwargs
 
     def get_queryset(self):
-        return visible_visits(self.request.user)
+        return visible_visits(self.request.user).filter(status=VISIT_PLANNED)
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # Contract and sequence define checklist scope and cannot be changed in-place.
+        form.fields.pop("contract", None)
+        form.fields.pop("sequence_number", None)
+        return form
+
+    @transaction.atomic
     def form_valid(self, form):
-        contract = form.cleaned_data["contract"]
+        contract = self.object.contract
+        user = self.request.user
         try:
-            user = self.request.user
-            centers = user.get_scoped_centers()
-            if not user.is_admin_country and not (
-                contract.province_id
-                and centers.filter(treatment_management__province_id=contract.province_id).exists()
-            ):
-                raise PermissionDenied("قرارداد خارج از دامنه استان مجاز شماست.")
-            if not user.is_admin_province:
+            today = timezone.localdate()
+            if not (user.is_admin_country or user.is_admin_province):
                 raise PermissionDenied("ویرایش بازدید استانی فقط توسط مدیر استان یا کشور مجاز است.")
+            if not visible_contracts(user).filter(
+                pk=contract.pk,
+                status=contract.STATUS_ACTIVE,
+                start_date__lte=today,
+                end_date__gte=today,
+            ).exists():
+                raise PermissionDenied("قرارداد خارج از دامنه یا فاقد اعتبار جاری است.")
             if not contract.province_id:
                 raise ValidationError("استان قرارداد تعیین نشده است.")
             form.instance.center = None
+            form.instance.contractor = contract.contractor
         except ValidationError as exc:
-            form.add_error("contract", exc)
+            form.add_error(None, exc)
             return self.form_invalid(form)
         response = super().form_valid(form)
-        log_action("update", self.object, note="ویرایش نوبت بازدید", user=self.request.user)
-        messages.success(self.request, "نوبت بازدید ذخیره شد.")
+        _emit_visit_planned(self.object, self.request.user)
+        log_action("update", self.object, note="ویرایش برنامه بازدید", user=self.request.user)
+        messages.success(self.request, "بازدید ذخیره شد.")
         return response
 
     def get_success_url(self):
@@ -251,6 +293,7 @@ def visit_complete(request, pk: int):
             report_text=form.cleaned_data.get("report_text", ""),
             recommendation=form.cleaned_data.get("recommendation", ""),
             force=form.cleaned_data.get("force", False),
+            force_reason=form.cleaned_data.get("force_reason", ""),
         ),
         "بازدید پایان یافت و برای تایید کارشناس IT ارسال شد.",
     )
