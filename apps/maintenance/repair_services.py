@@ -637,9 +637,18 @@ def create_general_it_request(*, center, request_type, title, description, actor
         raise PermissionDenied("ثبت درخواست برای این مرکز مجاز نیست.")
     if asset and asset.center_id != center.pk:
         raise ValidationError("دارایی باید متعلق به همان مرکز باشد.")
+    manager_review_required = request_type in (
+        GeneralITRequest.TYPE_EQUIPMENT,
+        GeneralITRequest.TYPE_REPLACEMENT,
+    )
+    has_active_manager = User.objects.filter(
+        center_id=center.pk,
+        role=User.ROLE_MANAGER,
+        is_active=True,
+    ).exists()
     manager_approval = (
         GeneralITRequest.MANAGER_PENDING
-        if request_type in (GeneralITRequest.TYPE_EQUIPMENT, GeneralITRequest.TYPE_REPLACEMENT)
+        if manager_review_required and has_active_manager
         else GeneralITRequest.MANAGER_NOT_REQUIRED
     )
     request = GeneralITRequest(
@@ -662,6 +671,19 @@ def create_general_it_request(*, center, request_type, title, description, actor
         url=reverse("maintenance:it_request_detail", args=[request.pk]),
         level="info",
     )
+    if manager_approval == GeneralITRequest.MANAGER_PENDING:
+        managers = User.objects.filter(
+            center_id=center.pk,
+            role=User.ROLE_MANAGER,
+            is_active=True,
+        )
+        Notification.push_many(
+            managers,
+            "درخواست جدید برای بررسی مدیر مرکز",
+            f"{request.number}: این درخواست در انتظار تصمیم شماست.",
+            url=reverse("maintenance:it_request_detail", args=[request.pk]),
+            level="info",
+        )
     return request
 
 
@@ -672,8 +694,18 @@ def assign_general_it_request(*, request, expert, actor):
     if expert.role != User.ROLE_ADMIN_IT or not expert.is_active or expert.center_id != request.center_id:
         raise ValidationError("کارشناس انتخاب‌شده باید فعال و متعلق به همان مرکز باشد.")
     request = GeneralITRequest.objects.select_for_update().get(pk=request.pk)
-    if request.status not in (GeneralITRequest.STATUS_NEW, GeneralITRequest.STATUS_ASSIGNED):
-        raise ValidationError("فقط درخواست جدید یا ارجاع‌شده قابل تخصیص یا ارجاع مجدد است.")
+    if request.manager_approval in (
+        GeneralITRequest.MANAGER_PENDING,
+        GeneralITRequest.MANAGER_REJECTED,
+        GeneralITRequest.MANAGER_BYPASSED,
+    ):
+        raise ValidationError("تا تعیین تکلیف تایید مدیر، امکان تخصیص درخواست وجود ندارد.")
+    if request.status not in (
+        GeneralITRequest.STATUS_NEW,
+        GeneralITRequest.STATUS_APPROVED,
+        GeneralITRequest.STATUS_ASSIGNED,
+    ):
+        raise ValidationError("فقط درخواست جدید، تاییدشده یا ارجاع‌شده قابل تخصیص است.")
     if request.status == GeneralITRequest.STATUS_ASSIGNED and request.assigned_to_id == expert.pk:
         return request
     previous_expert = request.assigned_to
