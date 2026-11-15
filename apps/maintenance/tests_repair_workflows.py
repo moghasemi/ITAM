@@ -5,6 +5,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -304,6 +305,76 @@ class RepairAndReferralWorkflowTests(TestCase):
         self.assertEqual(request.manager_approval, GeneralITRequest.MANAGER_APPROVED)
         request = escalate_general_it_request(request=request, actor=self.it_expert)
         self.assertEqual(request.status, GeneralITRequest.STATUS_ESCALATED)
+
+    def test_province_admin_cannot_complete_repair_for_a_center(self):
+        repair = self._repair()
+        repair = decide_repair_request(
+            repair=repair, decision="approve", note="تایید برآورد",
+            actor=self.province_admin,
+        )
+
+        with self.assertRaises(PermissionDenied):
+            complete_repair_request(
+                repair=repair, actor=self.province_admin,
+                outcome="تعمیر انجام شد", final_cost=Decimal("500000"),
+                work_quality=5, completion_speed=5, cost_fairness=5,
+            )
+
+        repair.refresh_from_db()
+        self.assertEqual(repair.status, RepairRequest.STATUS_APPROVED)
+        self.assertFalse(RepairFeedback.objects.filter(repair_request=repair).exists())
+
+    def test_center_it_repairer_list_statistics_are_center_scoped(self):
+        own_repair = self._repair()
+        own_repair = decide_repair_request(
+            repair=own_repair, decision="approve", note="تایید",
+            actor=self.province_admin,
+        )
+        complete_repair_request(
+            repair=own_repair, actor=self.it_expert, outcome="تعمیر مرکز خود",
+            final_cost=Decimal("500000"), work_quality=4,
+            completion_speed=3, cost_fairness=2,
+        )
+
+        other_county = OrganizationalUnit.objects.create(
+            name="شهرستان دیگر", code="WF-COUNTY-STATS-OTHER",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
+        )
+        other_center = Center.objects.create(
+            name="مرکز دیگر برای آمار", code="WF-CENTER-STATS-OTHER",
+            parent_unit=other_county, is_demo=True,
+        )
+        other_expert = User.objects.create_user(
+            username="wf-other-center-stats", password="test-password",
+            role=User.ROLE_ADMIN_IT, center=other_center,
+        )
+        other_asset = Asset.objects.create(
+            asset_tag="WF-ASSET-STATS-OTHER", title="کیس مرکز دیگر",
+            category=self.category, center=other_center,
+        )
+        other_repair = create_repair_request(
+            center=other_center, asset=other_asset, repairer=self.repairer,
+            fault_description="خرابی مرکز دیگر", referral_reason="ارجاع نمونه",
+            estimate_amount=Decimal("500000"), actor=other_expert,
+        )
+        other_repair = decide_repair_request(
+            repair=other_repair, decision="approve", note="تایید",
+            actor=self.province_admin,
+        )
+        complete_repair_request(
+            repair=other_repair, actor=other_expert, outcome="تعمیر مرکز دیگر",
+            final_cost=Decimal("500000"), work_quality=1,
+            completion_speed=1, cost_fairness=1,
+        )
+
+        self.client.force_login(self.it_expert)
+        response = self.client.get(reverse("maintenance:repairer_list"))
+        self.assertEqual(response.status_code, 200)
+        row = response.context["rows"].get(pk=self.repairer.pk)
+        self.assertEqual(row.repair_count, 1)
+        self.assertAlmostEqual(row.average_quality, 4.0)
+        self.assertAlmostEqual(row.average_speed, 3.0)
+        self.assertAlmostEqual(row.average_cost_fairness, 2.0)
 
     def test_center_it_only_sees_feedback_for_its_own_center(self):
         own_repair = self._repair()
