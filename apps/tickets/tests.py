@@ -609,5 +609,5 @@ class TicketWorkflowTests(TestCase):
             reverse("tickets:attachment_download", args=[foreign_attachment.pk])
         )
         self.assertEqual(own_response.status_code, 200)
-        self.assertEqual(foreign_response.status_code, 403)
+        self.assertEqual(foreign_response.status_code, 404)
 

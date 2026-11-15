@@ -414,13 +414,13 @@ def ticket_add_part(request, pk: int):
 
 @login_required
 def ticket_attachment_download(request, pk: int):
-    """Serve ticket files only when the requester can view the owning ticket."""
+    """Serve ticket files only when the owning ticket is visible to the user."""
     attachment = get_object_or_404(
-        TicketAttachment.objects.select_related("ticket"),
+        TicketAttachment.objects.select_related("ticket").filter(
+            ticket__in=visible_tickets(request.user)
+        ),
         pk=pk,
     )
-    if not visible_tickets(request.user).filter(pk=attachment.ticket_id).exists():
-        raise PermissionDenied("این پیوست متعلق به درخواستی خارج از دامنه مجاز شماست.")
     if not attachment.file:
         raise Http404("فایل پیوست موجود نیست.")
     filename = attachment.file.name.rsplit("/", 1)[-1]
@@ -432,9 +432,11 @@ def ticket_attachment_download(request, pk: int):
         content_type=content_type or "application/octet-stream",
     )
     response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
     return response
 
 
+@login_required
 def ticket_add_attachment(request, pk: int):
     form = TicketAttachmentForm(request.POST or None, request.FILES or None)
     ticket = get_object_or_404(visible_tickets(request.user), pk=pk)

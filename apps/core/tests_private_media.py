@@ -12,6 +12,14 @@ from apps.core.views import private_media
 
 
 class PrivateMediaAuthorizationTests(TestCase):
+    def test_media_url_resolves_to_authorized_private_view(self):
+        from django.urls import resolve
+        from apps.core.views import private_media
+
+        match = resolve("/media/assets/private-test.pdf")
+        self.assertEqual(match.url_name, "private_media")
+        self.assertIs(match.func, private_media)
+
     def setUp(self):
         self.temp_media = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_media.cleanup)
@@ -117,7 +125,7 @@ class PrivateMediaAuthorizationTests(TestCase):
             request.user = self.user_a
             response = private_media(request, path)
             self.assertEqual(response.status_code, 200, path)
-            response.close()
+            response.file_to_stream.close()
 
     def test_other_center_staff_cannot_download_repair_or_referral_documents(self):
         paths = [
@@ -139,7 +147,7 @@ class PrivateMediaAuthorizationTests(TestCase):
         request.user = self.user_b
         response = private_media(request, path)
         self.assertEqual(response.status_code, 200)
-        response.close()
+        response.file_to_stream.close()
 
     def test_technician_cannot_download_misbound_hardware_or_visit_photos(self):
         import datetime as dt

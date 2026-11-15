@@ -1,5 +1,7 @@
 from django.core.management import call_command
+from django.db import connection
 from django.test import TestCase, override_settings
+from unittest import skipUnless
 
 from apps.assets.models import Asset
 from apps.maintenance.repair_models import GeneralITRequest, GeneralReferral, RepairRequest
@@ -9,6 +11,7 @@ from apps.tickets.models import Ticket
 
 @override_settings(DEBUG=True)
 class SistanBaluchestanDemoSeedTests(TestCase):
+    @skipUnless(connection.vendor == "sqlite", "seed_sistan_demo is intentionally SQLite-only")
     def test_seed_creates_complete_synthetic_province_fixture_and_is_idempotent(self):
         password = "Demo-Only-Password-2026!Strong"
         call_command("seed_sistan_demo", admin_password=password, assets_per_center=4)

@@ -1060,18 +1060,19 @@ class SnapshotAccessBoundaryTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("attachment", response["Content-Disposition"])
+        self.assertEqual(response["Cache-Control"], "private, no-store")
 
     def test_it_user_cannot_download_foreign_center_attachment(self):
         response = self.client.get(
             reverse("assets:attachment_download", args=[self.attachment_b.pk])
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
 
     def test_it_user_cannot_delete_foreign_center_attachment(self):
         response = self.client.post(
             reverse("assets:attachment_delete", args=[self.attachment_b.pk])
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
         self.assertTrue(self.attachment_b.file.storage.exists(self.attachment_b.file.name))
 
     def test_snapshot_photo_download_is_limited_to_visible_asset(self):
@@ -1091,7 +1092,7 @@ class SnapshotAccessBoundaryTests(TestCase):
             reverse("assets:snapshot_file", args=[foreign.pk, "case_photo"])
         )
         self.assertEqual(own_response.status_code, 200)
-        self.assertEqual(foreign_response.status_code, 403)
+        self.assertEqual(foreign_response.status_code, 404)
 
     def test_snapshot_item_photo_download_is_limited_to_visible_asset(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -1114,7 +1115,7 @@ class SnapshotAccessBoundaryTests(TestCase):
             reverse("assets:snapshot_item_photo", args=[foreign_item.pk])
         )
         self.assertEqual(own_response.status_code, 200)
-        self.assertEqual(foreign_response.status_code, 403)
+        self.assertEqual(foreign_response.status_code, 404)
 
     def test_anonymous_user_is_denied_pending_snapshot_list(self):
         from django.test import Client
