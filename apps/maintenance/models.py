@@ -205,6 +205,8 @@ class MaintenanceVisit(TimeStampedModel):
                 "started_at",
                 "technician",
                 "technician_signature_name",
+                "report_text",
+                "recommendation",
                 "updated_at",
             ]
         )
