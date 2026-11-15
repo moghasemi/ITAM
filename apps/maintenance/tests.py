@@ -2,7 +2,7 @@
 import datetime as dt
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.test import TestCase, Client
+from django.test import TestCase, Client, RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 
@@ -388,6 +388,19 @@ class ProvincialMaintenanceScopeTests(TestCase):
         form = VisitForm(user=self.provincial_admin)
         self.assertNotIn("status", form.fields)
         self.assertFalse(form.fields["contract"].queryset.filter(pk=expired.pk).exists())
+
+    def test_visit_update_form_keeps_contract_and_sequence_immutable(self):
+        request = RequestFactory().get("/maintenance/visits/")
+        request.user = self.provincial_admin
+        view = VisitUpdateView()
+        view.request = request
+        view.args = ()
+        view.kwargs = {}
+        view.object = self.visit
+        form = view.get_form()
+        self.assertNotIn("contract", form.fields)
+        self.assertNotIn("sequence_number", form.fields)
+        self.assertNotIn("status", form.fields)
 
     def test_technician_only_sees_visits_assigned_to_them_or_unassigned(self):
         technician_a = User.objects.create_user(
