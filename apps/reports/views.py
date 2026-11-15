@@ -77,8 +77,8 @@ class ReportsHomeView(StaffRequiredMixin, PageContextMixin, View):
             ).count(),
             "breached_total": tickets.filter(Q(response_met=False) | Q(resolve_met=False)).count(),
             "snapshots_total": HardwareSnapshot.objects.filter(asset__in=assets).count(),
-            "diff_alarms": HardwareSnapshot.objects.filter(
-                asset__in=assets, diff_data__has_alarm=True
+            "diff_alarms": HardwareSnapshot.objects.filter(asset__in=assets).filter(
+                Q(diff_data__removed__gt=0) | Q(diff_data__replaced__gt=0)
             ).count(),
         }
         return render(request, self.template_name, context)
