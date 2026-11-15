@@ -51,7 +51,14 @@ def visible_visits(user):
         return queryset
     if user.role == User.ROLE_ADMIN_PROVINCE:
         centers = user.get_scoped_centers()
-        province_ids = centers.values("treatment_management__province_id")
+        if (
+            user.org_unit_id
+            and user.org_unit.unit_type == "province"
+            and user.org_unit.is_active
+        ):
+            province_ids = [user.org_unit_id]
+        else:
+            province_ids = centers.values("treatment_management__province_id")
         return queryset.filter(
             Q(
                 center__in=centers,
@@ -123,7 +130,9 @@ def visible_visits(user):
         return queryset.filter(
             contractor_id=user.contractor_id,
             contract__in=active_contracts,
-        ).filter(center_visits | checked_visits).distinct()
+        ).filter(center_visits | checked_visits).filter(
+            Q(technician__isnull=True) | Q(technician=user)
+        ).distinct()
     return queryset.none()
 
 
@@ -190,6 +199,8 @@ def can_manage_visit(user, visit: MaintenanceVisit) -> bool:
         return user.get_scoped_centers().filter(pk=visit.center_id).exists()
     if user.has_role(User.ROLE_TECHNICIAN):
         centers = user.get_scoped_centers()
+        if visit.technician_id and visit.technician_id != user.pk:
+            return False
         if not user.contractor_id or visit.contract.contractor_id != user.contractor_id:
             return False
         if visit.center_id:
@@ -360,17 +371,38 @@ def start_visit(visit: MaintenanceVisit, user):
 
 
 @transaction.atomic
-def complete_visit(visit: MaintenanceVisit, user, *, report_text="", recommendation="", force=False):
+def complete_visit(
+    visit: MaintenanceVisit,
+    user,
+    *,
+    report_text="",
+    recommendation="",
+    force=False,
+    force_reason="",
+):
     if not can_manage_visit(user, visit):
         raise PermissionDenied("اجازه پایان این بازدید را ندارید.")
     if visit.status == VISIT_DONE:
         raise ValidationError("این بازدید پیش‌تر پایان یافته است.")
 
     pending = visible_checks(user, visit).filter(checked=False).count()
+    forced_reason = ""
     if pending and not force:
         raise ValidationError(
             f"{pending} برگه بازدید تکمیل نشده است. برای پایان اجباری گزینه «پایان با ناقص» را انتخاب کنید."
         )
+    if pending and force:
+        if not (
+            user.is_admin_country
+            or user.is_admin_province
+            or user.has_role(User.ROLE_ADMIN_IT)
+        ):
+            raise PermissionDenied("پایان بازدید با برگه ناقص فقط برای مدیر IT مجاز است.")
+        forced_reason = (force_reason or "").strip()
+        if not forced_reason:
+            raise ValidationError("برای پایان بازدید با برگه ناقص، ثبت علت الزامی است.")
+        reason_line = f"علت پایان با {pending} برگه تکمیل‌نشده: {forced_reason}"
+        report_text = f"{report_text.strip()}\n\n{reason_line}".strip()
 
     if report_text:
         visit.report_text = report_text
@@ -392,6 +424,8 @@ def complete_visit(visit: MaintenanceVisit, user, *, report_text="", recommendat
             "faulty_count": visit.faulty_count,
             "duration_minutes": visit.duration_minutes,
             "report_text": visit.report_text,
+            "completed_with_incomplete_checks": bool(pending and force),
+            "incomplete_checks_count": pending if force else 0,
         },
         aggregate_type="MaintenanceVisit",
         aggregate_id=visit.pk,
@@ -404,7 +438,10 @@ def complete_visit(visit: MaintenanceVisit, user, *, report_text="", recommendat
         visit.get_absolute_url(),
         level="info",
     )
-    log_action("status_change", visit, note="پایان بازدید دوره‌ای", user=user)
+    audit_note = "پایان بازدید دوره‌ای"
+    if pending and force:
+        audit_note += f" با {pending} برگه ناقص؛ علت: {forced_reason}"
+    log_action("status_change", visit, note=audit_note, user=user)
     return visit
 
 
@@ -415,6 +452,8 @@ def confirm_visit(visit: MaintenanceVisit, user, note: str = ""):
         raise PermissionDenied("تایید بازدید فقط توسط کارشناس فناوری اطلاعات مجاز همان دامنه انجام می‌شود.")
     if visit.status != VISIT_DONE:
         raise ValidationError("بازدید باید ابتدا توسط پیمانکار تکمیل شود.")
+    if visit.it_confirmed_at:
+        raise ValidationError("این بازدید قبلاً توسط کارشناس IT تایید شده است.")
     visit.it_confirmed_by = user
     visit.it_confirmed_at = timezone.now()
     visit.it_note = note[:300]
@@ -430,6 +469,8 @@ def save_check(check: VisitAssetCheck, user, *, condition=None, actions_taken=No
     """ثبت نتیجه بازدید یک تجهیز."""
     if not can_manage_visit(user, check.visit):
         raise PermissionDenied("اجازه ثبت نتیجه این برگه بازدید را ندارید.")
+    if check.visit.status == VISIT_DONE or check.visit.it_confirmed_at:
+        raise ValidationError("برگه‌های بازدید پس از پایان یا تایید نهایی قابل ویرایش نیستند.")
     if (
         not check.asset.center_id
         or not user.get_scoped_centers().filter(pk=check.asset.center_id).exists()
