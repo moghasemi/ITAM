@@ -8,7 +8,8 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.core.constants import EVENT_VISIT_PLANNED, VISIT_DONE
-from apps.core.models import Notification, OutboxEvent
+from apps.core.models import Notification
+from apps.integrations.models import OutboxEvent
 from apps.assets.models import Asset, AssetCategory
 from apps.org.models import Center, Contract, ContractCenterAssignment, Contractor, OrganizationalUnit
 
