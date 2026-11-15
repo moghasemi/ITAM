@@ -300,6 +300,7 @@ def holiday_delete(request, pk: int):
 def private_media(request, path: str):
     """Serve uploaded files only after checking the owning record's authorization."""
     from apps.accounts.models import User
+from apps.org.services import visible_contracts
     from apps.assets.models import AssetAttachment, HardwareSnapshot, SnapshotItem
     from apps.maintenance.models import VisitAssetCheck
     from apps.maintenance.services import visible_checks, visible_visits
