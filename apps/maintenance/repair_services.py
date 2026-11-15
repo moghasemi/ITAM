@@ -383,7 +383,9 @@ def resubmit_repair_request(*, repair, actor, fault_description=None,
 def complete_repair_request(*, repair, outcome, final_cost, actor,
                             work_quality, completion_speed, cost_fairness,
                             comment="", completion_attachment=None, final_cost_reason=""):
-    if not _can_manage_center(actor, repair.center) or not actor.has_role(User.ROLE_ADMIN_IT):
+    if not _can_manage_center(actor, repair.center) or (
+        actor.role != User.ROLE_ADMIN_IT and not actor.is_admin_country
+    ):
         raise PermissionDenied("ثبت نتیجه تعمیر فقط برای کارشناس IT همان مرکز مجاز است.")
     repair = RepairRequest.objects.select_for_update().get(pk=repair.pk)
     if repair.status != RepairRequest.STATUS_APPROVED:
