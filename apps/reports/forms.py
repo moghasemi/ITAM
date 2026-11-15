@@ -6,6 +6,7 @@ from django import forms
 from apps.core.constants import FAILURE_TYPE_CHOICES, PRIORITY_CHOICES, TICKET_STATUS_CHOICES
 from apps.core.forms import JalaliDateField, StyledForm
 from apps.org.models import Contract, Contractor, Department
+from apps.org.services import visible_contracts
 
 
 class ReportFilterForm(StyledForm):
@@ -51,10 +52,7 @@ class ReportFilterForm(StyledForm):
             self.fields["department"].queryset = Department.objects.none()
             return
         scoped_centers = user.get_scoped_centers()
-        province_ids = scoped_centers.values("treatment_management__province_id")
-        scoped_contracts = Contract.objects.filter(
-            province_id__in=province_ids
-        ).distinct()
+        scoped_contracts = visible_contracts(user)
         self.fields["contract"].queryset = scoped_contracts
         self.fields["contractor"].queryset = Contractor.objects.filter(
             pk__in=scoped_contracts.values("contractor_id")
