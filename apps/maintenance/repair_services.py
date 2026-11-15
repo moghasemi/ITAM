@@ -736,6 +736,8 @@ def manager_decide_general_it_request(*, request, decision, note, actor):
     if actor.role != User.ROLE_MANAGER or actor.center_id != request.center_id:
         raise PermissionDenied("فقط مدیر همان مرکز می‌تواند درخواست را بررسی کند.")
     request = GeneralITRequest.objects.select_for_update().get(pk=request.pk)
+    if request.requested_by_id == actor.pk:
+        raise PermissionDenied("ثبت‌کننده درخواست نمی‌تواند درخواست خودش را بررسی کند.")
     if request.manager_approval != GeneralITRequest.MANAGER_PENDING:
         raise ValidationError("درخواست قبلاً توسط مدیر بررسی شده است.")
     if decision not in {"approve", "reject"}:
