@@ -478,6 +478,8 @@ def create_referral(*, subject, description, recipient_role, recipient_name,
         province = OrganizationalUnit.objects.filter(
             pk=province_id, unit_type=OrganizationalUnit.UNIT_PROVINCE
         ).first()
+    if recipient_user and not recipient_user.is_active:
+        raise ValidationError("کاربر گیرنده ارجاع غیرفعال است.")
     if recipient_user and province_id and not _is_country_admin(actor):
         if _province_id_for_user(recipient_user) != province_id:
             raise PermissionDenied("گیرنده ارجاع باید در همان استان مسئول باشد.")
