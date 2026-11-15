@@ -10,7 +10,8 @@ import json
 import mimetypes
 import time
 import hashlib
-from datetime import datetime, timezone as dt_timezone
+import re
+from datetime import datetime, timezone as dt_timezone, timedelta
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.db import IntegrityError, transaction
@@ -18,6 +19,8 @@ import uuid
 import logging
 
 logger = logging.getLogger(__name__)
+
+MAX_HWAGENT_PAYLOAD_BYTES = 2 * 1024 * 1024
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -37,6 +40,7 @@ from apps.core.mixins import (
     apply_search,
 )
 from apps.core.models import SystemSetting
+from apps.core.middleware import client_ip
 from apps.core.utils import log_action
 
 from .forms import (
@@ -823,10 +827,24 @@ def api_hwagent_sync(request):
     """
     start_time = time.time()
     tracking_id = uuid.uuid4().hex[:12]
-    remote_ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip() or request.META.get("REMOTE_ADDR")
+    remote_ip = client_ip(request)
 
     if request.method != "POST":
         return JsonResponse({"status": "error", "error": "فقط متد POST مجاز است."}, status=405)
+
+    content_length = request.META.get("CONTENT_LENGTH", "")
+    if content_length:
+        try:
+            if int(content_length) > MAX_HWAGENT_PAYLOAD_BYTES:
+                return JsonResponse(
+                    {"status": "error", "error": "حجم داده ارسالی بیش از حد مجاز است."},
+                    status=413,
+                )
+        except ValueError:
+            return JsonResponse(
+                {"status": "error", "error": "طول درخواست نامعتبر است."},
+                status=400,
+            )
 
     try:
         # ۱. استخراج و اعتبارسنجی هدر Authorization
@@ -838,6 +856,11 @@ def api_hwagent_sync(request):
             )
 
         raw_token = auth_header[7:].strip()
+        if not raw_token or len(raw_token) > 256:
+            return JsonResponse(
+                {"status": "error", "error": "اعتبارنامه نامعتبر است."},
+                status=401,
+            )
         agent = AgentCredential.verify_token(raw_token)
         if not agent:
             AgentSyncAuditLog.objects.create(
@@ -856,7 +879,7 @@ def api_hwagent_sync(request):
 
         # ۲. بررسی هدر Timestamp و مقابله با انحراف ساعت (Anti-Clock Skew)
         timestamp_header = request.headers.get("X-ITAM-Timestamp") or request.META.get("HTTP_X_ITAM_TIMESTAMP", "")
-        if not timestamp_header:
+        if not timestamp_header or len(timestamp_header) > 64:
             AgentSyncAuditLog.objects.create(
                 agent=agent,
                 center=agent.center,
@@ -912,6 +935,27 @@ def api_hwagent_sync(request):
                 {"status": "error", "error": "هدر شناسه یکتای درخواست (X-ITAM-Nonce) الزامی است."},
                 status=401,
             )
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", nonce):
+            AgentSyncAuditLog.objects.create(
+                agent=agent,
+                center=agent.center,
+                remote_ip=remote_ip,
+                http_status=400,
+                success=False,
+                rejection_reason="قالب یا طول Nonce نامعتبر است.",
+                execution_duration_ms=int((time.time() - start_time) * 1000),
+            )
+            return JsonResponse(
+                {"status": "error", "error": "شناسه یکتای درخواست نامعتبر است."},
+                status=400,
+            )
+
+        # Nonceهای خارج از پنجره ضدتکرار نگهداری نمی‌شوند؛ Timestamp قدیمی‌تر
+        # از ۳۰۰ ثانیه پیش‌تر رد شده و دیگر برای جلوگیری از Replay لازم نیست.
+        nonce_cutoff = timezone.now() - timedelta(minutes=10)
+        AgentNonce.objects.filter(
+            agent=agent, created_at__lt=nonce_cutoff
+        ).delete()
 
         # درج اتمیک Nonce جهت پیشگیری قطعی از شرایط رقابتی همزمان (Race Condition)
         try:
@@ -934,6 +978,20 @@ def api_hwagent_sync(request):
 
         # ۴. دریافت بدنه درخواست و محاسبه هش
         raw_body = request.body
+        if len(raw_body) > MAX_HWAGENT_PAYLOAD_BYTES:
+            AgentSyncAuditLog.objects.create(
+                agent=agent,
+                center=agent.center,
+                remote_ip=remote_ip,
+                http_status=413,
+                success=False,
+                rejection_reason="حجم داده ارسالی بیش از حد مجاز است.",
+                execution_duration_ms=int((time.time() - start_time) * 1000),
+            )
+            return JsonResponse(
+                {"status": "error", "error": "حجم داده ارسالی بیش از حد مجاز است."},
+                status=413,
+            )
         payload_hash = hashlib.sha256(raw_body).hexdigest()
         try:
             if request.content_type == "application/json" or raw_body:
@@ -953,6 +1011,22 @@ def api_hwagent_sync(request):
             )
             return JsonResponse(
                 {"status": "error", "error": "قالب ارسالی نامعتبر است (JSON غیراستاندارد)."},
+                status=400,
+            )
+
+        if not isinstance(body, dict):
+            AgentSyncAuditLog.objects.create(
+                agent=agent,
+                center=agent.center,
+                remote_ip=remote_ip,
+                http_status=400,
+                success=False,
+                rejection_reason="ساختار JSON باید یک شیء باشد.",
+                payload_hash=payload_hash,
+                execution_duration_ms=int((time.time() - start_time) * 1000),
+            )
+            return JsonResponse(
+                {"status": "error", "error": "ساختار JSON ارسالی معتبر نیست."},
                 status=400,
             )
 
