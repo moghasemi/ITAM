@@ -389,8 +389,8 @@ def complete_visit(
 ):
     if not can_manage_visit(user, visit):
         raise PermissionDenied("اجازه پایان این بازدید را ندارید.")
-    if visit.status == VISIT_DONE:
-        raise ValidationError("این بازدید پیش‌تر پایان یافته است.")
+    if visit.status in (VISIT_DONE, VISIT_CANCELED):
+        raise ValidationError("بازدید پایان‌یافته یا لغوشده قابل تکمیل نیست.")
 
     pending = visible_checks(user, visit).filter(checked=False).count()
     forced_reason = ""
@@ -476,8 +476,8 @@ def save_check(check: VisitAssetCheck, user, *, condition=None, actions_taken=No
     """ثبت نتیجه بازدید یک تجهیز."""
     if not can_manage_visit(user, check.visit):
         raise PermissionDenied("اجازه ثبت نتیجه این برگه بازدید را ندارید.")
-    if check.visit.status == VISIT_DONE or check.visit.it_confirmed_at:
-        raise ValidationError("برگه‌های بازدید پس از پایان یا تایید نهایی قابل ویرایش نیستند.")
+    if check.visit.status in (VISIT_DONE, VISIT_CANCELED) or check.visit.it_confirmed_at:
+        raise ValidationError("برگه‌های بازدید پس از پایان، لغو یا تایید نهایی قابل ویرایش نیستند.")
     if (
         not check.asset.center_id
         or not user.get_scoped_centers().filter(pk=check.asset.center_id).exists()
