@@ -380,8 +380,6 @@ def start_visit(visit: MaintenanceVisit, user):
     return visit
 
 
-@transaction.atomic
-
 def can_force_complete_visit(user):
     return bool(
         user
@@ -393,6 +391,8 @@ def can_force_complete_visit(user):
         )
     )
 
+
+@transaction.atomic
 def complete_visit(
     visit: MaintenanceVisit,
     user,
