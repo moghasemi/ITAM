@@ -17,7 +17,7 @@ from apps.core.constants import (
 )
 from apps.core.mixins import BaseListView, PageContextMixin, apply_search
 from apps.core.utils import log_action
-from apps.core.models import OutboxEvent
+from apps.integrations.models import OutboxEvent
 from apps.org.services import visible_contracts
 
 from .forms import (
