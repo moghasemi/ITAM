@@ -28,6 +28,7 @@ from django.views.generic import CreateView, DetailView, UpdateView
 
 from apps.accounts.permissions import (
     AdminItRequiredMixin,
+    CountryAdminRequiredMixin,
     AnyRoleRequiredMixin,
     RepairStaffRequiredMixin,
 )
@@ -596,7 +597,7 @@ def attachment_delete(request, pk: int):
 # ---------------------------------------------------------------------------
 # گونه‌های دارایی و قطعات
 # ---------------------------------------------------------------------------
-class CategoryListView(AdminItRequiredMixin, BaseListView):
+class CategoryListView(CountryAdminRequiredMixin, BaseListView):
     model = AssetCategory
     template_name = "assets/category_list.html"
     page_title = "گونه‌های دارایی"
@@ -607,7 +608,7 @@ class CategoryListView(AdminItRequiredMixin, BaseListView):
         return AssetCategory.objects.annotate(assets_total=Count("assets", distinct=True)).order_by("name")
 
 
-class CategoryCreateView(AdminItRequiredMixin, BaseCreateView):
+class CategoryCreateView(CountryAdminRequiredMixin, BaseCreateView):
     model = AssetCategory
     form_class = CategoryForm
     template_name = "assets/simple_form.html"
@@ -617,7 +618,7 @@ class CategoryCreateView(AdminItRequiredMixin, BaseCreateView):
     success_message = "گونه دارایی ثبت شد."
 
 
-class CategoryUpdateView(AdminItRequiredMixin, BaseUpdateView):
+class CategoryUpdateView(CountryAdminRequiredMixin, BaseUpdateView):
     model = AssetCategory
     form_class = CategoryForm
     template_name = "assets/simple_form.html"
@@ -626,7 +627,7 @@ class CategoryUpdateView(AdminItRequiredMixin, BaseUpdateView):
     success_url = reverse_lazy("assets:category_list")
 
 
-class ComponentTypeListView(AdminItRequiredMixin, BaseListView):
+class ComponentTypeListView(CountryAdminRequiredMixin, BaseListView):
     model = ComponentType
     template_name = "assets/component_type_list.html"
     page_title = "گونه‌های قطعه سخت‌افزاری"
@@ -639,7 +640,7 @@ class ComponentTypeListView(AdminItRequiredMixin, BaseListView):
         )
 
 
-class ComponentTypeCreateView(AdminItRequiredMixin, BaseCreateView):
+class ComponentTypeCreateView(CountryAdminRequiredMixin, BaseCreateView):
     model = ComponentType
     form_class = ComponentTypeForm
     template_name = "assets/simple_form.html"
@@ -649,7 +650,7 @@ class ComponentTypeCreateView(AdminItRequiredMixin, BaseCreateView):
     success_message = "گونه قطعه ثبت شد."
 
 
-class ComponentTypeUpdateView(AdminItRequiredMixin, BaseUpdateView):
+class ComponentTypeUpdateView(CountryAdminRequiredMixin, BaseUpdateView):
     model = ComponentType
     form_class = ComponentTypeForm
     template_name = "assets/simple_form.html"
@@ -686,6 +687,7 @@ def hardware_change_report(request):
 # ---------------------------------------------------------------------------
 # ادغام ایجنت سخت‌افزاری HWAgent
 # ---------------------------------------------------------------------------
+@login_required
 def asset_hwagent_upload(request, asset_pk: int):
     """بارگذاری مستقیم فایل JSON خروجی HWAgent برای یک دارایی مشخص."""
     asset = get_object_or_404(visible_assets(request.user), pk=asset_pk)
@@ -709,6 +711,12 @@ def asset_hwagent_upload(request, asset_pk: int):
 
     if not json_file and not raw_content:
         messages.error(request, "لطفاً یک فایل JSON انتخاب کنید یا محتوای آن را الصاق نمایید.")
+        return redirect("assets:hwagent_upload", asset_pk=asset.pk)
+    if json_file and json_file.size > MAX_HWAGENT_PAYLOAD_BYTES:
+        messages.error(request, "حجم فایل JSON از حد مجاز ۲ مگابایت بیشتر است.")
+        return redirect("assets:hwagent_upload", asset_pk=asset.pk)
+    if raw_content and len(raw_content.encode("utf-8")) > MAX_HWAGENT_PAYLOAD_BYTES:
+        messages.error(request, "حجم محتوای JSON از حد مجاز ۲ مگابایت بیشتر است.")
         return redirect("assets:hwagent_upload", asset_pk=asset.pk)
 
     try:
@@ -741,6 +749,7 @@ def asset_hwagent_upload(request, asset_pk: int):
         return redirect("assets:hwagent_upload", asset_pk=asset.pk)
 
 
+@login_required
 def hwagent_batch_import(request):
     """بارگذاری دسته‌ای فایل‌های JSON تولید شده توسط HWAgent با اعتبارسنجی قطعی دامنه مرکز."""
     if not (request.user.is_superuser or request.user.has_role("admin_it", "admin_province", "admin_country", "admin_county")):
@@ -755,21 +764,27 @@ def hwagent_batch_import(request):
         if not files:
             messages.error(request, "هیچ فایلی برای بارگذاری انتخاب نشده است.")
             return redirect("assets:hwagent_batch_import")
+        if any(getattr(upload, "size", 0) > MAX_HWAGENT_PAYLOAD_BYTES for upload in files):
+            messages.error(request, "هر فایل JSON باید حداکثر ۲ مگابایت باشد.")
+            return redirect("assets:hwagent_batch_import")
 
         # استخراج مرکز منحصراً بر اساس دامنه احراز هویت شده کاربر
         if request.user.is_superuser or request.user.has_role("admin_country", "admin_province", "admin_county"):
             center_id = request.POST.get("center")
-            if center_id:
-                center = scoped_centers.filter(pk=center_id).first()
-                if not center:
-                    raise PermissionDenied("مرکز انتخاب‌شده خارج از دامنه مجاز شما است.")
-            else:
-                center = getattr(request.user, "center", None) or scoped_centers.first()
+            if not center_id:
+                raise PermissionDenied("برای بارگذاری دسته‌ای باید مرکز مقصد را صریحاً انتخاب کنید.")
+            try:
+                center_id = int(center_id)
+            except (TypeError, ValueError):
+                raise PermissionDenied("شناسه مرکز مقصد معتبر نیست.")
+            center = scoped_centers.filter(pk=center_id).first()
+            if not center:
+                raise PermissionDenied("مرکز انتخاب‌شده خارج از دامنه مجاز شما است.")
         else:
             # برای کارشناس مرکز، مقدار ارسالی فرم کلاینت نادیده گرفته شده و صرفاً مرکز خود کاربر اعمال می‌شود
-            center = request.user.center
+            center = scoped_centers.filter(pk=request.user.center_id).first() if request.user.center_id else None
             if not center:
-                raise PermissionDenied("کاربر به هیچ مرکزی منتسب نشده است.")
+                raise PermissionDenied("مرکز عملیاتی فعال و مجاز برای کاربر پیدا نشد.")
 
         auto_create = request.POST.get("auto_create") == "on"
 
@@ -798,6 +813,7 @@ def hwagent_batch_import(request):
             {
                 "results": results,
                 "centers": scoped_centers,
+                "selected_center": center,
                 "page_title": "نتیجه بارگذاری دسته‌ای HWAgent",
                 "active_menu": "assets",
             },
@@ -808,6 +824,10 @@ def hwagent_batch_import(request):
         "assets/hwagent_batch_import.html",
         {
             "centers": scoped_centers,
+            "selected_center": (
+                scoped_centers.filter(pk=request.user.center_id).first()
+                if request.user.center_id else None
+            ),
             "page_title": "بارگذاری دسته‌ای فایل‌های HWAgent",
             "active_menu": "assets",
         },
@@ -875,6 +895,36 @@ def api_hwagent_sync(request):
             return JsonResponse(
                 {"status": "error", "error": "اعتبارنامه نامعتبر است یا منقضی/ابطال شده است."},
                 status=401,
+            )
+
+        # اعتبارنامه به یک مرکز عملیاتی فعال و دارای زنجیره جغرافیایی معتبر مقید است.
+        center = agent.center
+        center_is_operational = bool(
+            center
+            and center.is_active
+            and center.parent_unit_id
+            and center.parent_unit.is_active
+            and center.parent_unit.unit_type == "county"
+            and center.parent_unit.parent_id
+            and center.parent_unit.parent.is_active
+            and center.parent_unit.parent.unit_type == "province"
+            and center.treatment_management_id
+            and center.treatment_management.is_active
+            and center.treatment_management.province_id == center.parent_unit.parent_id
+        )
+        if not center_is_operational:
+            AgentSyncAuditLog.objects.create(
+                agent=agent,
+                center=center,
+                remote_ip=remote_ip,
+                http_status=403,
+                success=False,
+                rejection_reason="مرکز متصل به اعتبارنامه غیرفعال یا فاقد زنجیره سازمانی معتبر است.",
+                execution_duration_ms=int((time.time() - start_time) * 1000),
+            )
+            return JsonResponse(
+                {"status": "error", "error": "مرکز متصل به این اعتبارنامه فعال یا معتبر نیست."},
+                status=403,
             )
 
         # ۲. بررسی هدر Timestamp و مقابله با انحراف ساعت (Anti-Clock Skew)

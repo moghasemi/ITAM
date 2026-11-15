@@ -139,18 +139,15 @@ def visible_repair_feedback(user):
         return RepairFeedback.objects.select_related(
             "repairer", "center", "author", "repair_request"
         )
-    province_ids = user.get_scoped_centers().values("treatment_management__province_id")
-    # Provincial IT experts and the provincial IT head can review all feedback
-    # in their province; center experts are limited to their assigned centers.
-    if (user.is_admin_province or user.role == User.ROLE_ADMIN_IT) and _province_id_for_user(user):
+    # Only province/country administrators may review feedback across a
+    # province. Center IT experts remain limited to their own assigned centers.
+    if user.is_admin_province and _province_id_for_user(user):
         return RepairFeedback.objects.filter(
             center__treatment_management__province_id=_province_id_for_user(user)
         ).select_related("repairer", "center", "author", "repair_request")
     return RepairFeedback.objects.filter(
         center__in=user.get_scoped_centers()
     ).select_related("repairer", "center", "author", "repair_request")
-
-
 def set_repairer_active(*, repairer, active, reason, actor):
     if not reason or not reason.strip():
         raise ValidationError("برای فعال یا غیرفعال کردن تعمیرکار، ثبت دلیل الزامی است.")
@@ -386,7 +383,9 @@ def resubmit_repair_request(*, repair, actor, fault_description=None,
 def complete_repair_request(*, repair, outcome, final_cost, actor,
                             work_quality, completion_speed, cost_fairness,
                             comment="", completion_attachment=None, final_cost_reason=""):
-    if not _can_manage_center(actor, repair.center) or not actor.has_role(User.ROLE_ADMIN_IT):
+    if not _can_manage_center(actor, repair.center) or (
+        actor.role != User.ROLE_ADMIN_IT and not actor.is_admin_country
+    ):
         raise PermissionDenied("ثبت نتیجه تعمیر فقط برای کارشناس IT همان مرکز مجاز است.")
     repair = RepairRequest.objects.select_for_update().get(pk=repair.pk)
     if repair.status != RepairRequest.STATUS_APPROVED:
@@ -638,9 +637,18 @@ def create_general_it_request(*, center, request_type, title, description, actor
         raise PermissionDenied("ثبت درخواست برای این مرکز مجاز نیست.")
     if asset and asset.center_id != center.pk:
         raise ValidationError("دارایی باید متعلق به همان مرکز باشد.")
+    manager_review_required = request_type in (
+        GeneralITRequest.TYPE_EQUIPMENT,
+        GeneralITRequest.TYPE_REPLACEMENT,
+    )
+    has_active_manager = User.objects.filter(
+        center_id=center.pk,
+        role=User.ROLE_MANAGER,
+        is_active=True,
+    ).exclude(pk=actor.pk).exists()
     manager_approval = (
         GeneralITRequest.MANAGER_PENDING
-        if request_type in (GeneralITRequest.TYPE_EQUIPMENT, GeneralITRequest.TYPE_REPLACEMENT)
+        if manager_review_required and has_active_manager
         else GeneralITRequest.MANAGER_NOT_REQUIRED
     )
     request = GeneralITRequest(
@@ -663,6 +671,19 @@ def create_general_it_request(*, center, request_type, title, description, actor
         url=reverse("maintenance:it_request_detail", args=[request.pk]),
         level="info",
     )
+    if manager_approval == GeneralITRequest.MANAGER_PENDING:
+        managers = User.objects.filter(
+            center_id=center.pk,
+            role=User.ROLE_MANAGER,
+            is_active=True,
+        ).exclude(pk=actor.pk)
+        Notification.push_many(
+            managers,
+            "درخواست جدید برای بررسی مدیر مرکز",
+            f"{request.number}: این درخواست در انتظار تصمیم شماست.",
+            url=reverse("maintenance:it_request_detail", args=[request.pk]),
+            level="info",
+        )
     return request
 
 
@@ -673,8 +694,18 @@ def assign_general_it_request(*, request, expert, actor):
     if expert.role != User.ROLE_ADMIN_IT or not expert.is_active or expert.center_id != request.center_id:
         raise ValidationError("کارشناس انتخاب‌شده باید فعال و متعلق به همان مرکز باشد.")
     request = GeneralITRequest.objects.select_for_update().get(pk=request.pk)
-    if request.status not in (GeneralITRequest.STATUS_NEW, GeneralITRequest.STATUS_ASSIGNED):
-        raise ValidationError("فقط درخواست جدید یا ارجاع‌شده قابل تخصیص یا ارجاع مجدد است.")
+    if request.manager_approval in (
+        GeneralITRequest.MANAGER_PENDING,
+        GeneralITRequest.MANAGER_REJECTED,
+        GeneralITRequest.MANAGER_BYPASSED,
+    ):
+        raise ValidationError("تا تعیین تکلیف تایید مدیر، امکان تخصیص درخواست وجود ندارد.")
+    if request.status not in (
+        GeneralITRequest.STATUS_NEW,
+        GeneralITRequest.STATUS_APPROVED,
+        GeneralITRequest.STATUS_ASSIGNED,
+    ):
+        raise ValidationError("فقط درخواست جدید، تاییدشده یا ارجاع‌شده قابل تخصیص است.")
     if request.status == GeneralITRequest.STATUS_ASSIGNED and request.assigned_to_id == expert.pk:
         return request
     previous_expert = request.assigned_to
@@ -705,6 +736,8 @@ def manager_decide_general_it_request(*, request, decision, note, actor):
     if actor.role != User.ROLE_MANAGER or actor.center_id != request.center_id:
         raise PermissionDenied("فقط مدیر همان مرکز می‌تواند درخواست را بررسی کند.")
     request = GeneralITRequest.objects.select_for_update().get(pk=request.pk)
+    if request.requested_by_id == actor.pk:
+        raise PermissionDenied("ثبت‌کننده درخواست نمی‌تواند درخواست خودش را بررسی کند.")
     if request.manager_approval != GeneralITRequest.MANAGER_PENDING:
         raise ValidationError("درخواست قبلاً توسط مدیر بررسی شده است.")
     if decision not in {"approve", "reject"}:
@@ -746,25 +779,43 @@ def escalate_general_it_request(*, request, actor, bypass_reason=""):
         raise PermissionDenied("فقط کارشناس IT همان مرکز می‌تواند درخواست را به استان ارسال کند.")
     request = GeneralITRequest.objects.select_for_update().get(pk=request.pk)
     if request.status in (
-        GeneralITRequest.STATUS_REJECTED,
         GeneralITRequest.STATUS_RESOLVED,
         GeneralITRequest.STATUS_ESCALATED,
     ):
-        raise ValidationError("درخواست ردشده، ارسال‌شده یا مختومه قابل ارسال مجدد نیست.")
-    if request.manager_approval == GeneralITRequest.MANAGER_REJECTED:
-        raise ValidationError("درخواست توسط مدیر مرکز رد شده و قابل ارجاع نیست.")
-    if request.manager_approval == GeneralITRequest.MANAGER_PENDING:
+        raise ValidationError("درخواست ارسال‌شده یا مختومه قابل ارسال مجدد نیست.")
+    if request.status == GeneralITRequest.STATUS_REJECTED and (
+        request.manager_approval != GeneralITRequest.MANAGER_REJECTED
+    ):
+        raise ValidationError("وضعیت رد درخواست با وضعیت بررسی مدیر سازگار نیست.")
+
+    approval_before_escalation = request.manager_approval
+    if request.manager_approval in (
+        GeneralITRequest.MANAGER_PENDING,
+        GeneralITRequest.MANAGER_REJECTED,
+    ):
         if not (bypass_reason or "").strip():
-            raise ValidationError("عبور از تایید مدیر مرکز نیازمند ثبت دلیل است.")
+            raise ValidationError("عبور از تصمیم مدیر مرکز نیازمند ثبت دلیل است.")
         request.manager_approval = GeneralITRequest.MANAGER_BYPASSED
         request.manager_bypass_reason = bypass_reason.strip()
     request.status = GeneralITRequest.STATUS_ESCALATED
     request.save(update_fields=[
         "status", "manager_approval", "manager_bypass_reason", "updated_at",
     ])
+    escalation_note = (
+        bypass_reason.strip()
+        if approval_before_escalation in (
+            GeneralITRequest.MANAGER_PENDING,
+            GeneralITRequest.MANAGER_REJECTED,
+        )
+        else (
+            "با تایید مدیر مرکز به استان ارسال شد."
+            if approval_before_escalation == GeneralITRequest.MANAGER_APPROVED
+            else "به دلیل عدم نیاز به تایید مدیر مرکز به استان ارسال شد."
+        )
+    )
     GeneralITRequestEvent.objects.create(
         request=request, action="escalated",
-        note=(bypass_reason.strip() if bypass_reason else "با تایید مدیر مرکز به استان ارسال شد."),
+        note=escalation_note,
         actor=actor,
     )
     province_admins = User.objects.filter(

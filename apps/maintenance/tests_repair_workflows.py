@@ -5,6 +5,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -290,6 +291,41 @@ class RepairAndReferralWorkflowTests(TestCase):
         )
         self.assertEqual(request.status, GeneralITRequest.STATUS_RESOLVED)
 
+    def test_center_it_can_escalate_after_manager_rejection_with_reason(self):
+        request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_EQUIPMENT,
+            title="درخواست تجهیز ردشده",
+            description="درخواست نیازمند بررسی مدیر",
+            actor=self.requester,
+        )
+        request = manager_decide_general_it_request(
+            request=request, decision="reject",
+            note="در حال حاضر امکان تامین وجود ندارد.",
+            actor=self.manager,
+        )
+        with self.assertRaises(ValidationError):
+            escalate_general_it_request(request=request, actor=self.it_expert)
+        escalated = escalate_general_it_request(
+            request=request, actor=self.it_expert,
+            bypass_reason="نیاز عملیاتی مرکز و ضرورت بررسی استانی",
+        )
+        self.assertEqual(escalated.status, GeneralITRequest.STATUS_ESCALATED)
+        self.assertEqual(
+            escalated.manager_approval,
+            GeneralITRequest.MANAGER_BYPASSED,
+        )
+        self.assertEqual(
+            escalated.manager_bypass_reason,
+            "نیاز عملیاتی مرکز و ضرورت بررسی استانی",
+        )
+        self.assertTrue(
+            escalated.events.filter(
+                action="escalated",
+                note="نیاز عملیاتی مرکز و ضرورت بررسی استانی",
+            ).exists()
+        )
+
     def test_manager_approval_is_optional_when_bypass_reason_is_recorded(self):
         request = create_general_it_request(
             center=self.center, request_type=GeneralITRequest.TYPE_REPLACEMENT,
@@ -305,7 +341,87 @@ class RepairAndReferralWorkflowTests(TestCase):
         request = escalate_general_it_request(request=request, actor=self.it_expert)
         self.assertEqual(request.status, GeneralITRequest.STATUS_ESCALATED)
 
-    def test_provincial_it_experts_can_see_all_feedback_in_their_province(self):
+    def test_province_admin_cannot_complete_repair_for_a_center(self):
+        repair = self._repair()
+        repair = decide_repair_request(
+            repair=repair, decision="approve", note="تایید برآورد",
+            actor=self.province_admin,
+        )
+
+        with self.assertRaises(PermissionDenied):
+            complete_repair_request(
+                repair=repair, actor=self.province_admin,
+                outcome="تعمیر انجام شد", final_cost=Decimal("500000"),
+                work_quality=5, completion_speed=5, cost_fairness=5,
+            )
+
+        repair.refresh_from_db()
+        self.assertEqual(repair.status, RepairRequest.STATUS_APPROVED)
+        self.assertFalse(RepairFeedback.objects.filter(repair_request=repair).exists())
+
+    def test_center_it_repairer_list_statistics_are_center_scoped(self):
+        own_repair = self._repair()
+        own_repair = decide_repair_request(
+            repair=own_repair, decision="approve", note="تایید",
+            actor=self.province_admin,
+        )
+        complete_repair_request(
+            repair=own_repair, actor=self.it_expert, outcome="تعمیر مرکز خود",
+            final_cost=Decimal("500000"), work_quality=4,
+            completion_speed=3, cost_fairness=2,
+        )
+
+        other_county = OrganizationalUnit.objects.create(
+            name="شهرستان دیگر", code="WF-COUNTY-STATS-OTHER",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
+        )
+        other_center = Center.objects.create(
+            name="مرکز دیگر برای آمار", code="WF-CENTER-STATS-OTHER",
+            parent_unit=other_county, is_demo=True,
+        )
+        other_expert = User.objects.create_user(
+            username="wf-other-center-stats", password="test-password",
+            role=User.ROLE_ADMIN_IT, center=other_center,
+        )
+        other_asset = Asset.objects.create(
+            asset_tag="WF-ASSET-STATS-OTHER", title="کیس مرکز دیگر",
+            category=self.category, center=other_center,
+        )
+        other_repair = create_repair_request(
+            center=other_center, asset=other_asset, repairer=self.repairer,
+            fault_description="خرابی مرکز دیگر", referral_reason="ارجاع نمونه",
+            estimate_amount=Decimal("500000"), actor=other_expert,
+        )
+        other_repair = decide_repair_request(
+            repair=other_repair, decision="approve", note="تایید",
+            actor=self.province_admin,
+        )
+        complete_repair_request(
+            repair=other_repair, actor=other_expert, outcome="تعمیر مرکز دیگر",
+            final_cost=Decimal("500000"), work_quality=1,
+            completion_speed=1, cost_fairness=1,
+        )
+
+        self.client.force_login(self.it_expert)
+        response = self.client.get(reverse("maintenance:repairer_list"))
+        self.assertEqual(response.status_code, 200)
+        row = response.context["rows"].get(pk=self.repairer.pk)
+        self.assertEqual(row.repair_count, 1)
+        self.assertAlmostEqual(row.average_quality, 4.0)
+        self.assertAlmostEqual(row.average_speed, 3.0)
+        self.assertAlmostEqual(row.average_cost_fairness, 2.0)
+
+    def test_center_it_only_sees_feedback_for_its_own_center(self):
+        own_repair = self._repair()
+        own_repair = decide_repair_request(
+            repair=own_repair, decision="approve", note="تایید", actor=self.province_admin,
+        )
+        complete_repair_request(
+            repair=own_repair, actor=self.it_expert, outcome="تعمیر شد",
+            final_cost=Decimal("500000"), work_quality=5,
+            completion_speed=5, cost_fairness=5,
+        )
+
         other_county = OrganizationalUnit.objects.create(
             name="زابل", code="WF-COUNTY-OTHER",
             unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
@@ -321,22 +437,26 @@ class RepairAndReferralWorkflowTests(TestCase):
             asset_tag="WF-ASSET-OTHER", title="کیس مرکز دیگر",
             category=self.category, center=other_center,
         )
-        repair = create_repair_request(
+        other_repair = create_repair_request(
             center=other_center, asset=other_asset, repairer=self.repairer,
             fault_description="خرابی نمونه", referral_reason="ارجاع نمونه",
             estimate_amount=Decimal("500000"), actor=other_expert,
         )
-        repair = decide_repair_request(
-            repair=repair, decision="approve", note="تایید", actor=self.province_admin,
+        other_repair = decide_repair_request(
+            repair=other_repair, decision="approve", note="تایید", actor=self.province_admin,
         )
         complete_repair_request(
-            repair=repair, actor=other_expert, outcome="تعمیر شد",
+            repair=other_repair, actor=other_expert, outcome="تعمیر شد",
             final_cost=Decimal("500000"), work_quality=5,
             completion_speed=5, cost_fairness=5,
         )
 
-        visible = visible_repair_feedback(self.it_expert)
-        self.assertTrue(visible.filter(repair_request=repair).exists())
+        center_visible = visible_repair_feedback(self.it_expert)
+        self.assertTrue(center_visible.filter(repair_request=own_repair).exists())
+        self.assertFalse(center_visible.filter(repair_request=other_repair).exists())
+
+        province_visible = visible_repair_feedback(self.province_admin)
+        self.assertTrue(province_visible.filter(repair_request=other_repair).exists())
 
     def test_repairer_profile_changes_are_audited_by_the_ui(self):
         from django.urls import reverse
@@ -416,6 +536,68 @@ class RepairAndReferralWorkflowTests(TestCase):
         )
         referral.refresh_from_db()
         self.assertEqual(referral.status, GeneralReferral.STATUS_RESOLVED)
+
+    def test_center_it_sees_center_and_province_level_referrals(self):
+        own_referral = create_referral(
+            subject="ارجاع مرکز خود",
+            description="پیگیری برای مرکز خود",
+            recipient_role="مسئول استان",
+            recipient_name="مسئول نمونه",
+            center=self.center,
+            actor=self.it_expert,
+            attachment=SimpleUploadedFile("own-referral.pdf", b"%PDF-1.4\\nown"),
+        )
+        province_referral = create_referral(
+            subject="ارجاع عمومی استان",
+            description="موضوع مربوط به کل استان",
+            recipient_role="مسئول استان",
+            recipient_name="مسئول نمونه",
+            actor=self.province_admin,
+            attachment=SimpleUploadedFile("province-referral.pdf", b"%PDF-1.4\\nprovince"),
+        )
+        assigned_referral = create_referral(
+            subject="ارجاع خطاب به کارشناس مرکز",
+            description="ارجاع صریح به کارشناس مرکز",
+            recipient_role="کارشناس IT مرکز",
+            recipient_name=self.it_expert.display_name,
+            recipient_user=self.it_expert,
+            actor=self.province_admin,
+        )
+
+        other_county = OrganizationalUnit.objects.create(
+            name="شهرستان دیگر ارجاع", code="WF-REF-COUNTY-OTHER",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
+        )
+        other_center = Center.objects.create(
+            name="مرکز دیگر ارجاع", code="WF-REF-CENTER-OTHER",
+            parent_unit=other_county, is_demo=True,
+        )
+        other_expert = User.objects.create_user(
+            username="wf-ref-other-center", password="test-password",
+            role=User.ROLE_ADMIN_IT, center=other_center,
+        )
+        other_referral = create_referral(
+            subject="ارجاع مرکز دیگر",
+            description="موضوع متعلق به مرکز دیگر",
+            recipient_role="مسئول استان",
+            recipient_name="مسئول نمونه",
+            center=other_center,
+            actor=other_expert,
+        )
+
+        self.client.force_login(self.it_expert)
+        response = self.client.get(reverse("maintenance:referral_list"))
+        self.assertEqual(response.status_code, 200)
+        visible_ids = {row.pk for row in response.context["rows"]}
+        self.assertIn(own_referral.pk, visible_ids)
+        self.assertIn(assigned_referral.pk, visible_ids)
+        self.assertIn(province_referral.pk, visible_ids)
+        self.assertNotIn(other_referral.pk, visible_ids)
+
+        own_file = self.client.get(f"/media/{own_referral.attachment.name}")
+        province_file = self.client.get(f"/media/{province_referral.attachment.name}")
+        self.assertEqual(own_file.status_code, 200)
+        self.assertEqual(province_file.status_code, 200)
 
     def test_province_referral_can_only_be_resolved_by_recipient_or_province_manager(self):
         referral = create_referral(
@@ -552,12 +734,15 @@ class RepairAndReferralWorkflowTests(TestCase):
             center=self.center, request_type=GeneralITRequest.TYPE_EQUIPMENT,
             title="درخواست تجهیز", description="شرح درخواست", actor=self.requester,
         )
+        request = manager_decide_general_it_request(
+            request=request, decision="approve",
+            note="تایید مدیر مرکز", actor=self.manager,
+        )
         assign_general_it_request(
             request=request, expert=self.it_expert, actor=self.it_expert,
         )
         request = escalate_general_it_request(
             request=request, actor=self.it_expert,
-            bypass_reason="فوریت درخواست",
         )
         stale_request = GeneralITRequest.objects.get(pk=request.pk)
         resolve_general_it_request(
@@ -573,6 +758,26 @@ class RepairAndReferralWorkflowTests(TestCase):
         self.assertEqual(request.status, GeneralITRequest.STATUS_RESOLVED)
         self.assertEqual(request.provincial_decision, "تامین تجهیز تایید شد.")
 
+    def test_requester_can_create_general_it_request_through_the_view(self):
+        self.client.force_login(self.requester)
+        response = self.client.post(
+            reverse("maintenance:it_request_create"),
+            {
+                "request_type": GeneralITRequest.TYPE_ISSUE,
+                "center": self.center.pk,
+                "asset": "",
+                "title": "درخواست عمومی از سمت درخواست‌کننده",
+                "description": "شرح مشکل ثبت‌شده توسط کاربر مرکز",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            GeneralITRequest.objects.filter(
+                requested_by=self.requester,
+                title="درخواست عمومی از سمت درخواست‌کننده",
+            ).exists()
+        )
+
     def test_general_it_request_creation_notifies_and_assignment_is_state_guarded(self):
         request = create_general_it_request(
             center=self.center,
@@ -582,6 +787,16 @@ class RepairAndReferralWorkflowTests(TestCase):
             actor=self.requester,
         )
         self.assertTrue(request.events.filter(action="created").exists())
+        self.assertEqual(
+            request.manager_approval,
+            GeneralITRequest.MANAGER_PENDING,
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.manager,
+                title="درخواست جدید برای بررسی مدیر مرکز",
+            ).exists()
+        )
         self.assertTrue(
             Notification.objects.filter(
                 user=self.it_expert,
@@ -594,6 +809,14 @@ class RepairAndReferralWorkflowTests(TestCase):
             password="test-password",
             role=User.ROLE_ADMIN_IT,
             center=self.center,
+        )
+        with self.assertRaises(ValidationError):
+            assign_general_it_request(
+                request=request, expert=second_expert, actor=self.it_expert,
+            )
+        request = manager_decide_general_it_request(
+            request=request, decision="approve",
+            note="تایید مدیر مرکز", actor=self.manager,
         )
         assign_general_it_request(
             request=request, expert=second_expert, actor=self.it_expert,
@@ -614,6 +837,83 @@ class RepairAndReferralWorkflowTests(TestCase):
             assign_general_it_request(
                 request=request, expert=self.it_expert, actor=self.it_expert,
             )
+
+    def test_equipment_request_skips_manager_approval_when_center_has_no_active_manager(self):
+        self.manager.is_active = False
+        self.manager.save(update_fields=["is_active"])
+
+        request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_EQUIPMENT,
+            title="درخواست تجهیز بدون مدیر فعال",
+            description="مرکز در حال حاضر مدیر فعال ندارد.",
+            actor=self.requester,
+        )
+        self.assertEqual(
+            request.manager_approval,
+            GeneralITRequest.MANAGER_NOT_REQUIRED,
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                user=self.manager,
+                title="درخواست جدید برای بررسی مدیر مرکز",
+            ).exists()
+        )
+        assigned = assign_general_it_request(
+            request=request, expert=self.it_expert, actor=self.it_expert,
+        )
+        self.assertEqual(assigned.status, GeneralITRequest.STATUS_ASSIGNED)
+
+    def test_manager_requester_cannot_self_approve_when_another_manager_exists(self):
+        second_manager = User.objects.create_user(
+            username="wf-second-manager",
+            password="test-password",
+            role=User.ROLE_MANAGER,
+            center=self.center,
+        )
+        request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_EQUIPMENT,
+            title="درخواست مدیر با مدیر دوم",
+            description="باید مدیر دیگری بررسی کند.",
+            actor=self.manager,
+        )
+        self.assertEqual(
+            request.manager_approval,
+            GeneralITRequest.MANAGER_PENDING,
+        )
+        with self.assertRaises(PermissionDenied):
+            manager_decide_general_it_request(
+                request=request, decision="approve",
+                note="تلاش برای تایید خود", actor=self.manager,
+            )
+        approved = manager_decide_general_it_request(
+            request=request, decision="approve",
+            note="تایید توسط مدیر دوم", actor=second_manager,
+        )
+        self.assertEqual(
+            approved.manager_approval,
+            GeneralITRequest.MANAGER_APPROVED,
+        )
+
+    def test_manager_who_submits_equipment_request_does_not_self_approve(self):
+        request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_EQUIPMENT,
+            title="درخواست تجهیز توسط مدیر",
+            description="مدیر مرکز خودش درخواست را ثبت کرده است.",
+            actor=self.manager,
+        )
+        self.assertEqual(
+            request.manager_approval,
+            GeneralITRequest.MANAGER_NOT_REQUIRED,
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                user=self.manager,
+                title="درخواست جدید برای بررسی مدیر مرکز",
+            ).exists()
+        )
 
     def test_issue_request_can_escalate_without_manager_bypass(self):
         request = create_general_it_request(
@@ -675,13 +975,13 @@ class RepairAndReferralWorkflowTests(TestCase):
             center=self.center, request_type=GeneralITRequest.TYPE_REPLACEMENT,
             title="جایگزینی تجهیز", description="شرح درخواست", actor=self.requester,
         )
-        assign_general_it_request(
-            request=request, expert=self.it_expert, actor=self.it_expert,
-        )
         stale_request = GeneralITRequest.objects.get(pk=request.pk)
         manager_decide_general_it_request(
             request=request, decision="approve",
             note="تایید مدیر مرکز", actor=self.manager,
+        )
+        assign_general_it_request(
+            request=request, expert=self.it_expert, actor=self.it_expert,
         )
         with self.assertRaises(ValidationError):
             manager_decide_general_it_request(

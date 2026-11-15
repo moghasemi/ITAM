@@ -2,7 +2,7 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-primary" href="{% url 'org:contractor_update' object.pk %}">ویرایش</a>
+  {% if user.is_admin_province %}<a class="btn btn-primary" href="{% url 'org:contractor_update' object.pk %}">ویرایش</a>{% endif %}
   <a class="btn btn-ghost" href="{% url 'org:contract_list' %}?contractor={{ object.pk }}">قراردادها</a>
 {% endblock %}
 

@@ -19,13 +19,13 @@
       <form method="post" enctype="multipart/form-data" class="form">
         {% csrf_token %}
 
-        {% if user.is_admin_province or user.is_superuser %}
+        {% if user.is_admin_country or user.is_admin_province or user.is_admin_county or user.is_superuser %}
           <div class="form-group">
-            <label class="form-label">مرکز مقصد (اختیاری جهت تطبیق و ثبت سیستم‌های جدید)</label>
-            <select name="center" class="input">
-              <option value="">— همه مراکز / بر مبنای دارایی موجود —</option>
+            <label class="form-label required">مرکز مقصد</label>
+            <select name="center" class="input" required>
+              <option value="">— مرکز را انتخاب کنید —</option>
               {% for c in centers %}
-                <option value="{{ c.pk }}" {% if selected_center.pk == c.pk or user_center.pk == c.pk %}selected{% endif %}>{{ c.name }} ({{ c.city|default:c.province }})</option>
+                <option value="{{ c.pk }}" {% if selected_center.pk == c.pk %}selected{% endif %}>{{ c.name }} ({{ c.city|default:c.province }})</option>
               {% endfor %}
             </select>
           </div>
