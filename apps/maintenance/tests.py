@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.core.constants import EVENT_VISIT_PLANNED, VISIT_DONE
-from apps.core.models import OutboxEvent
+from apps.core.models import Notification, OutboxEvent
 from apps.assets.models import Asset, AssetCategory
 from apps.org.models import Center, Contract, ContractCenterAssignment, Contractor, OrganizationalUnit
 
@@ -486,6 +486,12 @@ class ProvincialMaintenanceScopeTests(TestCase):
                 event_type=EVENT_VISIT_PLANNED,
                 aggregate_type="MaintenanceVisit",
                 aggregate_id=str(self.visit.pk),
+            ).exists()
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.center_it,
+                title=f"بازدید {self.visit.number} برنامه‌ریزی شد",
             ).exists()
         )
 
