@@ -103,6 +103,8 @@ class CenterForm(StyledModelForm):
 
         province_field = self.fields["province"]
         province_field.queryset = province_qs
+        if selected_province_id and not self.is_bound:
+            province_field.initial = selected_province_id
         if fixed_province_id:
             province_field.initial = fixed_province_id
             province_field.disabled = True
