@@ -81,6 +81,12 @@ def visible_repair_requests(user):
         # HWAgent/contract technicians are not independent repairers and have
         # no user-to-repairer assignment; never expose center repair requests.
         return Model.objects.none()
+    if _is_province_admin(user):
+        province_id = _province_id_for_user(user)
+        if province_id:
+            return Model.objects.filter(
+                center__treatment_management__province_id=province_id
+            )
     return Model.objects.filter(center__in=user.get_scoped_centers())
 
 
@@ -93,6 +99,12 @@ def visible_general_it_requests(user):
         return GeneralITRequest.objects.all()
     if user.role in (User.ROLE_REQUESTER, User.ROLE_TECHNICIAN):
         return GeneralITRequest.objects.filter(requested_by=user)
+    if _is_province_admin(user):
+        province_id = _province_id_for_user(user)
+        if province_id:
+            return GeneralITRequest.objects.filter(
+                center__treatment_management__province_id=province_id
+            )
     if user.role == User.ROLE_MANAGER:
         return GeneralITRequest.objects.filter(center__in=user.get_scoped_centers())
     return GeneralITRequest.objects.filter(
