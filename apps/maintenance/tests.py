@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.core.constants import EVENT_VISIT_PLANNED, VISIT_DONE
+from apps.core.constants import EVENT_VISIT_CONFIRMED, EVENT_VISIT_PLANNED, VISIT_DONE
 from apps.core.models import Notification
 from apps.integrations.models import OutboxEvent
 from apps.assets.models import Asset, AssetCategory
@@ -468,9 +468,29 @@ class ProvincialMaintenanceScopeTests(TestCase):
         self.assertIn("عدم دسترسی به تجهیز", self.visit.report_text)
 
     def test_completed_visit_cannot_be_reconfirmed_or_have_checks_edited(self):
+        technician = User.objects.create_user(
+            username="maintenance-confirmed-tech",
+            password="TestPass!9382",
+            role=User.ROLE_TECHNICIAN,
+            contractor=self.contractor,
+        )
+        self.visit.technician = technician
         self.visit.status = VISIT_DONE
-        self.visit.save(update_fields=["status", "updated_at"])
+        self.visit.save(update_fields=["technician", "status", "updated_at"])
         confirm_visit(self.visit, self.center_it, "تایید اولیه")
+        self.assertTrue(
+            OutboxEvent.objects.filter(
+                event_type=EVENT_VISIT_CONFIRMED,
+                aggregate_type="MaintenanceVisit",
+                aggregate_id=str(self.visit.pk),
+            ).exists()
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=technician,
+                title=f"گزارش بازدید {self.visit.number} تایید شد",
+            ).exists()
+        )
         with self.assertRaises(ValidationError):
             confirm_visit(self.visit, self.center_it, "تلاش برای بازنویسی تایید")
         with self.assertRaises(ValidationError):
