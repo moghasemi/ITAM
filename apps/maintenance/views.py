@@ -12,7 +12,7 @@ from django.views.generic import CreateView, DetailView, UpdateView
 
 from apps.accounts.permissions import AnyRoleRequiredMixin, ProvinceAdminRequiredMixin
 from apps.core.constants import (
-    CHECK_HEALTHY, EVENT_VISIT_PLANNED, VISIT_DONE, VISIT_PLANNED,
+    CHECK_HEALTHY, EVENT_VISIT_PLANNED, VISIT_CANCELED, VISIT_DONE, VISIT_PLANNED,
     VISIT_IN_PROGRESS, VISIT_MISSED,
 )
 from apps.core.mixins import BaseListView, PageContextMixin, apply_search
