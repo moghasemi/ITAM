@@ -84,10 +84,6 @@ class CenterForm(StyledModelForm):
             selected_province_id = fixed_province_id
         elif self.is_bound:
             selected_province_id = self.data.get(self.add_prefix("province"))
-            if selected_province_id:
-                county_qs = county_qs.filter(parent_id=selected_province_id)
-            else:
-                county_qs = county_qs.none()
         elif self.instance.pk and self.instance.parent_unit_id:
             selected_province_id = self.instance.parent_unit.parent_id
         else:
@@ -95,11 +91,9 @@ class CenterForm(StyledModelForm):
 
         if fixed_province_id:
             county_qs = county_qs.filter(parent_id=fixed_province_id)
-        elif not self.is_bound:
-            # Country administrators need the full option set on GET so the
-            # province selector can filter it without another request. On POST
-            # the queryset above is restricted to the submitted province.
-            pass
+        # Country administrators retain all active county options in the
+        # rendered form. The browser filters them by province; clean_parent_unit
+        # independently rejects any cross-province submission on the server.
 
         province_field = self.fields["province"]
         province_field.queryset = province_qs
