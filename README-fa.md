@@ -369,7 +369,7 @@ Copy-Item deploy\.env.sqlite.example .env
 
 | دستور | کار |
 |---|---|
-| `python manage.py seed_demo` | ساخت داده نمونه، کاربران و قرارداد نمونه |
+| `python manage.py seed_demo --admin-password "<strong-unique-password>"` | ساخت داده نمونه؛ فقط در SQLite توسعه و با گذرواژه صریح |
 | `python manage.py createsuperuser` | ساخت مدیر ارشد سامانه |
 | `python manage.py smoke_test` | بررسی صفحات و مسیرهای اصلی با نقش‌های آزمایشی |
 | `python manage.py test` | اجرای مجموعه کامل آزمون‌های خودکار |
