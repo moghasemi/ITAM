@@ -394,16 +394,29 @@ class PostImplementationSecurityRemediationTests(TestCase):
         nat = OrganizationalUnit.objects.create(name="کشور تست", code="OU-NAT-F1", unit_type=OrganizationalUnit.UNIT_NATIONAL)
         prv = OrganizationalUnit.objects.create(name="استان تست", code="OU-PRV-F1", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=nat)
         cnty = OrganizationalUnit.objects.create(name="شهرستان تست", code="OU-CNTY-F1", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=prv)
+        country_admin = User.objects.create_user(
+            username="country-admin-center-form", password="test-password",
+            role=User.ROLE_ADMIN_COUNTRY,
+        )
 
-        form_no_parent = CenterForm(data={"name": "مرکز آزمایشی", "code": "C-FRM-01"})
+        form_no_parent = CenterForm(
+            data={"name": "مرکز آزمایشی", "code": "C-FRM-01"},
+            user=country_admin,
+        )
         self.assertFalse(form_no_parent.is_valid())
         self.assertIn("parent_unit", form_no_parent.errors)
 
-        form_wrong_parent = CenterForm(data={"name": "مرکز با استان", "code": "C-FRM-02", "parent_unit": prv.pk})
+        form_wrong_parent = CenterForm(
+            data={"name": "مرکز با استان", "code": "C-FRM-02", "province": prv.pk, "parent_unit": prv.pk},
+            user=country_admin,
+        )
         self.assertFalse(form_wrong_parent.is_valid())
         self.assertIn("parent_unit", form_wrong_parent.errors)
 
-        form_valid = CenterForm(data={"name": "مرکز صحیح", "code": "C-FRM-03", "parent_unit": cnty.pk})
+        form_valid = CenterForm(
+            data={"name": "مرکز صحیح", "code": "C-FRM-03", "province": prv.pk, "parent_unit": cnty.pk},
+            user=country_admin,
+        )
         self.assertTrue(form_valid.is_valid(), form_valid.errors)
         created_center = form_valid.save()
         self.assertEqual(created_center.province_name, prv.name)
