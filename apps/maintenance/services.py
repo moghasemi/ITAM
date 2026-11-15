@@ -354,10 +354,13 @@ def populate_checks(visit: MaintenanceVisit, only_missing: bool = True) -> int:
     return count
 
 
+@transaction.atomic
 def mark_missed_visits(user=None) -> int:
     """نشان‌دارکردن بازدیدهای گذشته از مهلت."""
     today = timezone.localdate()
-    queryset = MaintenanceVisit.objects.filter(
+    queryset = MaintenanceVisit.objects.select_for_update(of=("self",)).select_related(
+        "contract", "contract__contractor", "technician", "center"
+    ).filter(
         status__in=[VISIT_PLANNED, VISIT_IN_PROGRESS],
         scheduled_end_date__lt=today,
     )
