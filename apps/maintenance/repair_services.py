@@ -588,9 +588,15 @@ def create_general_it_request(*, center, request_type, title, description, actor
         raise PermissionDenied("ثبت درخواست برای این مرکز مجاز نیست.")
     if asset and asset.center_id != center.pk:
         raise ValidationError("دارایی باید متعلق به همان مرکز باشد.")
+    manager_approval = (
+        GeneralITRequest.MANAGER_PENDING
+        if request_type in (GeneralITRequest.TYPE_EQUIPMENT, GeneralITRequest.TYPE_REPLACEMENT)
+        else GeneralITRequest.MANAGER_NOT_REQUIRED
+    )
     request = GeneralITRequest(
         center=center, request_type=request_type, title=(title or "").strip(),
         description=(description or "").strip(), requested_by=actor, asset=asset,
+        manager_approval=manager_approval,
     )
     request.full_clean()
     request.save()
