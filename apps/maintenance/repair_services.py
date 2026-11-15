@@ -645,7 +645,7 @@ def create_general_it_request(*, center, request_type, title, description, actor
         center_id=center.pk,
         role=User.ROLE_MANAGER,
         is_active=True,
-    ).exists()
+    ).exclude(pk=actor.pk).exists()
     manager_approval = (
         GeneralITRequest.MANAGER_PENDING
         if manager_review_required and has_active_manager
@@ -676,7 +676,7 @@ def create_general_it_request(*, center, request_type, title, description, actor
             center_id=center.pk,
             role=User.ROLE_MANAGER,
             is_active=True,
-        )
+        ).exclude(pk=actor.pk)
         Notification.push_many(
             managers,
             "درخواست جدید برای بررسی مدیر مرکز",
