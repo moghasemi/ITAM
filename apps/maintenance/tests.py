@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.core.constants import EVENT_VISIT_CONFIRMED, EVENT_VISIT_MISSED, EVENT_VISIT_PLANNED, VISIT_DONE, VISIT_MISSED
+from apps.core.constants import EVENT_VISIT_COMPLETED, EVENT_VISIT_MISSED, EVENT_VISIT_PLANNED, VISIT_DONE, VISIT_MISSED
 from apps.core.models import Notification
 from apps.integrations.models import OutboxEvent
 from apps.assets.models import Asset, AssetCategory
@@ -478,13 +478,14 @@ class ProvincialMaintenanceScopeTests(TestCase):
         self.visit.status = VISIT_DONE
         self.visit.save(update_fields=["technician", "status", "updated_at"])
         confirm_visit(self.visit, self.center_it, "تایید اولیه")
-        self.assertTrue(
-            OutboxEvent.objects.filter(
-                event_type=EVENT_VISIT_CONFIRMED,
-                aggregate_type="MaintenanceVisit",
-                aggregate_id=str(self.visit.pk),
-            ).exists()
-        )
+        confirmation_event = OutboxEvent.objects.filter(
+            event_type=EVENT_VISIT_COMPLETED,
+            aggregate_type="MaintenanceVisit",
+            aggregate_id=str(self.visit.pk),
+            payload__event_stage="it_confirmed",
+        ).first()
+        self.assertIsNotNone(confirmation_event)
+        self.assertFalse(confirmation_event.payload["awaiting_it_confirmation"])
         self.assertTrue(
             Notification.objects.filter(
                 user=technician,
