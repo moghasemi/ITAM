@@ -402,6 +402,16 @@ class ProvincialMaintenanceScopeTests(TestCase):
         self.assertNotIn("sequence_number", form.fields)
         self.assertNotIn("status", form.fields)
 
+    def test_requesters_cannot_view_contractor_visit_reports(self):
+        requester = User.objects.create_user(
+            username="maintenance-requester",
+            password="TestPass!9382",
+            role=User.ROLE_REQUESTER,
+            center=self.center,
+        )
+        self.assertFalse(visible_visits(requester).filter(pk=self.visit.pk).exists())
+        self.assertFalse(visible_checks(requester, self.visit).exists())
+
     def test_technician_only_sees_visits_assigned_to_them_or_unassigned(self):
         technician_a = User.objects.create_user(
             username="maintenance-tech-a",
