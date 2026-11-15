@@ -1,6 +1,7 @@
 from django.core.management import call_command
 from django.db import connection
-from django.test import TestCase, skipUnless, override_settings
+from django.test import TestCase
+from unittest import skipUnless, override_settings
 
 from apps.assets.models import Asset
 from apps.maintenance.repair_models import GeneralITRequest, GeneralReferral, RepairRequest
