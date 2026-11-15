@@ -291,6 +291,41 @@ class RepairAndReferralWorkflowTests(TestCase):
         )
         self.assertEqual(request.status, GeneralITRequest.STATUS_RESOLVED)
 
+    def test_center_it_can_escalate_after_manager_rejection_with_reason(self):
+        request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_EQUIPMENT,
+            title="درخواست تجهیز ردشده",
+            description="درخواست نیازمند بررسی مدیر",
+            actor=self.requester,
+        )
+        request = manager_decide_general_it_request(
+            request=request, decision="reject",
+            note="در حال حاضر امکان تامین وجود ندارد.",
+            actor=self.manager,
+        )
+        with self.assertRaises(ValidationError):
+            escalate_general_it_request(request=request, actor=self.it_expert)
+        escalated = escalate_general_it_request(
+            request=request, actor=self.it_expert,
+            bypass_reason="نیاز عملیاتی مرکز و ضرورت بررسی استانی",
+        )
+        self.assertEqual(escalated.status, GeneralITRequest.STATUS_ESCALATED)
+        self.assertEqual(
+            escalated.manager_approval,
+            GeneralITRequest.MANAGER_BYPASSED,
+        )
+        self.assertEqual(
+            escalated.manager_bypass_reason,
+            "نیاز عملیاتی مرکز و ضرورت بررسی استانی",
+        )
+        self.assertTrue(
+            escalated.events.filter(
+                action="escalated",
+                note="نیاز عملیاتی مرکز و ضرورت بررسی استانی",
+            ).exists()
+        )
+
     def test_manager_approval_is_optional_when_bypass_reason_is_recorded(self):
         request = create_general_it_request(
             center=self.center, request_type=GeneralITRequest.TYPE_REPLACEMENT,
