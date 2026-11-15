@@ -18,6 +18,7 @@ from django.utils import timezone
 from django.views.generic import ListView, UpdateView
 
 from apps.accounts.models import User
+from apps.org.services import visible_contracts
 from apps.accounts.permissions import CountryAdminRequiredMixin, StaffRequiredMixin
 from apps.assets.models import Asset, HardwareSnapshot
 from apps.maintenance.models import MaintenanceVisit
