@@ -12,6 +12,14 @@ from apps.core.views import private_media
 
 
 class PrivateMediaAuthorizationTests(TestCase):
+    def test_media_url_resolves_to_authorized_private_view(self):
+        from django.urls import resolve
+        from apps.core.views import private_media
+
+        match = resolve("/media/assets/private-test.pdf")
+        self.assertEqual(match.url_name, "private_media")
+        self.assertIs(match.func, private_media)
+
     def setUp(self):
         self.temp_media = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_media.cleanup)
