@@ -245,6 +245,10 @@ def create_repair_request(*, center, asset, repairer, fault_description,
         raise PermissionDenied("ثبت درخواست تعمیر فقط برای کارشناس فناوری اطلاعات مرکز مجاز است.")
     if not _can_manage_center(actor, center):
         raise PermissionDenied("مرکز خارج از حوزه مجاز شماست.")
+    if not center.is_active:
+        raise ValidationError("ثبت تعمیر برای مرکز غیرفعال مجاز نیست.")
+    if asset.status == "retired":
+        raise ValidationError("برای دارایی از رده خارج، درخواست تعمیر جدید ثبت نمی‌شود.")
     if asset.center_id != center.pk:
         raise ValidationError("دارایی انتخاب‌شده متعلق به مرکز درخواست نیست.")
     if not repairer.is_active:
