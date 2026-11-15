@@ -212,7 +212,7 @@ class ProvincialMaintenanceScopeTests(TestCase):
         # A visit whose center is local but whose contract belongs to another
         # province must also be hidden from provincial and center IT users.
         misbound_local_center_visit = MaintenanceVisit.objects.create(
-            number="MNT-VISIT-MISBOUND-LOCAL-CENTER",
+            number="MNT-MISBOUND-LOCAL",
             contract=second_contract,
             contractor=self.contractor,
             center=self.center,
