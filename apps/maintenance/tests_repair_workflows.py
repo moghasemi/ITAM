@@ -32,6 +32,8 @@ from apps.maintenance.repair_services import (
     resubmit_repair_request,
     set_repairer_active,
     visible_repair_feedback,
+    visible_repair_requests,
+    visible_general_it_requests,
 )
 from apps.org.models import (
     Center, Contract, ContractCenterAssignment, Contractor,
@@ -549,6 +551,39 @@ class RepairAndReferralWorkflowTests(TestCase):
             assign_general_it_request(
                 request=request, expert=self.it_expert, actor=self.it_expert,
             )
+
+    def test_technicians_cannot_view_center_repair_requests_or_other_general_it_requests(self):
+        repair = self._repair()
+        technician = User.objects.create_user(
+            username="wf-technician-scope",
+            password="test-password",
+            role=User.ROLE_TECHNICIAN,
+            center=self.center,
+        )
+        self.assertFalse(
+            visible_repair_requests(technician).filter(pk=repair.pk).exists()
+        )
+        self.assertTrue(
+            visible_repair_requests(self.it_expert).filter(pk=repair.pk).exists()
+        )
+
+        own_request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_ISSUE,
+            title="درخواست متعلق به تکنسین",
+            description="شرح درخواست خود تکنسین",
+            actor=technician,
+        )
+        other_request = create_general_it_request(
+            center=self.center,
+            request_type=GeneralITRequest.TYPE_ISSUE,
+            title="درخواست متعلق به کاربر دیگر",
+            description="شرح درخواست دیگر",
+            actor=self.requester,
+        )
+        visible = visible_general_it_requests(technician)
+        self.assertTrue(visible.filter(pk=own_request.pk).exists())
+        self.assertFalse(visible.filter(pk=other_request.pk).exists())
 
     def test_stale_manager_review_cannot_replace_first_decision(self):
         request = create_general_it_request(
