@@ -53,9 +53,12 @@ class CenterFormProvinceCountyTests(TestCase):
             "شهرستان الف",
         )
         self.assertEqual(
-            list(form.fields["parent_unit"].queryset.values_list("pk", flat=True)),
-            [self.county_a.pk],
+            set(form.fields["parent_unit"].queryset.values_list("pk", flat=True)),
+            {self.county_a.pk, self.county_b.pk},
         )
+        rendered_counties = str(form["parent_unit"])
+        self.assertIn(f'data-province-id="{self.province_a.pk}"', rendered_counties)
+        self.assertIn(f'data-province-id="{self.province_b.pk}"', rendered_counties)
 
     def test_submitted_county_must_belong_to_submitted_province(self):
         form = CenterForm(
