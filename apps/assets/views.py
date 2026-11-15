@@ -494,13 +494,13 @@ class AttachmentCreateView(RepairStaffRequiredMixin, PageContextMixin, CreateVie
 
 @login_required
 def attachment_download(request, pk: int):
-    """Serve an attachment only after checking access to its owning asset."""
+    """Serve an attachment only when its owning asset is in the user's scope."""
     attachment = get_object_or_404(
-        AssetAttachment.objects.select_related("asset"),
+        AssetAttachment.objects.select_related("asset").filter(
+            asset__in=visible_assets(request.user)
+        ),
         pk=pk,
     )
-    if not visible_assets(request.user).filter(pk=attachment.asset_id).exists():
-        raise PermissionDenied("این پیوست متعلق به دارایی خارج از دامنه مجاز شماست.")
     if not attachment.file:
         raise Http404("فایل پیوست موجود نیست.")
     filename = attachment.file.name.rsplit("/", 1)[-1]
@@ -512,6 +512,7 @@ def attachment_download(request, pk: int):
         content_type=content_type or "application/octet-stream",
     )
     response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
     return response
 
 
@@ -519,11 +520,11 @@ def attachment_download(request, pk: int):
 def snapshot_file(request, pk: int, kind: str):
     """Serve snapshot photos only to users who can view the owning asset."""
     snapshot = get_object_or_404(
-        HardwareSnapshot.objects.select_related("asset"),
+        HardwareSnapshot.objects.select_related("asset").filter(
+            asset__in=visible_assets(request.user)
+        ),
         pk=pk,
     )
-    if not visible_assets(request.user).filter(pk=snapshot.asset_id).exists():
-        raise PermissionDenied("این فایل متعلق به دارایی خارج از دامنه مجاز شماست.")
     allowed_fields = {"case_photo", "seal_photo"}
     if kind not in allowed_fields:
         raise Http404("نوع فایل معتبر نیست.")
@@ -539,18 +540,19 @@ def snapshot_file(request, pk: int, kind: str):
         content_type=content_type or "application/octet-stream",
     )
     response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
     return response
 
 
 @login_required
 def snapshot_item_photo(request, pk: int):
-    """Serve an individual component photo through the snapshot's asset scope."""
+    """Serve a component photo only within the owning asset's scope."""
     item = get_object_or_404(
-        SnapshotItem.objects.select_related("snapshot__asset"),
+        SnapshotItem.objects.select_related("snapshot__asset").filter(
+            snapshot__asset__in=visible_assets(request.user)
+        ),
         pk=pk,
     )
-    if not visible_assets(request.user).filter(pk=item.snapshot.asset_id).exists():
-        raise PermissionDenied("این عکس متعلق به دارایی خارج از دامنه مجاز شماست.")
     if not item.photo:
         raise Http404("فایل تصویر موجود نیست.")
     filename = item.photo.name.rsplit("/", 1)[-1]
@@ -562,16 +564,20 @@ def snapshot_item_photo(request, pk: int):
         content_type=content_type or "application/octet-stream",
     )
     response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
     return response
 
 
 @login_required
 def attachment_delete(request, pk: int):
-    attachment = get_object_or_404(AssetAttachment.objects.select_related("asset"), pk=pk)
+    attachment = get_object_or_404(
+        AssetAttachment.objects.select_related("asset").filter(
+            asset__in=visible_assets(request.user)
+        ),
+        pk=pk,
+    )
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("حذف پیوست فقط توسط کارشناس IT امکان‌پذیر است.")
-    if not visible_assets(request.user).filter(pk=attachment.asset_id).exists():
-        raise PermissionDenied("این پیوست متعلق به دارایی خارج از دامنه مجاز شماست.")
     asset_pk = attachment.asset_id
     if request.method == "POST":
         label = str(attachment)
