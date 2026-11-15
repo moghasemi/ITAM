@@ -328,6 +328,7 @@ def visit_confirm(request, pk: int):
 def visit_bulk_healthy(request, pk: int):
     """ثبت گروهی وضعیت سالم برای برگه‌های بازدیدشده‌نشده."""
 
+    @transaction.atomic
     def handler(visit):
         if not can_manage_visit(request.user, visit):
             raise PermissionDenied("اجازه ثبت این بازدید را ندارید.")
