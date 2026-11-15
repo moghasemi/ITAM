@@ -723,6 +723,26 @@ class RepairAndReferralWorkflowTests(TestCase):
         self.assertEqual(request.status, GeneralITRequest.STATUS_RESOLVED)
         self.assertEqual(request.provincial_decision, "تامین تجهیز تایید شد.")
 
+    def test_requester_can_create_general_it_request_through_the_view(self):
+        self.client.force_login(self.requester)
+        response = self.client.post(
+            reverse("maintenance:it_request_create"),
+            {
+                "request_type": GeneralITRequest.TYPE_ISSUE,
+                "center": self.center.pk,
+                "asset": "",
+                "title": "درخواست عمومی از سمت درخواست‌کننده",
+                "description": "شرح مشکل ثبت‌شده توسط کاربر مرکز",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            GeneralITRequest.objects.filter(
+                requested_by=self.requester,
+                title="درخواست عمومی از سمت درخواست‌کننده",
+            ).exists()
+        )
+
     def test_general_it_request_creation_notifies_and_assignment_is_state_guarded(self):
         request = create_general_it_request(
             center=self.center,
