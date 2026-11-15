@@ -15,4 +15,32 @@
     </form>
   </div>
 </div>
+{% if form.province and form.parent_unit %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const provinceSelect = document.getElementById("id_province");
+    const countySelect = document.getElementById("id_parent_unit");
+    if (!provinceSelect || !countySelect) return;
+
+    function filterCounties() {
+      const provinceId = provinceSelect.value;
+      Array.from(countySelect.options).forEach(function (option) {
+        if (!option.value) {
+          option.hidden = false;
+          option.disabled = false;
+          return;
+        }
+        const matchesProvince = option.dataset.provinceId === provinceId;
+        option.hidden = !matchesProvince;
+        option.disabled = !matchesProvince;
+        if (!matchesProvince && option.selected) countySelect.value = "";
+      });
+      countySelect.disabled = !provinceId;
+    }
+
+    provinceSelect.addEventListener("change", filterCounties);
+    filterCounties();
+  });
+</script>
+{% endif %}
 {% endblock %}
