@@ -75,8 +75,29 @@ def visible_repair_requests(user):
         return Model.objects.none()
     if _is_country_admin(user):
         return Model.objects.all()
+    if user.role == User.ROLE_REQUESTER:
+        return Model.objects.filter(requested_by=user)
+    if user.role == User.ROLE_TECHNICIAN:
+        # HWAgent/contract technicians are not independent repairers and have
+        # no user-to-repairer assignment; never expose center repair requests.
+        return Model.objects.none()
     return Model.objects.filter(center__in=user.get_scoped_centers())
 
+
+
+def visible_general_it_requests(user):
+    """Return general IT requests within role-specific visibility boundaries."""
+    if not user or not user.is_authenticated:
+        return GeneralITRequest.objects.none()
+    if _is_country_admin(user):
+        return GeneralITRequest.objects.all()
+    if user.role in (User.ROLE_REQUESTER, User.ROLE_TECHNICIAN):
+        return GeneralITRequest.objects.filter(requested_by=user)
+    if user.role == User.ROLE_MANAGER:
+        return GeneralITRequest.objects.filter(center__in=user.get_scoped_centers())
+    return GeneralITRequest.objects.filter(
+        Q(center__in=user.get_scoped_centers()) | Q(requested_by=user)
+    ).distinct()
 
 def visible_repairers(user):
     if not user or not user.is_authenticated:
