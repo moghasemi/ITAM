@@ -1,5 +1,6 @@
 from django.core.management import call_command
-from django.test import TestCase, override_settings
+from django.db import connection
+from django.test import TestCase, skipUnless, override_settings
 
 from apps.assets.models import Asset
 from apps.maintenance.repair_models import GeneralITRequest, GeneralReferral, RepairRequest
@@ -7,6 +8,7 @@ from apps.org.models import Center, ContractCenterAssignment
 from apps.tickets.models import Ticket
 
 
+@skipUnless(connection.vendor == "sqlite", "demo seed is intentionally SQLite-only")
 @override_settings(DEBUG=True)
 class SistanBaluchestanDemoSeedTests(TestCase):
     def test_seed_creates_complete_synthetic_province_fixture_and_is_idempotent(self):
