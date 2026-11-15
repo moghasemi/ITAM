@@ -117,7 +117,6 @@ class PrivateMediaAuthorizationTests(TestCase):
             request.user = self.user_a
             response = private_media(request, path)
             self.assertEqual(response.status_code, 200, path)
-            response.close()
 
     def test_other_center_staff_cannot_download_repair_or_referral_documents(self):
         paths = [
@@ -139,7 +138,6 @@ class PrivateMediaAuthorizationTests(TestCase):
         request.user = self.user_b
         response = private_media(request, path)
         self.assertEqual(response.status_code, 200)
-        response.close()
 
     def test_technician_cannot_download_misbound_hardware_or_visit_photos(self):
         import datetime as dt
