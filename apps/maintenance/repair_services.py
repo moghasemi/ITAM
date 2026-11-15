@@ -298,6 +298,8 @@ def decide_repair_request(*, repair, decision, note, actor):
         raise ValidationError("فقط درخواست ارسال‌شده و در انتظار تایید قابل تصمیم‌گیری است.")
     if decision not in {"approve", "return", "reject"}:
         raise ValidationError("تصمیم نامعتبر است.")
+    if decision == "approve" and not locked.repairer.is_active:
+        raise ValidationError("تعمیرکار غیرفعال است؛ درخواست را به او تایید نکنید.")
     if decision in {"return", "reject"} and not (note or "").strip():
         raise ValidationError("برای عودت یا رد درخواست، توضیح الزامی است.")
     previous = locked.status
@@ -337,6 +339,8 @@ def resubmit_repair_request(*, repair, actor, fault_description=None,
     repair = RepairRequest.objects.select_for_update().get(pk=repair.pk)
     if repair.status != RepairRequest.STATUS_RETURNED:
         raise ValidationError("فقط درخواست عودت‌شده قابل اصلاح و ارسال مجدد است.")
+    if not repair.repairer.is_active:
+        raise ValidationError("تعمیرکار این درخواست غیرفعال شده است؛ درخواست جدیدی با تعمیرکار فعال ثبت کنید.")
     previous = repair.status
     if fault_description is not None:
         repair.fault_description = fault_description.strip()
