@@ -8,8 +8,35 @@ from apps.core.forms import JalaliDateField, StyledModelForm
 from .models import Center, Contract, ContractCenterAssignment, Contractor, Department, Location, OrganizationalUnit, SlaPolicy
 
 
+class CountySelect(forms.Select):
+    """Attach each county's province ID so the form can filter options client-side."""
+
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(
+            name, value, label, selected, index, subindex=subindex, attrs=attrs
+        )
+        county = getattr(value, "instance", None)
+        if county is not None:
+            option["attrs"]["data-province-id"] = str(county.parent_id)
+        return option
+
+
+class CountyChoiceField(forms.ModelChoiceField):
+    """Show the concise county name, not the verbose organizational-unit label."""
+
+    def label_from_instance(self, obj):
+        return obj.name
+
+
 class CenterForm(StyledModelForm):
-    """فرم ثبت و ویرایش مرکز با الزام اتصال به شهرستان جغرافیایی."""
+    """فرم ثبت و ویرایش مرکز با انتخاب استان و شهرستان جغرافیایی."""
+
+    province = forms.ModelChoiceField(
+        label="استان",
+        queryset=OrganizationalUnit.objects.none(),
+        required=True,
+        empty_label="استان را انتخاب کنید",
+    )
 
     class Meta:
         model = Center
@@ -29,26 +56,78 @@ class CenterForm(StyledModelForm):
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        province_qs = OrganizationalUnit.objects.filter(
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, is_active=True
+        ).order_by("name")
         county_qs = OrganizationalUnit.objects.filter(
             unit_type=OrganizationalUnit.UNIT_COUNTY, is_active=True
-        ).select_related("parent")
+        ).select_related("parent").order_by("name")
 
-        if user and not user.is_superuser:
-            if getattr(user, "org_unit", None) and user.org_unit.unit_type == OrganizationalUnit.UNIT_PROVINCE:
-                county_qs = county_qs.filter(parent=user.org_unit)
-            elif getattr(user, "center", None) and user.center.parent_unit and user.center.parent_unit.parent:
-                county_qs = county_qs.filter(parent=user.center.parent_unit.parent)
+        fixed_province_id = None
+        if user and not user.is_superuser and user.role == "admin_province":
+            if (
+                getattr(user, "org_unit", None)
+                and user.org_unit.unit_type == OrganizationalUnit.UNIT_PROVINCE
+            ):
+                fixed_province_id = user.org_unit_id
+            elif (
+                getattr(user, "center", None)
+                and user.center.treatment_management_id
+            ):
+                fixed_province_id = user.center.treatment_management.province_id
+            if fixed_province_id:
+                province_qs = province_qs.filter(pk=fixed_province_id)
+            else:
+                province_qs = OrganizationalUnit.objects.none()
 
-        self.fields["parent_unit"].queryset = county_qs
-        self.fields["parent_unit"].required = True
-        self.fields["parent_unit"].help_text = "انتخاب شهرستان جغرافیایی بالادست الزامی است."
+        if fixed_province_id:
+            selected_province_id = fixed_province_id
+        elif self.is_bound:
+            selected_province_id = self.data.get(self.add_prefix("province"))
+        elif self.instance.pk and self.instance.parent_unit_id:
+            selected_province_id = self.instance.parent_unit.parent_id
+        else:
+            selected_province_id = None
+
+        if fixed_province_id:
+            county_qs = county_qs.filter(parent_id=fixed_province_id)
+        # Country administrators retain all active county options in the
+        # rendered form. The browser filters them by province; clean_parent_unit
+        # independently rejects any cross-province submission on the server.
+
+        province_field = self.fields["province"]
+        province_field.queryset = province_qs
+        if selected_province_id and not self.is_bound:
+            province_field.initial = selected_province_id
+        if fixed_province_id:
+            province_field.initial = fixed_province_id
+            province_field.disabled = True
+            province_field.help_text = "استان بر اساس محدوده دسترسی شما تعیین شده است."
+        else:
+            province_field.help_text = "ابتدا استان را انتخاب کنید تا شهرستان‌های همان استان نمایش داده شوند."
+
+        self.fields["parent_unit"] = CountyChoiceField(
+            label="شهرستان",
+            queryset=county_qs,
+            required=True,
+            empty_label="شهرستان را انتخاب کنید",
+            widget=CountySelect(attrs={"class": "select"}),
+            help_text="فقط شهرستان‌های استان انتخاب‌شده قابل انتخاب هستند.",
+        )
+        self.order_fields([
+            "name", "code", "province", "parent_unit", "city", "manager_name",
+            "it_lead_name", "phone", "is_headquarters", "is_active", "address", "notes",
+        ])
 
     def clean_parent_unit(self):
         parent_unit = self.cleaned_data.get("parent_unit")
+        province = self.cleaned_data.get("province")
         if not parent_unit:
-            raise forms.ValidationError("اتصال مرکز به شهرستان جغرافیایی الزامی است.")
+            raise forms.ValidationError("انتخاب شهرستان جغرافیایی الزامی است.")
         if parent_unit.unit_type != OrganizationalUnit.UNIT_COUNTY:
             raise forms.ValidationError("مرکز فقط می‌تواند به یک شهرستان جغرافیایی متصل شود.")
+        if not province or parent_unit.parent_id != province.pk:
+            raise forms.ValidationError("شهرستان انتخاب‌شده متعلق به استان انتخاب‌شده نیست.")
         return parent_unit
 
 
