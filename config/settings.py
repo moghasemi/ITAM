@@ -163,6 +163,8 @@ except ImportError:  # pragma: no cover
     USE_WHITENOISE = False
 
 MIDDLEWARE = [
+    # Sanitize X-Forwarded-* headers before SecurityMiddleware trusts proxy TLS.
+    "apps.core.middleware.TrustedProxyHeadersMiddleware",
     "django.middleware.security.SecurityMiddleware",
 ]
 if USE_WHITENOISE:
