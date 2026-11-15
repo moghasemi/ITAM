@@ -1,11 +1,13 @@
 """Regression tests for the Sistan and Baluchestan demo seed."""
 from django.core.management import call_command
-from django.test import TestCase
+from django.db import connection
+from django.test import TestCase, skipUnless
 
 from apps.accounts.models import User
 from apps.org.models import Center, Contract, ContractCenterAssignment, OrganizationalUnit
 
 
+@skipUnless(connection.vendor == "sqlite", "demo seed is intentionally SQLite-only")
 class DemoSeedProvinceTests(TestCase):
     def test_demo_seed_uses_only_the_active_rollout_province(self):
         call_command(
