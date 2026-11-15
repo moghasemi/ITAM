@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.core.constants import EVENT_VISIT_COMPLETED, EVENT_VISIT_MISSED, EVENT_VISIT_PLANNED, VISIT_DONE, VISIT_MISSED
+from apps.core.constants import EVENT_VISIT_COMPLETED, EVENT_VISIT_MISSED, EVENT_VISIT_PLANNED, VISIT_DONE, VISIT_MISSED, VISIT_PLANNED
 from apps.core.models import Notification
 from apps.integrations.models import OutboxEvent
 from apps.assets.models import Asset, AssetCategory
