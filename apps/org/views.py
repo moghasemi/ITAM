@@ -43,13 +43,9 @@ from .models import Center, Contract, ContractCenterAssignment, Contractor, Depa
 
 
 def _visible_contracts_for_user(user):
-    if user.is_admin_country:
-        return Contract.objects.all()
-    if user.has_role("technician"):
-        return user.get_active_contractor_contracts()
-    province_ids = user.get_scoped_centers().values("treatment_management__province_id")
-    return Contract.objects.filter(province_id__in=province_ids).distinct()
+    from .services import visible_contracts
 
+    return visible_contracts(user)
 
 # ---------------------------------------------------------------------------
 # مراکز استان
