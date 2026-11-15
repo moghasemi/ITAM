@@ -2,14 +2,16 @@
 from __future__ import annotations
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import CharField, Q, Subquery
 from django.db.models.functions import Cast
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.views.decorators.http import require_POST
 from django.views.generic import DetailView
 
-from apps.accounts.permissions import AdminItRequiredMixin, CountryAdminRequiredMixin, StaffRequiredMixin
+from apps.accounts.permissions import CountryAdminRequiredMixin, StaffRequiredMixin
 from apps.core.mixins import BaseCreateView, BaseListView, BaseUpdateView, PageContextMixin
 from apps.assets.models import Asset, HardwareSnapshot
 from apps.maintenance.models import MaintenanceVisit
@@ -90,7 +92,7 @@ class OutboxListView(StaffRequiredMixin, BaseListView):
         context = super().get_context_data(**kwargs)
         scoped_events = visible_outbox_events(self.request.user)
         context["stats"] = outbox_statistics(scoped_events)
-        context["can_manage"] = self.request.user.has_role("admin_it")
+        context["can_manage"] = self.request.user.is_admin_country
         context["endpoints"] = WebhookEndpoint.objects.all() if context["can_manage"] else WebhookEndpoint.objects.none()
         return context
 
@@ -109,7 +111,7 @@ class OutboxDetailView(StaffRequiredMixin, PageContextMixin, DetailView):
 
         context = super().get_context_data(**kwargs)
         context["calls"] = self.object.calls.select_related("endpoint")[:20]
-        context["can_manage"] = self.request.user.has_role("admin_it")
+        context["can_manage"] = self.request.user.is_admin_country
         context["envelope"] = build_envelope(self.object)
         context["envelope_json"] = json.dumps(
             context["envelope"], ensure_ascii=False, indent=2
@@ -117,9 +119,11 @@ class OutboxDetailView(StaffRequiredMixin, PageContextMixin, DetailView):
         return context
 
 
+@login_required
+@require_POST
 def dispatch_now(request):
     """ارسال دستی رخدادهای در انتظار به مقصدهای فعال."""
-    if not request.user.has_role("admin_it"):
+    if not request.user.is_admin_country:
         raise PermissionDenied("دسترسی ندارید.")
     if request.method == "POST":
         summary = dispatch_pending(
@@ -138,8 +142,10 @@ def dispatch_now(request):
     return redirect("integrations:outbox_list")
 
 
+@login_required
+@require_POST
 def requeue_event(request, pk: int):
-    if not request.user.has_role("admin_it"):
+    if not request.user.is_admin_country:
         raise PermissionDenied("دسترسی ندارید.")
     event = get_object_or_404(visible_outbox_events(request.user), pk=pk)
     if request.method == "POST":
@@ -148,8 +154,10 @@ def requeue_event(request, pk: int):
     return redirect("integrations:outbox_detail", pk=pk)
 
 
+@login_required
+@require_POST
 def requeue_all(request):
-    if not request.user.has_role("admin_it"):
+    if not request.user.is_admin_country:
         raise PermissionDenied("دسترسی ندارید.")
     if request.method == "POST":
         count = requeue_dead_events(
