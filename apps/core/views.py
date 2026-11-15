@@ -382,13 +382,6 @@ def private_media(request, path: str):
                     and user.org_unit.unit_type == "province"
                     and user.org_unit.is_active
                 )
-                or (
-                    not referral.center_id
-                    and referral.province_id
-                    and user.get_scoped_centers().filter(
-                        treatment_management__province_id=referral.province_id
-                    ).exists()
-                )
             )
 
     if not allowed:
