@@ -231,7 +231,7 @@ class RepairAndReferralWorkflowTests(TestCase):
             repairer=self.repairer,
             active=False,
             reason="پایان همکاری",
-            actor=self.it_expert,
+            actor=self.province_admin,
         )
         with self.assertRaises(ValidationError):
             decide_repair_request(
