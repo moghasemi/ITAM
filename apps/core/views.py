@@ -371,6 +371,13 @@ def private_media(request, path: str):
                 or referral.created_by_id == user.pk
                 or referral.recipient_user_id == user.pk
                 or (
+                    not referral.center_id
+                    and referral.province_id
+                    and user.get_scoped_centers().filter(
+                        treatment_management__province_id=referral.province_id
+                    ).exists()
+                )
+                or (
                     referral.center_id
                     and user.get_scoped_centers().filter(pk=referral.center_id).exists()
                 )
