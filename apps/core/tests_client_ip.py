@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.test import RequestFactory, SimpleTestCase
 
-from apps.core.middleware import client_ip
+from apps.core.middleware import TrustedProxyHeadersMiddleware, client_ip
 
 
 class ClientIpValidationTests(SimpleTestCase):
@@ -36,6 +36,33 @@ class ClientIpValidationTests(SimpleTestCase):
                 REMOTE_ADDR="10.0.0.5",
             )
             self.assertEqual(client_ip(request), "10.0.0.5")
+
+    def test_untrusted_forwarded_headers_are_removed_before_security_checks(self):
+        with patch.dict(os.environ, {"ITAM_TRUSTED_PROXY_IPS": ""}):
+            request = self.factory.get(
+                "/",
+                HTTP_X_FORWARDED_FOR="203.0.113.10",
+                HTTP_X_FORWARDED_PROTO="https",
+                HTTP_X_FORWARDED_HOST="attacker.example",
+                REMOTE_ADDR="198.51.100.20",
+            )
+            middleware = TrustedProxyHeadersMiddleware(lambda value: value)
+            middleware(request)
+            self.assertNotIn("HTTP_X_FORWARDED_FOR", request.META)
+            self.assertNotIn("HTTP_X_FORWARDED_PROTO", request.META)
+            self.assertNotIn("HTTP_X_FORWARDED_HOST", request.META)
+
+    def test_trusted_proxy_forwarded_headers_are_preserved(self):
+        with patch.dict(os.environ, {"ITAM_TRUSTED_PROXY_IPS": "10.0.0.0/8"}):
+            request = self.factory.get(
+                "/",
+                HTTP_X_FORWARDED_FOR="198.51.100.25",
+                HTTP_X_FORWARDED_PROTO="https",
+                REMOTE_ADDR="10.0.0.5",
+            )
+            middleware = TrustedProxyHeadersMiddleware(lambda value: value)
+            middleware(request)
+            self.assertEqual(request.META["HTTP_X_FORWARDED_PROTO"], "https")
 
     def test_validates_remote_addr_when_no_trusted_proxy_exists(self):
         request = self.factory.get("/", REMOTE_ADDR="2001:db8::1")
