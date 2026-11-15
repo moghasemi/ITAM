@@ -32,6 +32,7 @@ from .services import (
     can_confirm_visit,
     can_force_complete_visit,
     can_manage_visit,
+    notify_visit_planned,
     complete_visit,
     confirm_visit,
     populate_checks,
@@ -61,6 +62,7 @@ def _emit_visit_planned(visit, actor):
         aggregate_id=visit.pk,
         actor=actor,
     )
+    notify_visit_planned(visit)
 
 
 # ---------------------------------------------------------------------------
