@@ -694,20 +694,27 @@ def assign_general_it_request(*, request, expert, actor):
     if expert.role != User.ROLE_ADMIN_IT or not expert.is_active or expert.center_id != request.center_id:
         raise ValidationError("کارشناس انتخاب‌شده باید فعال و متعلق به همان مرکز باشد.")
     request = GeneralITRequest.objects.select_for_update().get(pk=request.pk)
+    # A requester may initially self-assign the request to an IT expert
+    # (including themselves) while manager review is pending. Delegating or
+    # reassigning it to another expert must wait for the manager's decision.
+    # Rejected/bypassed requests are escalated through the documented
+    # escalation path and must not be assigned locally.
+    if request.status == GeneralITRequest.STATUS_ASSIGNED and request.assigned_to_id == expert.pk:
+        return request
     if request.manager_approval in (
-        GeneralITRequest.MANAGER_PENDING,
         GeneralITRequest.MANAGER_REJECTED,
         GeneralITRequest.MANAGER_BYPASSED,
+    ) or (
+        request.manager_approval == GeneralITRequest.MANAGER_PENDING
+        and (request.assigned_to_id is not None or expert.pk != actor.pk)
     ):
-        raise ValidationError("تا تعیین تکلیف تایید مدیر، امکان تخصیص درخواست وجود ندارد.")
+        raise ValidationError("تا تعیین تکلیف تایید مدیر، امکان ارجاع یا تخصیص مجدد درخواست وجود ندارد.")
     if request.status not in (
         GeneralITRequest.STATUS_NEW,
         GeneralITRequest.STATUS_APPROVED,
         GeneralITRequest.STATUS_ASSIGNED,
     ):
         raise ValidationError("فقط درخواست جدید، تاییدشده یا ارجاع‌شده قابل تخصیص است.")
-    if request.status == GeneralITRequest.STATUS_ASSIGNED and request.assigned_to_id == expert.pk:
-        return request
     previous_expert = request.assigned_to
     request.assigned_to = expert
     request.status = GeneralITRequest.STATUS_ASSIGNED
