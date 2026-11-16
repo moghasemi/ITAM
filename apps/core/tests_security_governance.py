@@ -687,4 +687,3 @@ class CountyScopeRegressionTests(TestCase):
         self.assertTrue(visible_visits(self.county_admin).filter(pk=visit.pk).exists())
         check_ids = set(visible_checks(self.county_admin, visit).values_list("pk", flat=True))
         self.assertEqual(check_ids, {own_check.pk})
-
