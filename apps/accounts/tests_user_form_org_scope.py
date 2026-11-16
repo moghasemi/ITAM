@@ -121,6 +121,31 @@ class UserFormOrganizationalScopeTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("center", form.errors)
 
+    def test_county_admin_can_edit_user_without_exposing_org_unit_field(self):
+        county_admin = User.objects.create_user(
+            username="existing-county-admin",
+            password="Strong-Test-Password-2026!",
+            role=User.ROLE_ADMIN_COUNTY,
+            org_unit=self.county_a,
+        )
+        form_data = self._data(
+            username="existing-county-admin",
+            role=User.ROLE_ADMIN_COUNTY,
+            org_unit="",
+            password1="",
+            password2="",
+        )
+        form = UserForm(
+            data=form_data,
+            instance=county_admin,
+            current_user=county_admin,
+        )
+
+        self.assertNotIn("org_unit", form.fields)
+        self.assertTrue(form.is_valid(), form.errors)
+        updated_user = form.save()
+        self.assertEqual(updated_user.org_unit_id, self.county_a.pk)
+
     def test_country_admin_can_assign_county_admin_to_active_county(self):
         form = UserForm(
             data=self._data(),

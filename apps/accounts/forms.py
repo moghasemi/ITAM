@@ -203,7 +203,9 @@ class UserForm(StyledModelForm):
             except forms.ValidationError as exc:
                 self.add_error("password1", exc)
         role = cleaned.get("role")
-        organizational_unit = cleaned.get("org_unit")
+        organizational_unit = cleaned.get("org_unit") or getattr(
+            self.instance, "org_unit", None
+        )
         center = cleaned.get("center")
 
         if role == User.ROLE_ADMIN_COUNTY:
