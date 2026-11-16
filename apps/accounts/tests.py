@@ -85,4 +85,3 @@ class LoginThrottlingTests(TestCase):
             record_login_failure(f"unknown-user-{index}", "192.0.2.10")
         self.assertTrue(is_login_throttled("another-user", "192.0.2.10"))
         self.assertFalse(is_login_throttled("another-user", "192.0.2.11"))
-
