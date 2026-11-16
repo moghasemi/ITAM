@@ -757,10 +757,16 @@ def manager_decide_general_it_request(*, request, decision, note, actor):
     )
     request.manager_reviewed_by = actor
     request.manager_reviewed_at = timezone.now()
-    request.status = (
-        GeneralITRequest.STATUS_APPROVED if decision == "approve"
-        else GeneralITRequest.STATUS_REJECTED
-    )
+    if decision == "approve":
+        # Manager approval is an independent decision dimension. Preserve an
+        # existing expert assignment instead of replacing its workflow state.
+        request.status = (
+            GeneralITRequest.STATUS_ASSIGNED
+            if request.assigned_to_id
+            else GeneralITRequest.STATUS_APPROVED
+        )
+    else:
+        request.status = GeneralITRequest.STATUS_REJECTED
     request.provincial_decision = (note or "").strip()
     request.save(update_fields=[
         "manager_approval", "manager_reviewed_by", "manager_reviewed_at",
