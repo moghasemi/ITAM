@@ -297,4 +297,3 @@ class LoginAttempt(models.Model):
             models.Index(fields=("username_hash", "attempted_at"), name="accounts_login_user_time_idx"),
             models.Index(fields=("ip_address", "attempted_at"), name="accounts_login_ip_time_idx"),
         ]
-
