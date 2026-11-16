@@ -29,9 +29,26 @@ from .repair_models import (
 
 
 def _province_id_for_center(center):
-    if not center or not center.treatment_management_id:
+    """Return only an active, internally consistent province for a center."""
+    if not center or not center.is_active or not center.parent_unit_id or not center.treatment_management_id:
         return None
-    return center.treatment_management.province_id
+    county = center.parent_unit
+    if (
+        not county.is_active
+        or county.unit_type != OrganizationalUnit.UNIT_COUNTY
+        or not county.parent_id
+    ):
+        return None
+    province = county.parent
+    management = center.treatment_management
+    if (
+        not province.is_active
+        or province.unit_type != OrganizationalUnit.UNIT_PROVINCE
+        or not management.is_active
+        or management.province_id != province.pk
+    ):
+        return None
+    return province.pk
 
 
 def _is_country_admin(user):
@@ -43,12 +60,31 @@ def _is_province_admin(user):
 
 
 def _province_id_for_user(user):
-    if not user:
+    """Resolve an active province only; inactive explicit assignments fail closed."""
+    if not user or not getattr(user, "is_authenticated", False) or not user.is_active:
         return None
-    if user.org_unit_id and user.org_unit.unit_type == OrganizationalUnit.UNIT_PROVINCE:
-        return user.org_unit_id
-    if user.center_id and user.center.treatment_management_id:
-        return user.center.treatment_management.province_id
+    if user.org_unit_id:
+        unit = user.org_unit
+        if unit.unit_type == OrganizationalUnit.UNIT_PROVINCE:
+            return unit.pk if unit.is_active else None
+        if (
+            user.role != User.ROLE_ADMIN_PROVINCE
+            and unit.unit_type == OrganizationalUnit.UNIT_COUNTY
+            and unit.is_active
+            and unit.parent_id
+            and unit.parent.is_active
+            and unit.parent.unit_type == OrganizationalUnit.UNIT_PROVINCE
+        ):
+            center_province_id = (
+                _province_id_for_center(user.center) if user.center_id else None
+            )
+            if center_province_id == unit.parent_id:
+                return unit.parent_id
+        # An explicit but invalid/inactive organizational assignment must not
+        # silently fall back to a different center-based province.
+        return None
+    if user.center_id:
+        return _province_id_for_center(user.center)
     return None
 
 
@@ -58,6 +94,8 @@ def _province_admins(province_id):
     return User.objects.filter(
         role=User.ROLE_ADMIN_PROVINCE,
         org_unit_id=province_id,
+        org_unit__is_active=True,
+        org_unit__unit_type=OrganizationalUnit.UNIT_PROVINCE,
         is_active=True,
     )
 
@@ -86,17 +124,17 @@ def visible_repair_requests(user):
     if _is_country_admin(user):
         return Model.objects.all()
     if user.role == User.ROLE_REQUESTER:
-        return Model.objects.filter(requested_by=user)
+        return Model.objects.filter(
+            requested_by=user, center__in=user.get_scoped_centers()
+        )
     if user.role == User.ROLE_TECHNICIAN:
         # HWAgent/contract technicians are not independent repairers and have
         # no user-to-repairer assignment; never expose center repair requests.
         return Model.objects.none()
     if _is_province_admin(user):
-        province_id = _province_id_for_user(user)
-        if province_id:
-            return Model.objects.filter(
-                center__treatment_management__province_id=province_id
-            )
+        if not _province_id_for_user(user):
+            return Model.objects.none()
+        return Model.objects.filter(center__in=user.get_scoped_centers())
     return Model.objects.filter(center__in=user.get_scoped_centers())
 
 
@@ -107,14 +145,24 @@ def visible_general_it_requests(user):
         return GeneralITRequest.objects.none()
     if _is_country_admin(user):
         return GeneralITRequest.objects.all()
-    if user.role in (User.ROLE_REQUESTER, User.ROLE_TECHNICIAN):
-        return GeneralITRequest.objects.filter(requested_by=user)
+    if user.role == User.ROLE_REQUESTER:
+        return GeneralITRequest.objects.filter(
+            requested_by=user, center__in=user.get_scoped_centers()
+        )
+    if user.role == User.ROLE_TECHNICIAN:
+        # Technicians may inspect their own requests, but only while the
+        # referenced center and its complete geography/management chain remain
+        # active and internally consistent.
+        from apps.org.models import Center
+
+        active_centers = user._active_center_scope(Center.objects.all())
+        return GeneralITRequest.objects.filter(
+            requested_by=user, center__in=active_centers
+        )
     if _is_province_admin(user):
-        province_id = _province_id_for_user(user)
-        if province_id:
-            return GeneralITRequest.objects.filter(
-                center__treatment_management__province_id=province_id
-            )
+        if not _province_id_for_user(user):
+            return GeneralITRequest.objects.none()
+        return GeneralITRequest.objects.filter(center__in=user.get_scoped_centers())
     if user.role == User.ROLE_MANAGER:
         return GeneralITRequest.objects.filter(center__in=user.get_scoped_centers())
     return GeneralITRequest.objects.filter(
@@ -126,10 +174,21 @@ def visible_repairers(user):
         return IndependentRepairer.objects.none()
     if _is_country_admin(user):
         return IndependentRepairer.objects.all()
-    if (user.is_admin_province or user.role == User.ROLE_ADMIN_IT) and _province_id_for_user(user):
-        return IndependentRepairer.objects.filter(province_id=_province_id_for_user(user))
+    if user.is_admin_province or user.role == User.ROLE_ADMIN_IT:
+        province_id = _province_id_for_user(user)
+        if not province_id:
+            return IndependentRepairer.objects.none()
+        return IndependentRepairer.objects.filter(
+            province_id=province_id,
+            province__is_active=True,
+            province__unit_type=OrganizationalUnit.UNIT_PROVINCE,
+        )
     province_ids = user.get_scoped_centers().values("treatment_management__province_id")
-    return IndependentRepairer.objects.filter(province_id__in=province_ids).distinct()
+    return IndependentRepairer.objects.filter(
+        province_id__in=province_ids,
+        province__is_active=True,
+        province__unit_type=OrganizationalUnit.UNIT_PROVINCE,
+    ).distinct()
 
 
 def visible_repair_feedback(user):
@@ -139,11 +198,13 @@ def visible_repair_feedback(user):
         return RepairFeedback.objects.select_related(
             "repairer", "center", "author", "repair_request"
         )
-    # Only province/country administrators may review feedback across a
-    # province. Center IT experts remain limited to their own assigned centers.
-    if user.is_admin_province and _province_id_for_user(user):
+    # Province-wide feedback access requires an active province and active
+    # centers. Center IT experts remain limited to their active scoped centers.
+    if user.is_admin_province:
+        if not _province_id_for_user(user):
+            return RepairFeedback.objects.none()
         return RepairFeedback.objects.filter(
-            center__treatment_management__province_id=_province_id_for_user(user)
+            center__in=user.get_scoped_centers()
         ).select_related("repairer", "center", "author", "repair_request")
     return RepairFeedback.objects.filter(
         center__in=user.get_scoped_centers()

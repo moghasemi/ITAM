@@ -116,6 +116,8 @@ class ItamPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
 def visible_users(current_user):
     """محدوده کاربران قابل مشاهده و مدیریت برای کاربر جاری (Fail-Closed)."""
     from django.db.models import Q
+    from apps.org.models import OrganizationalUnit
+
     if not getattr(current_user, "is_authenticated", False):
         return User.objects.none()
 
@@ -126,14 +128,24 @@ def visible_users(current_user):
 
     if current_user.role == User.ROLE_ADMIN_PROVINCE:
         if current_user.org_unit_id:
+            province = current_user.org_unit
+            if (
+                not province.is_active
+                or province.unit_type != OrganizationalUnit.UNIT_PROVINCE
+            ):
+                return User.objects.none()
             scope = (
                 Q(center__in=scoped_centers)
-                | Q(org_unit__parent_id=current_user.org_unit_id)
-                | Q(org_unit_id=current_user.org_unit_id)
+                | Q(org_unit_id=province.pk)
+                | Q(
+                    org_unit__parent_id=province.pk,
+                    org_unit__is_active=True,
+                    org_unit__unit_type=OrganizationalUnit.UNIT_COUNTY,
+                )
             )
         else:
             # A province admin assigned through a center may manage that
-            # center's province, but a missing scope must never become
+            # center's active province, but a missing scope must never become
             # Q(org_unit=None), which would expose unrelated unassigned users.
             province_ids = scoped_centers.values("treatment_management__province_id")
             if not scoped_centers.exists():
@@ -141,14 +153,28 @@ def visible_users(current_user):
             scope = (
                 Q(center__in=scoped_centers)
                 | Q(org_unit_id__in=province_ids)
-                | Q(org_unit__parent_id__in=province_ids)
+                | Q(
+                    org_unit__parent_id__in=province_ids,
+                    org_unit__is_active=True,
+                    org_unit__unit_type=OrganizationalUnit.UNIT_COUNTY,
+                )
             )
         return User.objects.filter(scope).exclude(is_superuser=True).exclude(
             role=User.ROLE_ADMIN_COUNTRY
         )
 
     if current_user.role == User.ROLE_ADMIN_COUNTY:
-        if not current_user.org_unit_id and not scoped_centers.exists():
+        if current_user.org_unit_id:
+            county = current_user.org_unit
+            if (
+                not county.is_active
+                or county.unit_type != OrganizationalUnit.UNIT_COUNTY
+                or not county.parent_id
+                or not county.parent.is_active
+                or county.parent.unit_type != OrganizationalUnit.UNIT_PROVINCE
+            ):
+                return User.objects.none()
+        elif not scoped_centers.exists():
             return User.objects.none()
         scope = Q(center__in=scoped_centers)
         if current_user.org_unit_id:
@@ -158,9 +184,12 @@ def visible_users(current_user):
         )
 
     if current_user.role == User.ROLE_ADMIN_IT:
-        if not current_user.center_id:
+        if (
+            not current_user.center_id
+            or not scoped_centers.filter(pk=current_user.center_id).exists()
+        ):
             return User.objects.none()
-        return User.objects.filter(center_id=current_user.center_id).exclude(is_superuser=True).exclude(
+        return User.objects.filter(center__in=scoped_centers).exclude(is_superuser=True).exclude(
             role__in=[User.ROLE_ADMIN_COUNTRY, User.ROLE_ADMIN_PROVINCE, User.ROLE_ADMIN_COUNTY]
         )
 

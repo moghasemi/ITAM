@@ -431,13 +431,16 @@ class AuditLogListView(StaffRequiredMixin, BaseListView):
         user = self.request.user
         if user.is_admin_country:
             pass
-        elif user.role in (User.ROLE_ADMIN_PROVINCE, User.ROLE_ADMIN_COUNTY):
-            scope = Q(user__center__in=user.get_scoped_centers())
-            if user.org_unit_id:
-                scope |= Q(user__org_unit_id=user.org_unit_id)
-            queryset = queryset.filter(scope)
-        elif user.role == User.ROLE_ADMIN_IT and user.center_id:
-            queryset = queryset.filter(user__center_id=user.center_id)
+        elif user.role in (
+            User.ROLE_ADMIN_PROVINCE,
+            User.ROLE_ADMIN_COUNTY,
+            User.ROLE_ADMIN_IT,
+        ):
+            # Reuse the same active organizational scope as user management;
+            # direct org_unit_id filters would retain logs from inactive units.
+            from apps.accounts.views import visible_users
+
+            queryset = queryset.filter(user__in=visible_users(user))
         else:
             # AuditLog has no direct organizational FK; fail closed for roles
             # without an explicit center/province/county audit scope.

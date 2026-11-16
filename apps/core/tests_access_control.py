@@ -3,6 +3,7 @@
 from django.test import TestCase
 
 from apps.accounts.models import User
+from apps.accounts.views import visible_users
 from apps.core.models import AuditLog, SystemSetting
 from apps.org.models import OrganizationalUnit
 
@@ -80,6 +81,22 @@ class AuditLogOrganizationalScopeTests(TestCase):
             role=User.ROLE_ADMIN_PROVINCE,
             org_unit=cls.province_a,
         )
+        cls.county_a = OrganizationalUnit.objects.create(
+            name="County A", code="AUD-COUNTY-A",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=cls.province_a,
+        )
+        cls.county_admin = User.objects.create_user(
+            username="county-admin-audit",
+            password="Strong-Test-Password-2026!",
+            role=User.ROLE_ADMIN_COUNTY,
+            org_unit=cls.county_a,
+        )
+        cls.county_actor = User.objects.create_user(
+            username="county-actor-audit",
+            password="Strong-Test-Password-2026!",
+            role=User.ROLE_REQUESTER,
+            org_unit=cls.county_a,
+        )
         actor_a = User.objects.create_user(
             username="actor-province-a",
             password="Strong-Test-Password-2026!",
@@ -104,6 +121,12 @@ class AuditLogOrganizationalScopeTests(TestCase):
             model_name="Asset",
             object_label="Province B asset",
         )
+        cls.county_log = AuditLog.objects.create(
+            user=cls.county_actor,
+            action=AuditLog.ACTION_UPDATE,
+            model_name="Asset",
+            object_label="County A asset",
+        )
 
     def test_province_admin_sees_only_audit_logs_in_own_scope(self):
         self.client.login(username="province-admin-audit", password="Strong-Test-Password-2026!")
@@ -113,3 +136,34 @@ class AuditLogOrganizationalScopeTests(TestCase):
         visible_ids = set(response.context["object_list"].values_list("pk", flat=True))
         self.assertIn(self.log_a.pk, visible_ids)
         self.assertNotIn(self.log_b.pk, visible_ids)
+
+    def test_inactive_province_hides_users_and_audit_logs(self):
+        self.province_a.is_active = False
+        self.province_a.save(update_fields=["is_active"])
+
+        self.assertFalse(visible_users(self.province_admin).exists())
+        self.client.force_login(self.province_admin)
+        response = self.client.get("/audit/")
+        self.assertEqual(response.status_code, 200)
+        visible_ids = set(response.context["object_list"].values_list("pk", flat=True))
+        self.assertNotIn(self.log_a.pk, visible_ids)
+        self.assertNotIn(self.county_log.pk, visible_ids)
+
+    def test_inactive_county_hides_county_users_and_audit_logs(self):
+        self.county_a.is_active = False
+        self.county_a.save(update_fields=["is_active"])
+
+        self.assertFalse(visible_users(self.county_admin).exists())
+        self.client.force_login(self.county_admin)
+        response = self.client.get("/audit/")
+        self.assertEqual(response.status_code, 200)
+        visible_ids = set(response.context["object_list"].values_list("pk", flat=True))
+        self.assertNotIn(self.county_log.pk, visible_ids)
+
+    def test_province_admin_does_not_see_users_in_inactive_counties(self):
+        self.county_a.is_active = False
+        self.county_a.save(update_fields=["is_active"])
+
+        visible_ids = set(visible_users(self.province_admin).values_list("pk", flat=True))
+        self.assertNotIn(self.county_admin.pk, visible_ids)
+        self.assertNotIn(self.county_actor.pk, visible_ids)
