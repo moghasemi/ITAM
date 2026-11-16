@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import F
 from django.utils import timezone
 
 from apps.core.validators import validate_image_file
@@ -198,8 +199,13 @@ class User(AbstractUser):
         return queryset.filter(
             is_active=True,
             parent_unit__is_active=True,
+            parent_unit__unit_type="county",
             parent_unit__parent__is_active=True,
+            parent_unit__parent__unit_type="province",
             treatment_management__is_active=True,
+            # A legacy or manually-corrupted row must never cross the
+            # geographic/organizational province boundary.
+            treatment_management__province_id=F("parent_unit__parent_id"),
         )
 
     def get_scoped_centers(self):

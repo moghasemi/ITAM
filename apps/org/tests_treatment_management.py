@@ -125,3 +125,47 @@ class TreatmentManagementSeparationTests(TestCase):
 
         self.assertIsNotNone(center.treatment_management_id)
         self.assertFalse(contract.covers_center(center))
+
+    def test_county_cannot_move_while_its_centers_keep_old_treatment_owner(self):
+        Center.objects.create(
+            name="مرکز شهرستان در حال انتقال", code="TM-CENTER-MOVE",
+            parent_unit=self.county_a,
+        )
+        self.county_a.parent = self.province_b
+
+        with self.assertRaises(ValidationError):
+            self.county_a.full_clean()
+
+    def test_treatment_management_cannot_move_away_from_attached_centers(self):
+        center = Center.objects.create(
+            name="مرکز مدیریت درمان ثابت", code="TM-CENTER-TM-MOVE",
+            parent_unit=self.county_a,
+        )
+        management = center.treatment_management
+        management.province = self.province_b
+
+        with self.assertRaises(ValidationError):
+            management.full_clean()
+
+    def test_scoped_center_access_fails_closed_on_geography_owner_mismatch(self):
+        center_a = Center.objects.create(
+            name="مرکز ناسازگاری دامنه", code="TM-CENTER-SCOPE-MISMATCH",
+            parent_unit=self.county_a,
+        )
+        center_b = Center.objects.create(
+            name="مرکز استان مقصد", code="TM-CENTER-SCOPE-DEST",
+            parent_unit=self.county_b,
+        )
+        # Simulate a legacy/corrupted row that bypassed model validation.
+        Center.objects.filter(pk=center_a.pk).update(
+            treatment_management_id=center_b.treatment_management_id
+        )
+        admin_user = User.objects.create_user(
+            username="tm-scope-province-admin", password="TestPass!9382",
+            role=User.ROLE_ADMIN_PROVINCE, org_unit=self.province_a,
+        )
+
+        self.assertNotIn(
+            center_a.pk,
+            admin_user.get_scoped_centers().values_list("pk", flat=True),
+        )

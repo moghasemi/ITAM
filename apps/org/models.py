@@ -76,6 +76,17 @@ class OrganizationalUnit(TimeStampedModel):
             if self.parent.unit_type != self.UNIT_PROVINCE:
                 raise ValidationError({"parent": "واحد بالادست یک شهرستان باید از سطح استانی باشد."})
 
+        # A county is the geographic authority for its centers. Moving it to
+        # another province is unsafe while any center remains owned by the
+        # previous province's TreatmentManagement.
+        if self.pk and self.unit_type == self.UNIT_COUNTY and self.parent_id:
+            if Center.objects.filter(parent_unit_id=self.pk).exclude(
+                treatment_management__province_id=self.parent_id
+            ).exists():
+                raise ValidationError({
+                    "parent": "ابتدا باید مالکیت مدیریت درمان مراکز این شهرستان با استان مقصد هماهنگ شود."
+                })
+
 
 class TreatmentManagement(TimeStampedModel):
     """واحد سازمانی مدیریت درمان استان؛ مستقل از واحدهای جغرافیایی."""
@@ -104,6 +115,12 @@ class TreatmentManagement(TimeStampedModel):
         super().clean()
         if self.province_id and self.province.unit_type != OrganizationalUnit.UNIT_PROVINCE:
             raise ValidationError({"province": "مدیریت درمان باید دقیقاً به یک استان متصل باشد."})
+        if self.pk and self.province_id and Center.objects.filter(
+            treatment_management_id=self.pk
+        ).exclude(parent_unit__parent_id=self.province_id).exists():
+            raise ValidationError({
+                "province": "استان مدیریت درمان باید با استان جغرافیایی تمام مراکز وابسته یکسان باشد."
+            })
 
 
 class Center(TimeStampedModel):
