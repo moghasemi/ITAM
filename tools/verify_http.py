@@ -1,12 +1,19 @@
 """آزمایش واقعی HTTP: ورود به سامانه و بررسی صفحات کلیدی."""
 import http.cookiejar
+import os
 import re
 import urllib.parse
 import urllib.request
 
-BASE = "http://127.0.0.1:8000"
-USERNAME = "admin.it"
-PASSWORD = "Admin@1403"
+BASE = os.environ.get("ITAM_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+USERNAME = os.environ.get("ITAM_TEST_USERNAME")
+PASSWORD = os.environ.get("ITAM_TEST_PASSWORD")
+
+if not USERNAME or not PASSWORD:
+    raise SystemExit(
+        "Set ITAM_TEST_USERNAME and ITAM_TEST_PASSWORD in the environment; "
+        "credentials must not be stored in source code."
+    )
 
 jar = http.cookiejar.CookieJar()
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
