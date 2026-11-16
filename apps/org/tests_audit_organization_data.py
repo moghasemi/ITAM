@@ -27,6 +27,7 @@ class AuditOrganizationDataCommandTests(TestCase):
         self.center = Center.objects.create(
             name="مرکز ممیزی", code="AUD-C-01", city="شهر الف", parent_unit=self.county_a
         )
+
     def test_valid_center_passes_read_only_audit(self):
         output = StringIO()
         call_command("audit_organization_data", stdout=output)
