@@ -990,7 +990,7 @@ class RepairAndReferralWorkflowTests(TestCase):
             )
         request.refresh_from_db()
         self.assertEqual(request.manager_approval, GeneralITRequest.MANAGER_APPROVED)
-        self.assertEqual(request.status, GeneralITRequest.STATUS_APPROVED)
+        self.assertEqual(request.status, GeneralITRequest.STATUS_ASSIGNED)
 
     def test_new_general_request_notifies_active_center_it_experts(self):
         request = create_general_it_request(
