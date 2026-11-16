@@ -27,11 +27,6 @@ class AuditOrganizationDataCommandTests(TestCase):
         self.center = Center.objects.create(
             name="مرکز ممیزی", code="AUD-C-01", city="شهر الف", parent_unit=self.county_a
         )
-        self.management_b, _ = TreatmentManagement.objects.get_or_create(
-            province=self.province_b,
-            defaults={"name": "مدیریت درمان استان ب", "code": "AUD-TM-PB"},
-        )
-
     def test_valid_center_passes_read_only_audit(self):
         output = StringIO()
         call_command("audit_organization_data", stdout=output)
@@ -39,9 +34,21 @@ class AuditOrganizationDataCommandTests(TestCase):
         self.assertIn("مراکز بررسی‌شده: 1", output.getvalue())
         self.assertIn("بدون خطای بحرانی", output.getvalue())
 
+    def test_province_without_center_or_treatment_management_passes(self):
+        output = StringIO()
+        call_command("audit_organization_data", stdout=output)
+
+        self.assertIn("بدون خطای بحرانی", output.getvalue())
+        self.assertNotIn("missing_province_treatment_management", output.getvalue())
+
     def test_province_mismatch_fails_without_repairing_data(self):
+        management_b = TreatmentManagement.objects.create(
+            province=self.province_b,
+            name="مدیریت درمان استان ب",
+            code="AUD-TM-PB",
+        )
         Center.objects.filter(pk=self.center.pk).update(
-            treatment_management=self.management_b
+            treatment_management=management_b
         )
         output = StringIO()
 
