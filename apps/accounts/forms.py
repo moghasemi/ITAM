@@ -136,6 +136,7 @@ class UserForm(StyledModelForm):
                     (User.ROLE_REQUESTER, "کاربر / امانت‌دار"),
                     (User.ROLE_ADMIN_IT, "کارشناس فناوری اطلاعات مرکز"),
                     (User.ROLE_MANAGER, "مدیر و ناظر مرکز"),
+                    (User.ROLE_ADMIN_COUNTY, "مدیر فناوری اطلاعات شهرستان"),
                 ]
                 self.fields["role"].choices = allowed_roles
             elif self.current_user.role == User.ROLE_ADMIN_PROVINCE:
