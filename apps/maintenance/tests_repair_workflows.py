@@ -1007,4 +1007,3 @@ class RepairAndReferralWorkflowTests(TestCase):
                 url=f"/maintenance/requests/{request.pk}/",
             ).exists()
         )
-
