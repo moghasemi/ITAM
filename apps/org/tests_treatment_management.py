@@ -160,12 +160,12 @@ class TreatmentManagementSeparationTests(TestCase):
         Center.objects.filter(pk=center_a.pk).update(
             treatment_management_id=center_b.treatment_management_id
         )
-        admin_user = User.objects.create_user(
-            username="tm-scope-province-admin", password="TestPass!9382",
-            role=User.ROLE_ADMIN_PROVINCE, org_unit=self.province_a,
+        center_user = User.objects.create_user(
+            username="tm-scope-center-user", password="TestPass!9382",
+            role=User.ROLE_ADMIN_IT, center=center_a,
         )
 
         self.assertNotIn(
             center_a.pk,
-            admin_user.get_scoped_centers().values_list("pk", flat=True),
+            center_user.get_scoped_centers().values_list("pk", flat=True),
         )
