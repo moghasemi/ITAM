@@ -4,6 +4,7 @@ from __future__ import annotations
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, UserCreationForm
 from django.contrib.auth.password_validation import validate_password
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.forms import StyledModelForm, apply_widget_classes
@@ -66,7 +67,7 @@ class UserForm(StyledModelForm):
     class Meta:
         model = User
         fields = [
-            "username", "first_name", "last_name", "email", "role", "center",
+            "username", "first_name", "last_name", "email", "role", "org_unit", "center",
             "personnel_code", "national_code", "phone", "job_title",
             "department", "contractor", "signature", "is_active",
         ]
@@ -74,6 +75,49 @@ class UserForm(StyledModelForm):
     def __init__(self, *args, **kwargs):
         self.current_user = kwargs.pop("current_user", None)
         super().__init__(*args, **kwargs)
+
+        can_assign_org_unit = not self.current_user or self.current_user.is_superuser or self.current_user.role in (
+            User.ROLE_ADMIN_COUNTRY, User.ROLE_ADMIN_PROVINCE
+        )
+        if not can_assign_org_unit:
+            self.fields.pop("org_unit")
+        else:
+            organizational_units = OrganizationalUnit.objects.filter(
+                is_active=True,
+                unit_type__in=[
+                    OrganizationalUnit.UNIT_PROVINCE,
+                    OrganizationalUnit.UNIT_COUNTY,
+                ],
+            )
+            if (
+                self.current_user
+                and not self.current_user.is_superuser
+                and self.current_user.role == User.ROLE_ADMIN_PROVINCE
+            ):
+                province = None
+                if (
+                    self.current_user.org_unit_id
+                    and self.current_user.org_unit.unit_type == OrganizationalUnit.UNIT_PROVINCE
+                ):
+                    province = self.current_user.org_unit
+                elif (
+                    self.current_user.center_id
+                    and self.current_user.center.treatment_management_id
+                ):
+                    province = self.current_user.center.treatment_management.province
+                if province and province.is_active:
+                    organizational_units = organizational_units.filter(
+                        Q(pk=province.pk)
+                        | Q(
+                            unit_type=OrganizationalUnit.UNIT_COUNTY,
+                            parent=province,
+                        )
+                    )
+                else:
+                    organizational_units = OrganizationalUnit.objects.none()
+            self.fields["org_unit"].queryset = organizational_units.order_by(
+                "unit_type", "name"
+            )
 
         if self.current_user and not self.current_user.is_superuser and self.current_user.role != User.ROLE_ADMIN_COUNTRY:
             scoped_centers = self.current_user.get_scoped_centers().filter(is_active=True)
@@ -92,7 +136,6 @@ class UserForm(StyledModelForm):
                     (User.ROLE_REQUESTER, "کاربر / امانت‌دار"),
                     (User.ROLE_ADMIN_IT, "کارشناس فناوری اطلاعات مرکز"),
                     (User.ROLE_MANAGER, "مدیر و ناظر مرکز"),
-                    (User.ROLE_ADMIN_COUNTY, "مدیر فناوری اطلاعات شهرستان"),
                 ]
                 self.fields["role"].choices = allowed_roles
             elif self.current_user.role == User.ROLE_ADMIN_PROVINCE:
@@ -159,6 +202,52 @@ class UserForm(StyledModelForm):
             except forms.ValidationError as exc:
                 self.add_error("password1", exc)
         role = cleaned.get("role")
+        organizational_unit = cleaned.get("org_unit")
+        center = cleaned.get("center")
+
+        if role == User.ROLE_ADMIN_COUNTY:
+            if not organizational_unit and center and center.parent_unit_id:
+                organizational_unit = center.parent_unit
+                cleaned["org_unit"] = organizational_unit
+            if (
+                not organizational_unit
+                or organizational_unit.unit_type != OrganizationalUnit.UNIT_COUNTY
+            ):
+                self.add_error(
+                    "org_unit",
+                    "برای مدیر فناوری اطلاعات شهرستان، انتخاب واحد سازمانی شهرستانی الزامی است.",
+                )
+            elif center and center.parent_unit_id != organizational_unit.pk:
+                self.add_error(
+                    "center",
+                    "مرکز انتخاب‌شده باید متعلق به شهرستان سازمانی تعیین‌شده باشد.",
+                )
+        elif role == User.ROLE_ADMIN_PROVINCE:
+            if (
+                self.current_user
+                and self.current_user.role == User.ROLE_ADMIN_PROVINCE
+                and not self.current_user.is_superuser
+            ):
+                province = self.current_user.org_unit
+                if not province or province.unit_type != OrganizationalUnit.UNIT_PROVINCE:
+                    province = (
+                        self.current_user.center.treatment_management.province
+                        if self.current_user.center_id
+                        and self.current_user.center.treatment_management_id
+                        else None
+                    )
+                if province:
+                    cleaned["org_unit"] = province
+            organizational_unit = cleaned.get("org_unit")
+            if (
+                not organizational_unit
+                or organizational_unit.unit_type != OrganizationalUnit.UNIT_PROVINCE
+            ):
+                self.add_error(
+                    "org_unit",
+                    "برای مدیر فناوری اطلاعات استان، انتخاب واحد سازمانی استانی الزامی است.",
+                )
+
         contractor = cleaned.get("contractor")
         if role == User.ROLE_TECHNICIAN and not contractor:
             raise forms.ValidationError({"contractor": "برای کارشناس پیمانکار، انتخاب شرکت الزامی است."})
@@ -211,7 +300,7 @@ class UserForm(StyledModelForm):
         if password:
             user.set_password(password)
         if (
-            user.role == User.ROLE_TECHNICIAN
+            user.role in (User.ROLE_TECHNICIAN, User.ROLE_ADMIN_PROVINCE)
             and self.current_user
             and self.current_user.role == User.ROLE_ADMIN_PROVINCE
         ):
