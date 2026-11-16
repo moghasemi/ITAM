@@ -42,8 +42,18 @@ class Command(BaseCommand):
                     "message": "مدیریت درمان به واحدی متصل است که از نوع استان نیست.",
                 })
 
+        # A treatment-management record is operationally required only after
+        # the province has at least one center. Geography loading deliberately
+        # creates province/county units without provisioning operational
+        # management records for every province.
+        province_ids_with_centers = set(
+            centers.exclude(parent_unit__parent__isnull=True).values_list(
+                "parent_unit__parent_id", flat=True
+            )
+        )
         for province in OrganizationalUnit.objects.filter(
-            unit_type=OrganizationalUnit.UNIT_PROVINCE
+            unit_type=OrganizationalUnit.UNIT_PROVINCE,
+            pk__in=province_ids_with_centers,
         ).only("pk", "name"):
             if province.pk not in province_ids_with_management:
                 issues.append({
