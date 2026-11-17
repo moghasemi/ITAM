@@ -1,13 +1,14 @@
+{% load itam_tags %}
 {% if filter_form %}
-<form method="get" class="filter-bar">
+<form method="get" class="filter-bar itam-filter-bar">
   {% for field in filter_form %}
     <div class="filter-field">
       <label class="filter-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-      {{ field }}
+      {{ field|field_class:"kt-input" }}
     </div>
   {% endfor %}
   <div class="filter-actions">
-    <button class="btn btn-primary" type="submit">اعمال پالایه</button>
+    <button class="btn btn-primary" type="submit"><i class="ki-filled ki-filter"></i> اعمال فیلتر</button>
     <a class="btn btn-ghost" href="{{ request.path }}">پاک‌کردن</a>
   </div>
 </form>
