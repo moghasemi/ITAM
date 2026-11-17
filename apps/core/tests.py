@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import datetime as dt
+from unittest.mock import patch
 
 from django.core.cache import cache
+from django.db import DatabaseError
 from django.test import TestCase
 from django.utils import timezone
 
@@ -118,6 +120,21 @@ class WorkCalendarTests(TestCase):
         start = self._at(2024, 3, 23, 15, 0)
         end = self._at(2024, 3, 25, 9, 0)  # دوشنبه
         self.assertAlmostEqual(calendar.working_minutes_between(start, end), 120, places=1)
+
+    def test_holiday_database_failure_stops_sla_calendar_creation(self):
+        with patch(
+            "apps.core.models.Holiday.objects.filter",
+            side_effect=DatabaseError("holiday table unavailable"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "تقویم تعطیلات"):
+                build_calendar(self.setting)
+
+    def test_holidays_are_not_loaded_when_exclusion_is_disabled(self):
+        self.setting.exclude_holidays = False
+        with patch("apps.core.models.Holiday.objects.filter") as holiday_query:
+            calendar = build_calendar(self.setting)
+        holiday_query.assert_not_called()
+        self.assertFalse(calendar.exclude_holidays)
 
     def test_24_7_mode(self):
         calendar = WorkCalendar(is_24_7=True)

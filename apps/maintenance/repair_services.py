@@ -13,7 +13,7 @@ from apps.accounts.models import User
 from apps.core.models import Notification
 from apps.core.utils import log_action
 from apps.core.validators import validate_document_file
-from apps.org.models import ContractCenterAssignment, OrganizationalUnit
+from apps.org.models import Center, Contract, ContractCenterAssignment, OrganizationalUnit
 
 from .repair_models import (
     GeneralITRequest,
@@ -29,9 +29,26 @@ from .repair_models import (
 
 
 def _province_id_for_center(center):
-    if not center or not center.treatment_management_id:
+    """Return only an active, internally consistent province for a center."""
+    if not center or not center.is_active or not center.parent_unit_id or not center.treatment_management_id:
         return None
-    return center.treatment_management.province_id
+    county = center.parent_unit
+    if (
+        not county.is_active
+        or county.unit_type != OrganizationalUnit.UNIT_COUNTY
+        or not county.parent_id
+    ):
+        return None
+    province = county.parent
+    management = center.treatment_management
+    if (
+        not province.is_active
+        or province.unit_type != OrganizationalUnit.UNIT_PROVINCE
+        or not management.is_active
+        or management.province_id != province.pk
+    ):
+        return None
+    return province.pk
 
 
 def _is_country_admin(user):
@@ -43,12 +60,31 @@ def _is_province_admin(user):
 
 
 def _province_id_for_user(user):
-    if not user:
+    """Resolve an active province only; inactive explicit assignments fail closed."""
+    if not user or not getattr(user, "is_authenticated", False) or not user.is_active:
         return None
-    if user.org_unit_id and user.org_unit.unit_type == OrganizationalUnit.UNIT_PROVINCE:
-        return user.org_unit_id
-    if user.center_id and user.center.treatment_management_id:
-        return user.center.treatment_management.province_id
+    if user.org_unit_id:
+        unit = user.org_unit
+        if unit.unit_type == OrganizationalUnit.UNIT_PROVINCE:
+            return unit.pk if unit.is_active else None
+        if (
+            user.role != User.ROLE_ADMIN_PROVINCE
+            and unit.unit_type == OrganizationalUnit.UNIT_COUNTY
+            and unit.is_active
+            and unit.parent_id
+            and unit.parent.is_active
+            and unit.parent.unit_type == OrganizationalUnit.UNIT_PROVINCE
+        ):
+            center_province_id = (
+                _province_id_for_center(user.center) if user.center_id else None
+            )
+            if center_province_id == unit.parent_id:
+                return unit.parent_id
+        # An explicit but invalid/inactive organizational assignment must not
+        # silently fall back to a different center-based province.
+        return None
+    if user.center_id:
+        return _province_id_for_center(user.center)
     return None
 
 
@@ -58,6 +94,8 @@ def _province_admins(province_id):
     return User.objects.filter(
         role=User.ROLE_ADMIN_PROVINCE,
         org_unit_id=province_id,
+        org_unit__is_active=True,
+        org_unit__unit_type=OrganizationalUnit.UNIT_PROVINCE,
         is_active=True,
     )
 
@@ -86,17 +124,17 @@ def visible_repair_requests(user):
     if _is_country_admin(user):
         return Model.objects.all()
     if user.role == User.ROLE_REQUESTER:
-        return Model.objects.filter(requested_by=user)
+        return Model.objects.filter(
+            requested_by=user, center__in=user.get_scoped_centers()
+        )
     if user.role == User.ROLE_TECHNICIAN:
         # HWAgent/contract technicians are not independent repairers and have
         # no user-to-repairer assignment; never expose center repair requests.
         return Model.objects.none()
     if _is_province_admin(user):
-        province_id = _province_id_for_user(user)
-        if province_id:
-            return Model.objects.filter(
-                center__treatment_management__province_id=province_id
-            )
+        if not _province_id_for_user(user):
+            return Model.objects.none()
+        return Model.objects.filter(center__in=user.get_scoped_centers())
     return Model.objects.filter(center__in=user.get_scoped_centers())
 
 
@@ -107,14 +145,24 @@ def visible_general_it_requests(user):
         return GeneralITRequest.objects.none()
     if _is_country_admin(user):
         return GeneralITRequest.objects.all()
-    if user.role in (User.ROLE_REQUESTER, User.ROLE_TECHNICIAN):
-        return GeneralITRequest.objects.filter(requested_by=user)
+    if user.role == User.ROLE_REQUESTER:
+        return GeneralITRequest.objects.filter(
+            requested_by=user, center__in=user.get_scoped_centers()
+        )
+    if user.role == User.ROLE_TECHNICIAN:
+        # Technicians may inspect their own requests, but only while the
+        # referenced center and its complete geography/management chain remain
+        # active and internally consistent.
+        from apps.org.models import Center
+
+        active_centers = user._active_center_scope(Center.objects.all())
+        return GeneralITRequest.objects.filter(
+            requested_by=user, center__in=active_centers
+        )
     if _is_province_admin(user):
-        province_id = _province_id_for_user(user)
-        if province_id:
-            return GeneralITRequest.objects.filter(
-                center__treatment_management__province_id=province_id
-            )
+        if not _province_id_for_user(user):
+            return GeneralITRequest.objects.none()
+        return GeneralITRequest.objects.filter(center__in=user.get_scoped_centers())
     if user.role == User.ROLE_MANAGER:
         return GeneralITRequest.objects.filter(center__in=user.get_scoped_centers())
     return GeneralITRequest.objects.filter(
@@ -126,10 +174,21 @@ def visible_repairers(user):
         return IndependentRepairer.objects.none()
     if _is_country_admin(user):
         return IndependentRepairer.objects.all()
-    if (user.is_admin_province or user.role == User.ROLE_ADMIN_IT) and _province_id_for_user(user):
-        return IndependentRepairer.objects.filter(province_id=_province_id_for_user(user))
+    if user.is_admin_province or user.role == User.ROLE_ADMIN_IT:
+        province_id = _province_id_for_user(user)
+        if not province_id:
+            return IndependentRepairer.objects.none()
+        return IndependentRepairer.objects.filter(
+            province_id=province_id,
+            province__is_active=True,
+            province__unit_type=OrganizationalUnit.UNIT_PROVINCE,
+        )
     province_ids = user.get_scoped_centers().values("treatment_management__province_id")
-    return IndependentRepairer.objects.filter(province_id__in=province_ids).distinct()
+    return IndependentRepairer.objects.filter(
+        province_id__in=province_ids,
+        province__is_active=True,
+        province__unit_type=OrganizationalUnit.UNIT_PROVINCE,
+    ).distinct()
 
 
 def visible_repair_feedback(user):
@@ -139,11 +198,13 @@ def visible_repair_feedback(user):
         return RepairFeedback.objects.select_related(
             "repairer", "center", "author", "repair_request"
         )
-    # Only province/country administrators may review feedback across a
-    # province. Center IT experts remain limited to their own assigned centers.
-    if user.is_admin_province and _province_id_for_user(user):
+    # Province-wide feedback access requires an active province and active
+    # centers. Center IT experts remain limited to their active scoped centers.
+    if user.is_admin_province:
+        if not _province_id_for_user(user):
+            return RepairFeedback.objects.none()
         return RepairFeedback.objects.filter(
-            center__treatment_management__province_id=_province_id_for_user(user)
+            center__in=user.get_scoped_centers()
         ).select_related("repairer", "center", "author", "repair_request")
     return RepairFeedback.objects.filter(
         center__in=user.get_scoped_centers()
@@ -176,9 +237,18 @@ def set_repairer_active(*, repairer, active, reason, actor):
 
 
 @transaction.atomic
+@transaction.atomic
 def assign_contractor_to_center(*, contract, center, start_date, actor):
     if not _is_province_admin(actor):
         raise PermissionDenied("انتساب پیمانکار رسمی فقط توسط مدیر استان انجام می‌شود.")
+
+    # Serialize assignments for a center on databases that support row locks.
+    # The database uniqueness constraint remains the final concurrency guard.
+    center = Center.objects.select_for_update(of=("self",)).select_related(
+        "treatment_management"
+    ).get(pk=center.pk)
+    contract = Contract.objects.select_for_update().get(pk=contract.pk)
+
     if not _is_country_admin(actor) and (
         not center.treatment_management_id
         or center.treatment_management.province_id != _province_id_for_user(actor)
@@ -694,20 +764,27 @@ def assign_general_it_request(*, request, expert, actor):
     if expert.role != User.ROLE_ADMIN_IT or not expert.is_active or expert.center_id != request.center_id:
         raise ValidationError("کارشناس انتخاب‌شده باید فعال و متعلق به همان مرکز باشد.")
     request = GeneralITRequest.objects.select_for_update().get(pk=request.pk)
+    # A requester may initially self-assign the request to an IT expert
+    # (including themselves) while manager review is pending. Delegating or
+    # reassigning it to another expert must wait for the manager's decision.
+    # Rejected/bypassed requests are escalated through the documented
+    # escalation path and must not be assigned locally.
+    if request.status == GeneralITRequest.STATUS_ASSIGNED and request.assigned_to_id == expert.pk:
+        return request
     if request.manager_approval in (
-        GeneralITRequest.MANAGER_PENDING,
         GeneralITRequest.MANAGER_REJECTED,
         GeneralITRequest.MANAGER_BYPASSED,
+    ) or (
+        request.manager_approval == GeneralITRequest.MANAGER_PENDING
+        and (request.assigned_to_id is not None or expert.pk != actor.pk)
     ):
-        raise ValidationError("تا تعیین تکلیف تایید مدیر، امکان تخصیص درخواست وجود ندارد.")
+        raise ValidationError("تا تعیین تکلیف تایید مدیر، امکان ارجاع یا تخصیص مجدد درخواست وجود ندارد.")
     if request.status not in (
         GeneralITRequest.STATUS_NEW,
         GeneralITRequest.STATUS_APPROVED,
         GeneralITRequest.STATUS_ASSIGNED,
     ):
         raise ValidationError("فقط درخواست جدید، تاییدشده یا ارجاع‌شده قابل تخصیص است.")
-    if request.status == GeneralITRequest.STATUS_ASSIGNED and request.assigned_to_id == expert.pk:
-        return request
     previous_expert = request.assigned_to
     request.assigned_to = expert
     request.status = GeneralITRequest.STATUS_ASSIGNED
@@ -750,10 +827,16 @@ def manager_decide_general_it_request(*, request, decision, note, actor):
     )
     request.manager_reviewed_by = actor
     request.manager_reviewed_at = timezone.now()
-    request.status = (
-        GeneralITRequest.STATUS_APPROVED if decision == "approve"
-        else GeneralITRequest.STATUS_REJECTED
-    )
+    if decision == "approve":
+        # Manager approval is an independent decision dimension. Preserve an
+        # existing expert assignment instead of replacing its workflow state.
+        request.status = (
+            GeneralITRequest.STATUS_ASSIGNED
+            if request.assigned_to_id
+            else GeneralITRequest.STATUS_APPROVED
+        )
+    else:
+        request.status = GeneralITRequest.STATUS_REJECTED
     request.provincial_decision = (note or "").strip()
     request.save(update_fields=[
         "manager_approval", "manager_reviewed_by", "manager_reviewed_at",

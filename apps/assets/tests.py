@@ -222,6 +222,14 @@ class SnapshotWorkflowTests(TestCase):
         self.assertEqual(reference_snapshot(self.asset).pk, baseline.pk)
 
     def test_technician_asset_forms_only_offer_own_active_contracts(self):
+        same_province_unassigned = Contract.objects.create(
+            contractor=self.contractor,
+            province=self.contract.province,
+            number="T-SAME-PROVINCE-UNASSIGNED",
+            title="قرارداد بدون انتساب به مرکز",
+            start_date=timezone.localdate() - dt.timedelta(days=1),
+            end_date=timezone.localdate() + dt.timedelta(days=30),
+        )
         other_contractor = Contractor.objects.create(name="پیمانکار دیگر")
         other_contract = Contract.objects.create(
             contractor=other_contractor,
@@ -235,8 +243,10 @@ class SnapshotWorkflowTests(TestCase):
         filter_form = AssetFilterForm(user=self.technician)
         self.assertTrue(form.fields["contract"].queryset.filter(pk=self.contract.pk).exists())
         self.assertFalse(form.fields["contract"].queryset.filter(pk=other_contract.pk).exists())
+        self.assertFalse(form.fields["contract"].queryset.filter(pk=same_province_unassigned.pk).exists())
         self.assertTrue(filter_form.fields["contract"].queryset.filter(pk=self.contract.pk).exists())
         self.assertFalse(filter_form.fields["contract"].queryset.filter(pk=other_contract.pk).exists())
+        self.assertFalse(filter_form.fields["contract"].queryset.filter(pk=same_province_unassigned.pk).exists())
 
     def test_technician_of_other_contractor_cannot_record(self):
         from django.core.exceptions import PermissionDenied
@@ -674,7 +684,7 @@ class MultiCenterAndHWAgentTests(TestCase):
         self.assertEqual(unauth_resp.status_code, 401)
 
         # ۲) صدور توکن اختصاصی متصل به مرکز
-        cred, raw_token = AgentCredential.generate(self.center_sub, name="PC-SUB-01-Agent")
+        cred, raw_token = AgentCredential.generate(self.center_sub, asset=self.asset_sub, name="PC-SUB-01-Agent")
 
         # ۳) ارسال درخواست احراز هویت‌شده با هدرهای امنیتی
         headers = {
@@ -694,13 +704,95 @@ class MultiCenterAndHWAgentTests(TestCase):
         self.assertEqual(data["asset_tag"], "TAG-SUB")
 
 
+    def test_api_hwagent_sync_rejects_legacy_unbound_credential(self):
+        import hashlib
+        import json
+        import uuid
+        from django.utils import timezone
+        from apps.assets.models import AgentCredential, HardwareSnapshot
+
+        raw_token = "itam_agt_legacy_unbound_test_token"
+        AgentCredential.objects.create(
+            center=self.center_sub,
+            name="legacy-unbound-agent",
+            hostname="PC-SUB-01",
+            token_prefix=raw_token[:12],
+            token_hash=hashlib.sha256(raw_token.encode("utf-8")).hexdigest(),
+        )
+        payload = {
+            "computerName": "PC-SUB-01",
+            "os": "Windows 11",
+            "cpu": {"name": "Intel Core i5", "cores": 4, "threads": 8, "speed": 2500},
+        }
+        response = self.client.post(
+            "/api/v1/hardware/agent-sync/",
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {raw_token}",
+            HTTP_X_ITAM_TIMESTAMP=timezone.now().isoformat(),
+            HTTP_X_ITAM_NONCE=str(uuid.uuid4()),
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(HardwareSnapshot.objects.filter(asset=self.asset_sub).exists())
+
+    def test_api_hwagent_sync_rejects_mismatched_hostname_for_bound_asset(self):
+        import json
+        import uuid
+        from django.utils import timezone
+        from apps.assets.models import AgentCredential, HardwareSnapshot
+
+        _, token = AgentCredential.generate(
+            self.center_sub, asset=self.asset_sub, name="hostname-bound-agent"
+        )
+        payload = {
+            "computerName": "ATTACKER-CONTROLLED-HOST",
+            "os": "Windows 11",
+            "cpu": {"name": "Intel Core i5", "cores": 4, "threads": 8, "speed": 2500},
+        }
+        response = self.client.post(
+            "/api/v1/hardware/agent-sync/",
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+            HTTP_X_ITAM_TIMESTAMP=timezone.now().isoformat(),
+            HTTP_X_ITAM_NONCE=str(uuid.uuid4()),
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(HardwareSnapshot.objects.filter(asset=self.asset_sub).exists())
+
+    def test_api_hwagent_sync_rejects_asset_tag_not_bound_to_credential(self):
+        import json
+        import uuid
+        from django.utils import timezone
+        from apps.assets.models import AgentCredential, HardwareSnapshot
+
+        _, token = AgentCredential.generate(
+            self.center_sub, asset=self.asset_sub, name="asset-tag-bound-agent"
+        )
+        payload = {
+            "computerName": "PC-SUB-01",
+            "asset_tag": "TAG-HQ",
+            "os": "Windows 11",
+            "cpu": {"name": "Intel Core i5", "cores": 4, "threads": 8, "speed": 2500},
+        }
+        response = self.client.post(
+            "/api/v1/hardware/agent-sync/",
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+            HTTP_X_ITAM_TIMESTAMP=timezone.now().isoformat(),
+            HTTP_X_ITAM_NONCE=str(uuid.uuid4()),
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(HardwareSnapshot.objects.filter(asset=self.asset_sub).exists())
+
     def test_api_hwagent_sync_rejects_inactive_center(self):
         import json
         import uuid
         from django.utils import timezone
         from apps.assets.models import AgentCredential, HardwareSnapshot
 
-        credential, token = AgentCredential.generate(self.center_sub, name="inactive-center-agent")
+        credential, token = AgentCredential.generate(self.center_sub, asset=self.asset_sub, name="inactive-center-agent")
         self.center_sub.is_active = False
         self.center_sub.save(update_fields=["is_active"])
         payload = {
@@ -726,7 +818,7 @@ class MultiCenterAndHWAgentTests(TestCase):
         from django.utils import timezone
         from apps.assets.models import AgentCredential, AgentNonce
 
-        credential, token = AgentCredential.generate(self.center_sub, name="nonce-validation")
+        credential, token = AgentCredential.generate(self.center_sub, asset=self.asset_sub, name="nonce-validation")
         response = Client().post(
             "/api/v1/hardware/agent-sync/",
             data=json.dumps({}),
@@ -744,7 +836,7 @@ class MultiCenterAndHWAgentTests(TestCase):
         from django.utils import timezone
         from apps.assets.models import AgentCredential, AgentNonce
 
-        credential, token = AgentCredential.generate(self.center_sub, name="json-shape-validation")
+        credential, token = AgentCredential.generate(self.center_sub, asset=self.asset_sub, name="json-shape-validation")
         nonce = "json-shape-test-001"
         response = Client().post(
             "/api/v1/hardware/agent-sync/",
@@ -765,7 +857,7 @@ class MultiCenterAndHWAgentTests(TestCase):
         from django.utils import timezone
         from apps.assets.models import AgentCredential, AgentNonce
 
-        credential, token = AgentCredential.generate(self.center_sub, name="nonce-retention")
+        credential, token = AgentCredential.generate(self.center_sub, asset=self.asset_sub, name="nonce-retention")
         old_nonce = AgentNonce.objects.create(agent=credential, nonce="old-nonce")
         AgentNonce.objects.filter(pk=old_nonce.pk).update(
             created_at=timezone.now() - dt.timedelta(hours=1)
@@ -1299,6 +1391,45 @@ class SnapshotAccessBoundaryTests(TestCase):
         )
         self.assertEqual(own_response.status_code, 200)
         self.assertEqual(foreign_response.status_code, 404)
+
+
+
+    def test_center_it_and_manager_lose_asset_access_when_center_is_inactive(self):
+        from apps.assets.services import can_edit_asset
+
+        manager = User.objects.create_user(
+            username="snapshot_access_manager",
+            password="test-password",
+            role=User.ROLE_MANAGER,
+            center=self.center_a,
+        )
+        requester = User.objects.create_user(
+            username="snapshot_access_requester",
+            password="test-password",
+            role=User.ROLE_REQUESTER,
+            center=self.center_a,
+        )
+        Asset.objects.filter(pk=self.asset_a.pk).update(custodian=requester)
+        Center.objects.filter(pk=self.center_a.pk).update(is_active=False)
+
+        for user in (self.it_a, manager, requester):
+            self.assertFalse(
+                visible_assets(user).filter(pk=self.asset_a.pk).exists(),
+                f"{user.role} retained access to an inactive center",
+            )
+        self.assertFalse(can_edit_asset(self.it_a, self.asset_a))
+        self.assertFalse(can_record_snapshot(self.it_a, self.asset_a))
+
+    def test_center_it_loses_asset_access_when_geographic_and_management_provinces_mismatch(self):
+        from apps.assets.services import can_edit_asset
+
+        Center.objects.filter(pk=self.center_a.pk).update(
+            treatment_management_id=self.center_b.treatment_management_id
+        )
+
+        self.assertFalse(visible_assets(self.it_a).filter(pk=self.asset_a.pk).exists())
+        self.assertFalse(can_edit_asset(self.it_a, self.asset_a))
+        self.assertFalse(can_record_snapshot(self.it_a, self.asset_a))
 
     def test_anonymous_user_is_denied_pending_snapshot_list(self):
         from django.test import Client

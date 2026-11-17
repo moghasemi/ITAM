@@ -125,3 +125,75 @@ class TreatmentManagementSeparationTests(TestCase):
 
         self.assertIsNotNone(center.treatment_management_id)
         self.assertFalse(contract.covers_center(center))
+
+    def test_county_cannot_move_while_its_centers_keep_old_treatment_owner(self):
+        Center.objects.create(
+            name="مرکز شهرستان در حال انتقال", code="TM-CENTER-MOVE",
+            parent_unit=self.county_a,
+        )
+        self.county_a.parent = self.province_b
+
+        with self.assertRaises(ValidationError):
+            self.county_a.full_clean()
+
+    def test_treatment_management_cannot_move_away_from_attached_centers(self):
+        center = Center.objects.create(
+            name="مرکز مدیریت درمان ثابت", code="TM-CENTER-TM-MOVE",
+            parent_unit=self.county_a,
+        )
+        management = center.treatment_management
+        management.province = self.province_b
+
+        with self.assertRaises(ValidationError):
+            management.full_clean()
+
+    def test_scoped_center_access_fails_closed_on_geography_owner_mismatch(self):
+        center_a = Center.objects.create(
+            name="مرکز ناسازگاری دامنه", code="TM-CENTER-SCOPE-MISMATCH",
+            parent_unit=self.county_a,
+        )
+        center_b = Center.objects.create(
+            name="مرکز استان مقصد", code="TM-CENTER-SCOPE-DEST",
+            parent_unit=self.county_b,
+        )
+        # Simulate a legacy/corrupted row that bypassed model validation.
+        Center.objects.filter(pk=center_a.pk).update(
+            treatment_management_id=center_b.treatment_management_id
+        )
+        center_user = User.objects.create_user(
+            username="tm-scope-center-user", password="TestPass!9382",
+            role=User.ROLE_ADMIN_IT, center=center_a,
+        )
+
+        self.assertNotIn(
+            center_a.pk,
+            center_user.get_scoped_centers().values_list("pk", flat=True),
+        )
+
+
+    def test_county_save_rejects_moving_away_from_existing_treatment_owner(self):
+        Center.objects.create(
+            name="مرکز شهرستان با مالکیت", code="TM-CENTER-SAVE-COUNTY",
+            parent_unit=self.county_a,
+        )
+        self.county_a.parent = self.province_b
+
+        with self.assertRaises(ValidationError):
+            self.county_a.save()
+
+        self.county_a.refresh_from_db()
+        self.assertEqual(self.county_a.parent_id, self.province_a.pk)
+
+    def test_treatment_management_save_rejects_moving_away_from_existing_centers(self):
+        center = Center.objects.create(
+            name="مرکز مدیریت درمان با ذخیره", code="TM-CENTER-SAVE-TM",
+            parent_unit=self.county_a,
+        )
+        management = center.treatment_management
+        management.province = self.province_b
+
+        with self.assertRaises(ValidationError):
+            management.save()
+
+        management.refresh_from_db()
+        self.assertEqual(management.province_id, self.province_a.pk)

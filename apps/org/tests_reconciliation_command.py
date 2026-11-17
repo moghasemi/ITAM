@@ -1,12 +1,15 @@
 """Regression tests for organizational-data reconciliation safety."""
 
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import patch
 
 from django.core.management import call_command, get_commands, load_command_class
 from django.core.management.base import CommandError
 from django.test import TestCase
 
+from apps.accounts.models import User
 from apps.assets.models import Asset, AssetCategory
 from apps.org.models import Center, Location, OrganizationalUnit
 
@@ -103,3 +106,85 @@ class ReconciliationCommandRegressionTests(TestCase):
 
         with self.assertRaises(CommandError):
             parser.parse_args(["--apply", "--dry-run"])
+
+    def test_conflicting_asset_evidence_is_not_auto_assigned(self):
+        from apps.org.models import Location
+
+        other_county = OrganizationalUnit.objects.create(
+            name="Other Regression County", code="REG-COUNTY-2",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
+        )
+        other_center = Center.objects.create(
+            name="Other Regression Center", code="REG-CENTER-2",
+            parent_unit=other_county,
+        )
+        location = Location.objects.create(name="Conflict room", center=self.center)
+        custodian = User.objects.create_user(
+            username="reconcile-conflict-user", password="unused-password",
+            center=other_center, role=User.ROLE_REQUESTER,
+        )
+        asset = Asset.objects.create(
+            asset_tag="REG-ASSET-CONFLICT", title="Conflicting asset",
+            category=self.category, location=location, custodian=custodian,
+            center=None,
+        )
+
+        self.run_reconciliation(apply=True, dry_run=False)
+
+        asset.refresh_from_db()
+        self.assertIsNone(asset.center_id)
+        self.assertTrue(asset.is_quarantined)
+        self.assertIn("تعارض", asset.quarantine_notes)
+
+    def test_csv_failure_aborts_apply_before_database_changes(self):
+        from unittest.mock import patch
+        from pathlib import Path
+        from apps.org.models import Location
+
+        location = Location.objects.create(name="CSV failure room", center=self.center)
+        asset = Asset.objects.create(
+            asset_tag="REG-ASSET-CSV-FAIL", title="CSV failure asset",
+            category=self.category, location=location, center=None,
+        )
+
+        with patch.object(Path, "open", side_effect=OSError("simulated disk failure")):
+            with self.assertRaises(CommandError):
+                call_command("reconcile_organizational_data", apply=True, dry_run=False, output="unused.csv")
+
+        asset.refresh_from_db()
+        self.assertIsNone(asset.center_id)
+        self.assertFalse(asset.is_quarantined)
+
+
+
+    def test_apply_aborts_when_asset_evidence_changes_after_csv_report(self):
+        location = Location.objects.create(name="Changing room", center=self.center)
+        other_county = OrganizationalUnit.objects.create(
+            name="Changing County", code="REG-COUNTY-CHANGING",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
+        )
+        other_center = Center.objects.create(
+            name="Changing Center", code="REG-CENTER-CHANGING",
+            parent_unit=other_county,
+        )
+        asset = Asset.objects.create(
+            asset_tag="REG-ASSET-STALE", title="Stale evidence asset",
+            category=self.category, location=location, center=None,
+        )
+        original_open = Path.open
+
+        @contextmanager
+        def open_then_change_evidence(path, *args, **kwargs):
+            with original_open(path, *args, **kwargs) as handle:
+                yield handle
+            Location.objects.filter(pk=location.pk).update(center=other_center)
+
+        with tempfile.TemporaryDirectory() as directory:
+            report = str(Path(directory) / "stale-reconciliation.csv")
+            with patch.object(Path, "open", open_then_change_evidence):
+                with self.assertRaises(CommandError):
+                    call_command("reconcile_organizational_data", apply=True, dry_run=False, output=report)
+
+        asset.refresh_from_db()
+        self.assertIsNone(asset.center_id)
+        self.assertFalse(asset.is_quarantined)

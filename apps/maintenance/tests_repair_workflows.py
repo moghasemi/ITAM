@@ -1,5 +1,6 @@
 import datetime as dt
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -11,6 +12,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.core.models import AuditLog, Notification
 from apps.assets.models import Asset, AssetCategory
+from apps.maintenance.repair_forms import IndependentRepairerForm
 from apps.maintenance.repair_models import (
     GeneralITRequest, GeneralReferral, IndependentRepairer, RepairFeedback, RepairerProfileEvent,
     RepairRequest, RepairerStatusEvent,
@@ -35,6 +37,8 @@ from apps.maintenance.repair_services import (
     visible_repair_feedback,
     visible_repair_requests,
     visible_general_it_requests,
+    visible_repairers,
+    _province_id_for_user,
 )
 from apps.org.models import (
     Center, Contract, ContractCenterAssignment, Contractor,
@@ -52,12 +56,12 @@ class RepairAndReferralWorkflowTests(TestCase):
             name="سیستان و بلوچستان", code="WF-PROV",
             unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national,
         )
-        county = OrganizationalUnit.objects.create(
+        self.county = OrganizationalUnit.objects.create(
             name="زاهدان", code="WF-COUNTY",
             unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
         )
         self.center = Center.objects.create(
-            name="مرکز نمونه گردش کار", code="WF-CENTER", parent_unit=county, is_demo=True,
+            name="مرکز نمونه گردش کار", code="WF-CENTER", parent_unit=self.county, is_demo=True,
         )
         self.province_admin = User.objects.create_user(
             username="wf-province-admin", password="test-password",
@@ -646,6 +650,49 @@ class RepairAndReferralWorkflowTests(TestCase):
         self.assertEqual(assignment.status, ContractCenterAssignment.STATUS_ENDED)
         self.assertTrue(ContractCenterAssignment.objects.filter(pk=assignment.pk).exists())
 
+    def test_contractor_assignment_rolls_back_when_audit_write_fails(self):
+        contractor = Contractor.objects.create(name="پیمانکار ممیزی ناموفق")
+        today = timezone.localdate()
+        contract = Contract.objects.create(
+            contractor=contractor, province=self.province,
+            number="WF-CONTRACT-AUDIT-FAIL", title="قرارداد آزمون اتمیک",
+            start_date=today - dt.timedelta(days=1),
+            end_date=today + dt.timedelta(days=90),
+            is_provincial=True,
+        )
+        with patch(
+            "apps.maintenance.repair_services.log_action",
+            side_effect=RuntimeError("audit storage unavailable"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "audit storage"):
+                assign_contractor_to_center(
+                    contract=contract, center=self.center, start_date=today,
+                    actor=self.province_admin,
+                )
+        self.assertFalse(
+            ContractCenterAssignment.objects.filter(
+                contract=contract, center=self.center
+            ).exists()
+        )
+
+    def test_country_repairer_form_excludes_inactive_provinces(self):
+        country_admin = User.objects.create_user(
+            username="wf-country-admin", password="test-password",
+            role=User.ROLE_ADMIN_COUNTRY,
+        )
+        inactive_province = OrganizationalUnit.objects.create(
+            name="استان غیرفعال", code="WF-INACTIVE-PROV",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE,
+            parent=self.province.parent, is_active=False,
+        )
+        form = IndependentRepairerForm(user=country_admin)
+        self.assertTrue(
+            form.fields["province"].queryset.filter(pk=self.province.pk).exists()
+        )
+        self.assertFalse(
+            form.fields["province"].queryset.filter(pk=inactive_province.pk).exists()
+        )
+
     def test_stale_repair_decision_cannot_overwrite_a_newer_decision(self):
         stale_repair = self._repair()
         decide_repair_request(
@@ -990,7 +1037,7 @@ class RepairAndReferralWorkflowTests(TestCase):
             )
         request.refresh_from_db()
         self.assertEqual(request.manager_approval, GeneralITRequest.MANAGER_APPROVED)
-        self.assertEqual(request.status, GeneralITRequest.STATUS_APPROVED)
+        self.assertEqual(request.status, GeneralITRequest.STATUS_ASSIGNED)
 
     def test_new_general_request_notifies_active_center_it_experts(self):
         request = create_general_it_request(
@@ -1008,3 +1055,46 @@ class RepairAndReferralWorkflowTests(TestCase):
             ).exists()
         )
 
+    def test_inactive_province_closes_all_province_repair_scopes(self):
+        repair = self._repair()
+        repair = decide_repair_request(
+            repair=repair, decision="approve", note="تایید", actor=self.province_admin,
+        )
+        complete_repair_request(
+            repair=repair, actor=self.it_expert, outcome="تعمیر تکمیل شد",
+            final_cost=None, work_quality=5, completion_speed=5, cost_fairness=5,
+        )
+        general_request = create_general_it_request(
+            center=self.center, request_type=GeneralITRequest.TYPE_ISSUE,
+            title="درخواست پیش از غیرفعال‌سازی استان",
+            description="برای آزمون دامنه فعال", actor=self.requester,
+        )
+
+        self.province.is_active = False
+        self.province.save(update_fields=["is_active"])
+        self.province_admin.refresh_from_db()
+
+        self.assertIsNone(_province_id_for_user(self.province_admin))
+        self.assertFalse(visible_repair_requests(self.province_admin).exists())
+        self.assertFalse(visible_general_it_requests(self.province_admin).exists())
+        self.assertFalse(visible_repairers(self.province_admin).exists())
+        self.assertFalse(visible_repair_feedback(self.province_admin).exists())
+        self.assertIsNotNone(general_request.pk)
+
+    def test_inactive_county_closes_center_request_visibility(self):
+        repair = self._repair()
+        general_request = create_general_it_request(
+            center=self.center, request_type=GeneralITRequest.TYPE_ISSUE,
+            title="درخواست شهرستان غیرفعال",
+            description="نباید پس از غیرفعال شدن شهرستان قابل مشاهده باشد",
+            actor=self.requester,
+        )
+
+        self.county.is_active = False
+        self.county.save(update_fields=["is_active"])
+
+        self.assertFalse(visible_repair_requests(self.it_expert).filter(pk=repair.pk).exists())
+        self.assertFalse(visible_repair_requests(self.requester).filter(pk=repair.pk).exists())
+        self.assertFalse(
+            visible_general_it_requests(self.requester).filter(pk=general_request.pk).exists()
+        )

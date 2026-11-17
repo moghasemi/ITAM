@@ -1,6 +1,7 @@
 """ثبت مدل‌های سازمانی در پنل مدیریت جنگو."""
 from django.contrib import admin
 from django.forms import inlineformset_factory
+from django.db import transaction
 
 from .models import Center, Contract, Contractor, Department, Location, OrganizationalUnit, TreatmentManagement, SlaPolicy
 
@@ -53,12 +54,22 @@ class OrganizationalUnitAdmin(admin.ModelAdmin):
     list_filter = ("unit_type", "is_active")
     search_fields = ("name", "code")
 
+    @transaction.atomic
+    def save_model(self, request, obj, form, change):
+        obj.full_clean()
+        super().save_model(request, obj, form, change)
+
 
 @admin.register(TreatmentManagement)
 class TreatmentManagementAdmin(admin.ModelAdmin):
     list_display = ("name", "code", "province", "is_active")
     list_filter = ("is_active",)
     search_fields = ("name", "code", "province__name")
+
+    @transaction.atomic
+    def save_model(self, request, obj, form, change):
+        obj.full_clean()
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Center)

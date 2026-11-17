@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import F
 from django.utils import timezone
 
 from apps.core.validators import validate_image_file
@@ -198,8 +199,13 @@ class User(AbstractUser):
         return queryset.filter(
             is_active=True,
             parent_unit__is_active=True,
+            parent_unit__unit_type="county",
             parent_unit__parent__is_active=True,
+            parent_unit__parent__unit_type="province",
             treatment_management__is_active=True,
+            # A legacy or manually-corrupted row must never cross the
+            # geographic/organizational province boundary.
+            treatment_management__province_id=F("parent_unit__parent_id"),
         )
 
     def get_scoped_centers(self):
@@ -283,6 +289,18 @@ class User(AbstractUser):
             return self.contractor
         return None
 
+class LoginThrottleLock(models.Model):
+    """Short-lived coordination rows; keys are keyed digests, never raw identities."""
+
+    key = models.CharField("اثر انگشت قفل", max_length=67, unique=True)
+    lock_version = models.PositiveBigIntegerField(default=0)
+    updated_at = models.DateTimeField("آخرین استفاده", default=timezone.now, db_index=True)
+
+    class Meta:
+        verbose_name = "قفل محدودسازی ورود"
+        verbose_name_plural = "قفل‌های محدودسازی ورود"
+
+
 class LoginAttempt(models.Model):
     """ثبت حداقلی تلاش‌های ناموفق ورود برای محدودسازی حملات حدس گذرواژه."""
 
@@ -297,4 +315,3 @@ class LoginAttempt(models.Model):
             models.Index(fields=("username_hash", "attempted_at"), name="accounts_login_user_time_idx"),
             models.Index(fields=("ip_address", "attempted_at"), name="accounts_login_ip_time_idx"),
         ]
-

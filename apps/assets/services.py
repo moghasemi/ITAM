@@ -65,11 +65,14 @@ def visible_assets(user, center=None):
             qs = qs.filter(center=center)
         return qs
 
-    # کارشناس IT مرکز یا مدیر مرکز: منحصراً مرکز خود کاربر
+    # کارشناس IT مرکز یا مدیر مرکز: فقط مرکز خود، مشروط به فعال بودن
+    # تمام زنجیره سازمانی و انطباق مالکیت جغرافیایی/مدیریت درمان.
     if user.has_role(User.ROLE_ADMIN_IT, User.ROLE_MANAGER):
-        if not user.center_id:
-            return queryset.none()
-        return queryset.filter(center_id=user.center_id)
+        scoped_centers = user.get_scoped_centers()
+        qs = queryset.filter(center__in=scoped_centers)
+        if center:
+            qs = qs.filter(center=center)
+        return qs
 
     # تکنسین پیمانکار
     if user.has_role(User.ROLE_TECHNICIAN):
@@ -96,7 +99,7 @@ def visible_assets(user, center=None):
     # کاربر عادی / متقاضی: فقط دارایی‌هایی که خودش امانت‌دار است در مرکز خودش
     if not user.center_id:
         return queryset.none()
-    return queryset.filter(custodian=user, center_id=user.center_id)
+    return queryset.filter(custodian=user, center__in=user.get_scoped_centers())
 
 
 def can_edit_asset(user, asset: Asset) -> bool:
@@ -112,8 +115,11 @@ def can_edit_asset(user, asset: Asset) -> bool:
         scoped = user.get_scoped_centers()
         return bool(asset.center and scoped.filter(pk=asset.center_id).exists())
     if user.has_role(User.ROLE_ADMIN_IT):
-        # کارشناس IT بدون مرکز مشخص، یا دارایی فاقد مرکز، هرگز مجوز ضمنی نمی‌گیرد.
-        return bool(user.center_id and asset.center_id and user.center_id == asset.center_id)
+        # تطبیق شناسه مرکز کافی نیست؛ زنجیره سازمانی مرکز نیز باید فعال و معتبر باشد.
+        return bool(
+            asset.center_id
+            and user.get_scoped_centers().filter(pk=asset.center_id).exists()
+        )
     return False
 
 
@@ -130,8 +136,11 @@ def can_record_snapshot(user, asset: Asset) -> bool:
         scoped = user.get_scoped_centers()
         return bool(asset.center and scoped.filter(pk=asset.center_id).exists())
     if user.has_role(User.ROLE_ADMIN_IT):
-        # نبود مرکز در هر یک از دو طرف باید به رد دسترسی منجر شود.
-        return bool(user.center_id and asset.center_id and user.center_id == asset.center_id)
+        # ثبت اسنپ‌شات نیز باید از همان دامنه فعال و معتبر سازمانی تبعیت کند.
+        return bool(
+            asset.center_id
+            and user.get_scoped_centers().filter(pk=asset.center_id).exists()
+        )
     if user.has_role(User.ROLE_TECHNICIAN):
         if not user.contractor_id or not asset.center_id or not asset.contract_id:
             return False

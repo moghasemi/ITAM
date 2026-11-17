@@ -1,6 +1,6 @@
 # ITAM — Organizational and Geographic Model
 
-Status: approved target architecture; partial schema and authorization implementation in PR #7  
+Status: approved target architecture; partial schema and authorization implementation in PR #7
 Date: 2026-11-10
 
 ## Decision

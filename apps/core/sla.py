@@ -6,11 +6,15 @@
 from __future__ import annotations
 
 import datetime as dt
+import logging
 from dataclasses import dataclass, field
 
 from django.utils import timezone
 
 from . import jalali
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -147,14 +151,18 @@ def build_calendar(setting=None) -> WorkCalendar:
 
     holiday_dates: set[dt.date] = set()
     recurring: set[tuple[int, int]] = set()
-    try:
-        for holiday in Holiday.objects.filter(is_active=True):
-            if holiday.is_recurring_annual:
-                recurring.add(holiday.jalali_key())
-            else:
-                holiday_dates.add(holiday.date)
-    except Exception:  # پایگاه داده هنوز آماده نیست
-        pass
+    if setting.exclude_holidays:
+        try:
+            for holiday in Holiday.objects.filter(is_active=True):
+                if holiday.is_recurring_annual:
+                    recurring.add(holiday.jalali_key())
+                else:
+                    holiday_dates.add(holiday.date)
+        except Exception as exc:
+            logger.exception("Unable to load active holidays required for SLA calculation")
+            raise RuntimeError(
+                "تقویم تعطیلات برای محاسبه SLA در دسترس نیست؛ محاسبه متوقف شد."
+            ) from exc
 
     return WorkCalendar(
         is_24_7=setting.is_24_7,

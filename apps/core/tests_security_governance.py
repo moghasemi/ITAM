@@ -52,7 +52,7 @@ class HWAgentSecurityTests(TestCase):
             mac_address="AA:BB:CC:DD:EE:02",
         )
 
-        cls.cred_a, cls.raw_token_a = AgentCredential.generate(cls.center_a, name="PC-SINA-01-Agent")
+        cls.cred_a, cls.raw_token_a = AgentCredential.generate(cls.center_a, asset=cls.asset_a, name="PC-SINA-01-Agent")
 
     def setUp(self):
         self.client = Client()
@@ -140,7 +140,8 @@ class HWAgentSecurityTests(TestCase):
             content_type="application/json",
             **headers,
         )
-        self.assertEqual(resp.status_code, 404)
+        # A mismatched asset/hostname is rejected against the credential's fixed binding.
+        self.assertEqual(resp.status_code, 403)
 
         # دارایی مرکز B باید دست‌نخورده باقی بماند
         self.asset_b.refresh_from_db()
@@ -223,13 +224,22 @@ class OrganizationalHierarchyTests(TestCase):
     def test_invalid_parent_unit_type_rejected(self):
         national = OrganizationalUnit.objects.create(name="ستاد کشوری", code="OU-N1", unit_type=OrganizationalUnit.UNIT_NATIONAL)
 
-        # تلاش برای اتصال مستقیم شهرستان به کشوری بدون استان
-        county = OrganizationalUnit.objects.create(name="شهرستان بدون استان", code="OU-C1", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=national)
+        # تلاش برای اتصال مستقیم شهرستان به کشوری بدون استان؛ save باید آن را رد کند.
         with self.assertRaises(ValidationError):
-            county.clean()
+            OrganizationalUnit.objects.create(
+                name="شهرستان بدون استان", code="OU-C1",
+                unit_type=OrganizationalUnit.UNIT_COUNTY, parent=national,
+            )
 
     def test_center_parent_unit_must_be_county(self):
-        province = OrganizationalUnit.objects.create(name="استان", code="OU-P1", unit_type=OrganizationalUnit.UNIT_PROVINCE)
+        national = OrganizationalUnit.objects.create(
+            name="ستاد مرکزی", code="OU-P1-NAT",
+            unit_type=OrganizationalUnit.UNIT_NATIONAL,
+        )
+        province = OrganizationalUnit.objects.create(
+            name="استان", code="OU-P1",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national,
+        )
         with self.assertRaises(ValidationError):
             Center.objects.create(name="مرکز با والد غیرشهرستانی", code="C-ERR", parent_unit=province)
 
@@ -442,7 +452,12 @@ class PostImplementationSecurityRemediationTests(TestCase):
         prv = OrganizationalUnit.objects.create(name="استان تست", code="OU-PRV-NONCE", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=nat)
         cnty = OrganizationalUnit.objects.create(name="شهرستان تست", code="OU-CNTY-NONCE", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=prv)
         center = Center.objects.create(name="مرکز تست نانس", code="C-NONCE-01", parent_unit=cnty)
-        cred, raw_token = AgentCredential.generate(center, name="Agent-Nonce-Test")
+        category = AssetCategory.objects.create(name="کیس تست نانس", code="PC-NONCE")
+        asset = Asset.objects.create(
+            asset_tag="TAG-NONCE-01", title="سیستم تست نانس", category=category,
+            center=center, hostname="PC-NONCE-01",
+        )
+        cred, raw_token = AgentCredential.generate(center, asset=asset, name="Agent-Nonce-Test")
 
         nonce_val = f"nonce-{uuid.uuid4().hex}"
         AgentNonce.objects.create(agent=cred, nonce=nonce_val)
@@ -469,7 +484,12 @@ class PostImplementationSecurityRemediationTests(TestCase):
         prv = OrganizationalUnit.objects.create(name="استان تست", code="OU-PRV-SEC", unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=nat)
         cnty = OrganizationalUnit.objects.create(name="شهرستان تست", code="OU-CNTY-SEC", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=prv)
         center = Center.objects.create(name="مرکز تست امنیتی", code="C-SEC-01", parent_unit=cnty)
-        cred, raw_token = AgentCredential.generate(center, name="Agent-Sec-Test")
+        category = AssetCategory.objects.create(name="کیس تست امنیتی", code="PC-SEC")
+        asset = Asset.objects.create(
+            asset_tag="TAG-SEC-01", title="سیستم تست امنیتی", category=category,
+            center=center, hostname="PC-TEST",
+        )
+        cred, raw_token = AgentCredential.generate(center, asset=asset, name="Agent-Sec-Test")
 
         client = Client()
         headers = {
@@ -489,7 +509,7 @@ class PostImplementationSecurityRemediationTests(TestCase):
             "HTTP_X_ITAM_TIMESTAMP": timezone.now().isoformat(),
             "HTTP_X_ITAM_NONCE": f"nonce-{uuid.uuid4().hex}",
         }
-        with patch("apps.assets.views.match_asset_for_hwagent", side_effect=RuntimeError("CRITICAL_DATABASE_CRASH_TABLE_ASSETS")):
+        with patch("apps.assets.views.apply_hwagent_snapshot", side_effect=RuntimeError("CRITICAL_DATABASE_CRASH_TABLE_ASSETS")):
             resp500 = client.post("/api/v1/hardware/agent-sync/", data=json.dumps({"computerName": "PC-TEST"}), content_type="application/json", **headers2)
             self.assertEqual(resp500.status_code, 500)
             data500 = resp500.json()
@@ -687,4 +707,3 @@ class CountyScopeRegressionTests(TestCase):
         self.assertTrue(visible_visits(self.county_admin).filter(pk=visit.pk).exists())
         check_ids = set(visible_checks(self.county_admin, visit).values_list("pk", flat=True))
         self.assertEqual(check_ids, {own_check.pk})
-

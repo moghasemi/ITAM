@@ -338,7 +338,17 @@ class SnapshotEditView(RepairStaffRequiredMixin, PageContextMixin, UpdateView):
         context["is_baseline"] = snapshot.is_baseline
         return context
 
+    @transaction.atomic
     def form_valid(self, form):
+        # Serialize edits with approve/reject services, which lock the same row.
+        locked_snapshot = get_object_or_404(
+            HardwareSnapshot.objects.select_for_update().select_related("asset", "previous"),
+            pk=self.object.pk,
+        )
+        if not locked_snapshot.is_editable or not can_record_snapshot(self.request.user, locked_snapshot.asset):
+            raise PermissionDenied("این اسنپ‌شات دیگر قابل ویرایش نیست یا خارج از حوزه مجاز شماست.")
+        self.object = locked_snapshot
+        form.instance = locked_snapshot
         context = self.get_context_data()
         formset = context["formset"]
         if not formset.is_valid():
@@ -422,11 +432,15 @@ def snapshot_approve(request, pk: int):
     if request.method == "POST":
         from .services import approve_snapshot
 
-        approve_snapshot(snapshot, request.user)
-        if snapshot.is_baseline:
-            messages.success(request, "اسنپ‌شات پایه تایید و قفل شد؛ از این پس تغییرات اقلام پایش می‌شود.")
+        try:
+            approve_snapshot(snapshot, request.user)
+        except ValidationError as exc:
+            messages.error(request, "؛ ".join(exc.messages))
         else:
-            messages.success(request, "اسنپ‌شات تایید و قفل شد.")
+            if snapshot.is_baseline:
+                messages.success(request, "اسنپ‌شات پایه تایید و قفل شد؛ از این پس تغییرات اقلام پایش می‌شود.")
+            else:
+                messages.success(request, "اسنپ‌شات تایید و قفل شد.")
     return redirect("assets:snapshot_detail", pk=pk)
 
 
@@ -441,8 +455,12 @@ def snapshot_reject(request, pk: int):
     if request.method == "POST":
         from .services import reject_snapshot
 
-        reject_snapshot(snapshot, request.user, request.POST.get("note", ""))
-        messages.warning(request, "اسنپ‌شات برای اصلاح برگشت داده شد.")
+        try:
+            reject_snapshot(snapshot, request.user, request.POST.get("note", ""))
+        except ValidationError as exc:
+            messages.error(request, "؛ ".join(exc.messages))
+        else:
+            messages.warning(request, "اسنپ‌شات برای اصلاح برگشت داده شد.")
     return redirect("assets:snapshot_detail", pk=pk)
 
 
@@ -1095,31 +1113,43 @@ def api_hwagent_sync(request):
                 status=400,
             )
 
-        # ۵. انقیاد قطعی مرکز و تطبیق دارایی
+        # ۵. انقیاد قطعی اعتبارنامه به یک دارایی و hostname مشخص؛
+        # legacy credentialهای فاقد asset عمداً fail-closed می‌شوند.
         target_center = agent.center
-        asset_tag = body.get("asset_tag") or request.GET.get("asset_tag")
+        asset = agent.asset if agent.asset_id else None
+        expected_hostname = (agent.hostname or "").strip()
+        asset_hostname = (asset.hostname or "").strip() if asset else ""
+        reported_hostname = (body.get("computerName") or "").strip()
+        declared_asset_tag = (body.get("asset_tag") or request.GET.get("asset_tag") or "").strip()
+
+        binding_is_valid = bool(
+            asset
+            and asset.center_id == target_center.pk
+            and asset.status == "active"
+            and expected_hostname
+            and asset_hostname
+            and reported_hostname
+            and expected_hostname.casefold() == asset_hostname.casefold()
+            and expected_hostname.casefold() == reported_hostname.casefold()
+            and (not declared_asset_tag or declared_asset_tag.casefold() == asset.asset_tag.casefold())
+        )
+        if not binding_is_valid:
+            AgentSyncAuditLog.objects.create(
+                agent=agent,
+                center=target_center,
+                remote_ip=remote_ip,
+                http_status=403,
+                success=False,
+                rejection_reason="عدم انطباق دارایی یا hostname با انقیاد اعتبارنامه HWAgent",
+                payload_hash=payload_hash,
+                execution_duration_ms=int((time.time() - start_time) * 1000),
+            )
+            return JsonResponse(
+                {"status": "error", "error": "دارایی یا hostname درخواست با اعتبارنامه این ایجنت مطابقت ندارد."},
+                status=403,
+            )
 
         with transaction.atomic():
-            asset = match_asset_for_hwagent(body, center=target_center, asset_tag=asset_tag)
-            if not asset:
-                comp = body.get("computerName", "نامشخص")
-                AgentSyncAuditLog.objects.create(
-                    agent=agent,
-                    center=target_center,
-                    remote_ip=remote_ip,
-                    http_status=404,
-                    success=False,
-                    rejection_reason=f"عدم تطبیق دارایی برای کلاینت {comp} در مرکز {target_center.name}",
-                    payload_hash=payload_hash,
-                    execution_duration_ms=int((time.time() - start_time) * 1000),
-                )
-                return JsonResponse(
-                    {
-                        "status": "error",
-                        "error": f"دارایی متناظری برای سیستم «{comp}» در مرکز «{target_center.name}» یافت نشد.",
-                    },
-                    status=404,
-                )
 
             try:
                 snapshot, diff = apply_hwagent_snapshot(

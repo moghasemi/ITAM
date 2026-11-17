@@ -1,4 +1,5 @@
-"""ثبت مدل‌های دارایی در پنل مدیریت جنگو."""
+""""ثبت مدل‌های دارایی در پنل مدیریت جنگو."""
+from django import forms
 from django.contrib import admin, messages
 
 from apps.core.utils import log_action
@@ -10,6 +11,15 @@ class SnapshotItemInline(admin.TabularInline):
     model = SnapshotItem
     extra = 0
     fields = ("component_type", "brand", "model_name", "serial_number", "capacity", "quantity", "slot", "condition")
+
+    def has_add_permission(self, request, obj=None):
+        return bool(obj and obj.is_editable and super().has_add_permission(request, obj))
+
+    def has_change_permission(self, request, obj=None):
+        return bool(obj and obj.is_editable and super().has_change_permission(request, obj))
+
+    def has_delete_permission(self, request, obj=None):
+        return bool(obj and obj.is_editable and super().has_delete_permission(request, obj))
 
 
 @admin.register(AssetCategory)
@@ -38,7 +48,26 @@ class HardwareSnapshotAdmin(admin.ModelAdmin):
     list_filter = ("status", "is_baseline")
     search_fields = ("asset__asset_tag", "seal_number")
     inlines = [SnapshotItemInline]
-    readonly_fields = ("diff_data", "diff_count", "locked_at")
+    # Workflow state and snapshot identity are controlled only by domain services.
+    readonly_fields = (
+        "asset", "version", "status", "is_baseline", "previous", "is_from_hwagent",
+        "agent_hashes", "recorded_by", "recorded_at", "technician_confirmed_by",
+        "technician_confirmed_at", "it_confirmed_by", "it_confirmed_at",
+        "locked_at", "diff_data", "diff_count",
+    )
+
+    def has_add_permission(self, request):
+        # Snapshots must be created through the application workflow, not Django Admin.
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        if obj is not None and not obj.is_editable:
+            return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        # Preserve the audit trail and prevent deletion outside the workflow.
+        return False
 
 
 @admin.register(SnapshotItem)
@@ -46,6 +75,22 @@ class SnapshotItemAdmin(admin.ModelAdmin):
     list_display = ("snapshot", "component_type", "brand", "model_name", "serial_number", "condition")
     list_filter = ("component_type", "condition")
     search_fields = ("serial_number", "brand", "model_name")
+    # Prevent moving an item from an editable snapshot into a locked snapshot.
+    readonly_fields = ("snapshot",)
+
+    def has_add_permission(self, request):
+        # Snapshot items are created only as part of an editable snapshot inline.
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        if obj is None or not obj.snapshot.is_editable:
+            return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is None or not obj.snapshot.is_editable:
+            return False
+        return super().has_delete_permission(request, obj)
 
 
 @admin.register(AssetAttachment)
@@ -53,8 +98,41 @@ class AssetAttachmentAdmin(admin.ModelAdmin):
     list_display = ("asset", "kind", "title", "uploaded_by", "created_at")
     list_filter = ("kind",)
 
+class AgentCredentialAdminForm(forms.ModelForm):
+    asset = forms.ModelChoiceField(
+        label="دارایی اختصاصی ایجنت",
+        queryset=Asset.objects.filter(center__isnull=False, status="active").select_related("center"),
+        required=True,
+    )
+
+    class Meta:
+        model = AgentCredential
+        fields = ("center", "asset", "name", "hostname", "expires_at")
+
+    def clean(self):
+        cleaned = super().clean()
+        center = cleaned.get("center")
+        asset = cleaned.get("asset")
+        hostname = (cleaned.get("hostname") or "").strip()
+        if asset and center and asset.center_id != center.pk:
+            self.add_error("asset", "دارایی باید متعلق به مرکز انتخاب‌شده باشد.")
+        if asset:
+            expected = (asset.hostname or "").strip()
+            if asset.status != "active":
+                self.add_error("asset", "برای دارایی غیرفعال نمی‌توان اعتبارنامه صادر کرد.")
+            elif not expected:
+                self.add_error("asset", "ابتدا برای دارایی hostname ثبت کنید.")
+            elif hostname and hostname.casefold() != expected.casefold():
+                self.add_error("hostname", "hostname اعتبارنامه باید با hostname دارایی یکسان باشد.")
+            else:
+                cleaned["hostname"] = expected
+        return cleaned
+
+
 @admin.register(AgentCredential)
 class AgentCredentialAdmin(admin.ModelAdmin):
+    form = AgentCredentialAdminForm
+    fields = ("center", "asset", "name", "hostname", "expires_at", "agent_uid", "token_prefix", "token_hash", "status", "last_sync_at", "last_ip", "revoked_at", "created_by")
     list_display = ("name", "center", "token_prefix", "status", "expires_at", "last_sync_at", "last_ip")
     list_filter = ("status", "center")
     search_fields = ("name", "hostname", "token_prefix")
@@ -67,7 +145,7 @@ class AgentCredentialAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         fields = list(super().get_readonly_fields(request, obj))
         if obj is not None:
-            fields.extend(("center", "name", "hostname"))
+            fields.extend(("center", "asset", "name", "hostname"))
         return tuple(fields)
 
     def has_delete_permission(self, request, obj=None):
@@ -78,6 +156,7 @@ class AgentCredentialAdmin(admin.ModelAdmin):
             # The raw token is generated once and shown only in this response.
             credential, raw_token = AgentCredential.generate(
                 center=obj.center,
+                asset=obj.asset,
                 name=obj.name,
                 hostname=obj.hostname,
                 expires_in_days=365,
@@ -87,7 +166,7 @@ class AgentCredentialAdmin(admin.ModelAdmin):
                 credential.expires_at = obj.expires_at
                 credential.save(update_fields=["expires_at", "updated_at"])
             for field in (
-                "pk", "agent_uid", "token_prefix", "token_hash", "status",
+                "pk", "agent_uid", "asset", "token_prefix", "token_hash", "status",
                 "expires_at", "created_at", "updated_at", "created_by",
             ):
                 setattr(obj, field, getattr(credential, field))
@@ -167,16 +246,22 @@ class AgentCredentialAdmin(admin.ModelAdmin):
             count += 1
         self.message_user(request, f"{count} اعتبارنامه فعال شد.")
 
-    def has_delete_permission(self, request, obj=None):
-        return False
-
 
 @admin.register(AgentSyncAuditLog)
 class AgentSyncAuditLogAdmin(admin.ModelAdmin):
     list_display = ("agent", "center", "remote_ip", "http_status", "success", "created_at")
     list_filter = ("success", "http_status", "center")
     search_fields = ("agent__name", "remote_ip", "rejection_reason")
-    readonly_fields = ("created_at",)
+    readonly_fields = [field.name for field in AgentSyncAuditLog._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(AssetRelationship)
