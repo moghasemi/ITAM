@@ -7,6 +7,7 @@ from django.core.management import call_command, get_commands, load_command_clas
 from django.core.management.base import CommandError
 from django.test import TestCase
 
+from apps.accounts.models import User
 from apps.assets.models import Asset, AssetCategory
 from apps.org.models import Center, Location, OrganizationalUnit
 
@@ -103,3 +104,52 @@ class ReconciliationCommandRegressionTests(TestCase):
 
         with self.assertRaises(CommandError):
             parser.parse_args(["--apply", "--dry-run"])
+
+    def test_conflicting_asset_evidence_is_not_auto_assigned(self):
+        from apps.org.models import Location
+
+        other_county = OrganizationalUnit.objects.create(
+            name="Other Regression County", code="REG-COUNTY-2",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
+        )
+        other_center = Center.objects.create(
+            name="Other Regression Center", code="REG-CENTER-2",
+            parent_unit=other_county,
+        )
+        location = Location.objects.create(name="Conflict room", center=self.center)
+        custodian = User.objects.create_user(
+            username="reconcile-conflict-user", password="unused-password",
+            center=other_center, role=User.ROLE_REQUESTER,
+        )
+        asset = Asset.objects.create(
+            asset_tag="REG-ASSET-CONFLICT", title="Conflicting asset",
+            category=self.category, location=location, custodian=custodian,
+            center=None,
+        )
+
+        self.run_reconciliation(apply=True, dry_run=False)
+
+        asset.refresh_from_db()
+        self.assertIsNone(asset.center_id)
+        self.assertTrue(asset.is_quarantined)
+        self.assertIn("تعارض", asset.quarantine_notes)
+
+    def test_csv_failure_aborts_apply_before_database_changes(self):
+        from unittest.mock import patch
+        from pathlib import Path
+        from apps.org.models import Location
+
+        location = Location.objects.create(name="CSV failure room", center=self.center)
+        asset = Asset.objects.create(
+            asset_tag="REG-ASSET-CSV-FAIL", title="CSV failure asset",
+            category=self.category, location=location, center=None,
+        )
+
+        with patch.object(Path, "open", side_effect=OSError("simulated disk failure")):
+            with self.assertRaises(CommandError):
+                call_command("reconcile_organizational_data", apply=True, dry_run=False, output="unused.csv")
+
+        asset.refresh_from_db()
+        self.assertIsNone(asset.center_id)
+        self.assertFalse(asset.is_quarantined)
+
