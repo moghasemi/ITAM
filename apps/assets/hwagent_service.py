@@ -210,9 +210,16 @@ def apply_hwagent_snapshot(
         county = center.parent_unit if center else None
         province = county.parent if county else None
         management = getattr(center, "treatment_management", None) if center else None
+        credential_hostname = (agent_credential.hostname or "").strip()
+        asset_hostname = (asset.hostname or "").strip()
         if (
             not center
             or center.pk != asset.center_id
+            or agent_credential.asset_id != asset.pk
+            or asset.status != "active"
+            or not credential_hostname
+            or not asset_hostname
+            or credential_hostname.casefold() != asset_hostname.casefold()
             or not center.is_active
             or not county
             or not county.is_active
@@ -222,7 +229,7 @@ def apply_hwagent_snapshot(
             or not management.is_active
             or management.province_id != province.pk
         ):
-            raise PermissionDenied("مرکز یا زنجیره سازمانی ایجنت غیرفعال یا خارج از حوزه دارایی است.")
+            raise PermissionDenied("دارایی، hostname یا زنجیره سازمانی ایجنت با اعتبارنامه منطبق نیست.")
     if asset.snapshots.filter(is_baseline=True, status=SNAPSHOT_PENDING).exists():
         raise ValidationError("اسنپ‌شات پایه این تجهیز هنوز تایید نشده است؛ تا تعیین تکلیف آن، ثبت نسخه جدید مجاز نیست.")
 
