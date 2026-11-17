@@ -4,8 +4,12 @@ from django.contrib import admin
 from django.test import RequestFactory, TestCase
 
 from apps.accounts.models import User
-from apps.assets.admin import HardwareSnapshotAdmin, SnapshotItemAdmin, SnapshotItemInline
-from apps.assets.models import Asset, AssetCategory, ComponentType, HardwareSnapshot, SnapshotItem
+from apps.assets.admin import (
+    AgentSyncAuditLogAdmin, HardwareSnapshotAdmin, SnapshotItemAdmin, SnapshotItemInline,
+)
+from apps.assets.models import (
+    AgentSyncAuditLog, Asset, AssetCategory, ComponentType, HardwareSnapshot, SnapshotItem,
+)
 from apps.core.constants import SNAPSHOT_DRAFT, SNAPSHOT_LOCKED
 from apps.org.models import Center, OrganizationalUnit
 
@@ -86,3 +90,24 @@ class HardwareSnapshotAdminProtectionTests(TestCase):
         self.assertFalse(self.item_inline.has_add_permission(self.request, self.locked))
         self.assertFalse(self.item_inline.has_change_permission(self.request, self.locked))
         self.assertFalse(self.item_inline.has_delete_permission(self.request, self.locked))
+
+
+
+class AgentSyncAuditLogAdminProtectionTests(TestCase):
+    def setUp(self):
+        self.request = RequestFactory().get("/admin/")
+        self.request.user = User.objects.create_superuser(
+            username="agent-audit-admin-guard",
+            email="agent-audit-admin-guard@example.invalid",
+            password="Strong-Admin-Password-2026!",
+        )
+        self.audit_admin = AgentSyncAuditLogAdmin(AgentSyncAuditLog, admin.site)
+
+    def test_agent_sync_audit_logs_are_append_only_in_admin(self):
+        self.assertFalse(self.audit_admin.has_add_permission(self.request))
+        self.assertFalse(self.audit_admin.has_change_permission(self.request))
+        self.assertFalse(self.audit_admin.has_delete_permission(self.request))
+        self.assertEqual(
+            set(self.audit_admin.get_readonly_fields(self.request)),
+            {field.name for field in AgentSyncAuditLog._meta.fields},
+        )

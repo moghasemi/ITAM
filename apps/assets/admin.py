@@ -252,7 +252,16 @@ class AgentSyncAuditLogAdmin(admin.ModelAdmin):
     list_display = ("agent", "center", "remote_ip", "http_status", "success", "created_at")
     list_filter = ("success", "http_status", "center")
     search_fields = ("agent__name", "remote_ip", "rejection_reason")
-    readonly_fields = ("created_at",)
+    readonly_fields = [field.name for field in AgentSyncAuditLog._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(AssetRelationship)
