@@ -222,6 +222,14 @@ class SnapshotWorkflowTests(TestCase):
         self.assertEqual(reference_snapshot(self.asset).pk, baseline.pk)
 
     def test_technician_asset_forms_only_offer_own_active_contracts(self):
+        same_province_unassigned = Contract.objects.create(
+            contractor=self.contractor,
+            province=self.contract.province,
+            number="T-SAME-PROVINCE-UNASSIGNED",
+            title="قرارداد بدون انتساب به مرکز",
+            start_date=timezone.localdate() - dt.timedelta(days=1),
+            end_date=timezone.localdate() + dt.timedelta(days=30),
+        )
         other_contractor = Contractor.objects.create(name="پیمانکار دیگر")
         other_contract = Contract.objects.create(
             contractor=other_contractor,
@@ -235,8 +243,10 @@ class SnapshotWorkflowTests(TestCase):
         filter_form = AssetFilterForm(user=self.technician)
         self.assertTrue(form.fields["contract"].queryset.filter(pk=self.contract.pk).exists())
         self.assertFalse(form.fields["contract"].queryset.filter(pk=other_contract.pk).exists())
+        self.assertFalse(form.fields["contract"].queryset.filter(pk=same_province_unassigned.pk).exists())
         self.assertTrue(filter_form.fields["contract"].queryset.filter(pk=self.contract.pk).exists())
         self.assertFalse(filter_form.fields["contract"].queryset.filter(pk=other_contract.pk).exists())
+        self.assertFalse(filter_form.fields["contract"].queryset.filter(pk=same_province_unassigned.pk).exists())
 
     def test_technician_of_other_contractor_cannot_record(self):
         from django.core.exceptions import PermissionDenied

@@ -2,13 +2,33 @@
 from __future__ import annotations
 
 from django import forms
+from django.db.models import Q
 from django.forms import inlineformset_factory
+from django.utils import timezone
 
 from apps.core.forms import JalaliDateField, StyledForm, StyledModelForm
 from apps.core.constants import ASSET_STATUS_CHOICES
-from apps.org.models import Center, Contract, Department, Location
+from apps.org.models import Center, Contract, ContractCenterAssignment, Department, Location
 
 from .models import Asset, AssetAttachment, AssetCategory, AssetRelationship, ComponentType, HardwareSnapshot, SnapshotItem
+
+
+def _active_assigned_contracts(queryset, centers, center_id=None):
+    """Only offer current contracts explicitly assigned to an operational center in scope."""
+    today = timezone.localdate()
+    assignments = ContractCenterAssignment.objects.filter(
+        center__in=centers,
+        status=ContractCenterAssignment.STATUS_ACTIVE,
+        start_date__lte=today,
+    ).filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
+    if center_id:
+        assignments = assignments.filter(center_id=center_id)
+    return queryset.filter(
+        status=Contract.STATUS_ACTIVE,
+        start_date__lte=today,
+        end_date__gte=today,
+        center_assignments__in=assignments,
+    ).distinct()
 
 
 class AssetForm(StyledModelForm):
@@ -69,9 +89,12 @@ class AssetForm(StyledModelForm):
             contract_queryset = self.user.get_active_contractor_contracts()
         else:
             contract_queryset = Contract.objects.filter(province_id__in=scoped_province_ids)
+        contract_queryset = _active_assigned_contracts(
+            contract_queryset, scoped_centers, center_id=selected_center_id
+        )
         self.fields["contract"].queryset = contract_queryset.select_related(
             "contractor", "province"
-        ).distinct().order_by("-start_date")
+        ).order_by("-start_date")
         self.fields["department"].queryset = Department.objects.filter(center__in=scoped_centers, is_active=True)
         self.fields["location"].queryset = Location.objects.filter(center__in=scoped_centers, is_active=True)
         if selected_center_id:
@@ -170,11 +193,21 @@ class AssetFilterForm(StyledForm):
         self.fields["department"].queryset = Department.objects.filter(center__in=scoped)
         self.fields["location"].queryset = Location.objects.filter(center__in=scoped)
         if user and user.has_role("technician"):
-            self.fields["contract"].queryset = user.get_active_contractor_contracts()
+            contract_queryset = user.get_active_contractor_contracts()
         else:
-            self.fields["contract"].queryset = Contract.objects.filter(
+            contract_queryset = Contract.objects.filter(
                 province_id__in=scoped.values("parent_unit__parent_id")
-            ).distinct()
+            )
+        selected_center_id = None
+        if self.is_bound:
+            raw_center_id = self.data.get(self.add_prefix("center"))
+            try:
+                selected_center_id = int(raw_center_id) if raw_center_id else None
+            except (TypeError, ValueError):
+                selected_center_id = None
+        self.fields["contract"].queryset = _active_assigned_contracts(
+            contract_queryset, scoped, center_id=selected_center_id
+        )
 
     q = forms.CharField(label="جستجو", required=False)
     center = forms.ModelChoiceField(label="مرکز", required=False, queryset=Center.objects.all())
