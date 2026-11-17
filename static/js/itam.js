@@ -33,12 +33,27 @@
   }
 
   function setupSidebarCollapse() {
-    var button=document.querySelector("[data-sidebar-collapse]");if(!button)return;
+    var button=document.querySelector("[data-sidebar-collapse]");
+    var sidebar=document.getElementById("sidebar");
+    if(!button)return;
+    function syncState(){
+      var collapsed=document.body.classList.contains("itam-sidebar-collapsed");
+      button.setAttribute("aria-pressed",collapsed?"true":"false");
+      button.setAttribute("aria-label",collapsed?"بازکردن منوی کناری":"جمع‌کردن منوی کناری");
+      button.setAttribute("title",collapsed?"بازکردن منوی کناری":"جمع‌کردن منوی کناری");
+      if(sidebar)sidebar.querySelectorAll(".kt-menu-link").forEach(function(link){
+        var label=link.querySelector(".kt-menu-title");
+        if(collapsed&&label)link.setAttribute("title",label.textContent.trim());
+        else link.removeAttribute("title");
+      });
+    }
     try{if(localStorage.getItem("itam-sidebar-collapsed")==="1"&&window.matchMedia("(min-width: 1024px)").matches)
       document.body.classList.add("itam-sidebar-collapsed");}catch(error){}
+    syncState();
     button.addEventListener("click",function(){
       document.body.classList.toggle("itam-sidebar-collapsed");
       try{localStorage.setItem("itam-sidebar-collapsed",document.body.classList.contains("itam-sidebar-collapsed")?"1":"0");}catch(error){}
+      syncState();
     });
   }
 
