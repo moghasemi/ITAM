@@ -68,11 +68,14 @@ class HardwareSnapshotAdminProtectionTests(TestCase):
     def test_only_editable_snapshots_can_be_changed_in_admin(self):
         self.assertTrue(self.snapshot_admin.has_change_permission(self.request, self.draft))
         self.assertFalse(self.snapshot_admin.has_change_permission(self.request, self.locked))
+        readonly = set(self.snapshot_admin.get_readonly_fields(self.request, self.draft))
+        self.assertTrue({"asset", "version", "status", "locked_at"}.issubset(readonly))
 
     def test_snapshot_item_admin_only_allows_changes_for_editable_parent(self):
         self.assertFalse(self.item_admin.has_add_permission(self.request))
         self.assertTrue(self.item_admin.has_change_permission(self.request, self.draft_item))
         self.assertFalse(self.item_admin.has_change_permission(self.request, self.locked_item))
+        self.assertIn("snapshot", self.item_admin.get_readonly_fields(self.request, self.draft_item))
         self.assertTrue(self.item_admin.has_delete_permission(self.request, self.draft_item))
         self.assertFalse(self.item_admin.has_delete_permission(self.request, self.locked_item))
 

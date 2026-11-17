@@ -48,7 +48,13 @@ class HardwareSnapshotAdmin(admin.ModelAdmin):
     list_filter = ("status", "is_baseline")
     search_fields = ("asset__asset_tag", "seal_number")
     inlines = [SnapshotItemInline]
-    readonly_fields = ("diff_data", "diff_count", "locked_at")
+    # Workflow state and snapshot identity are controlled only by domain services.
+    readonly_fields = (
+        "asset", "version", "status", "is_baseline", "previous", "is_from_hwagent",
+        "agent_hashes", "recorded_by", "recorded_at", "technician_confirmed_by",
+        "technician_confirmed_at", "it_confirmed_by", "it_confirmed_at",
+        "locked_at", "diff_data", "diff_count",
+    )
 
     def has_add_permission(self, request):
         # Snapshots must be created through the application workflow, not Django Admin.
@@ -69,6 +75,8 @@ class SnapshotItemAdmin(admin.ModelAdmin):
     list_display = ("snapshot", "component_type", "brand", "model_name", "serial_number", "condition")
     list_filter = ("component_type", "condition")
     search_fields = ("serial_number", "brand", "model_name")
+    # Prevent moving an item from an editable snapshot into a locked snapshot.
+    readonly_fields = ("snapshot",)
 
     def has_add_permission(self, request):
         # Snapshot items are created only as part of an editable snapshot inline.
