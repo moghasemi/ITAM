@@ -1,7 +1,9 @@
 """Regression tests for organizational-data reconciliation safety."""
 
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import patch
 
 from django.core.management import call_command, get_commands, load_command_class
 from django.core.management.base import CommandError
@@ -153,3 +155,36 @@ class ReconciliationCommandRegressionTests(TestCase):
         self.assertIsNone(asset.center_id)
         self.assertFalse(asset.is_quarantined)
 
+
+
+    def test_apply_aborts_when_asset_evidence_changes_after_csv_report(self):
+        location = Location.objects.create(name="Changing room", center=self.center)
+        other_county = OrganizationalUnit.objects.create(
+            name="Changing County", code="REG-COUNTY-CHANGING",
+            unit_type=OrganizationalUnit.UNIT_COUNTY, parent=self.province,
+        )
+        other_center = Center.objects.create(
+            name="Changing Center", code="REG-CENTER-CHANGING",
+            parent_unit=other_county,
+        )
+        asset = Asset.objects.create(
+            asset_tag="REG-ASSET-STALE", title="Stale evidence asset",
+            category=self.category, location=location, center=None,
+        )
+        original_open = Path.open
+
+        @contextmanager
+        def open_then_change_evidence(path, *args, **kwargs):
+            with original_open(path, *args, **kwargs) as handle:
+                yield handle
+            Location.objects.filter(pk=location.pk).update(center=other_center)
+
+        with tempfile.TemporaryDirectory() as directory:
+            report = str(Path(directory) / "stale-reconciliation.csv")
+            with patch.object(Path, "open", open_then_change_evidence):
+                with self.assertRaises(CommandError):
+                    call_command("reconcile_organizational_data", apply=True, dry_run=False, output=report)
+
+        asset.refresh_from_db()
+        self.assertIsNone(asset.center_id)
+        self.assertFalse(asset.is_quarantined)

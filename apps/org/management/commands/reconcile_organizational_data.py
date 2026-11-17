@@ -29,6 +29,26 @@ FIELDS = (
 )
 
 
+def _center_evidence_signature(center):
+    """Capture the center's operational ownership so stale reports cannot be applied."""
+    if center is None:
+        return None
+    county = center.parent_unit if center.parent_unit_id else None
+    province = county.parent if county and county.parent_id else None
+    management = center.treatment_management if center.treatment_management_id else None
+    return (
+        center.pk,
+        center.is_active,
+        county.pk if county else None,
+        county.is_active if county else None,
+        province.pk if province else None,
+        province.is_active if province else None,
+        management.pk if management else None,
+        management.is_active if management else None,
+        management.province_id if management else None,
+    )
+
+
 class Command(BaseCommand):
     help = "Inventory and safely reconcile records missing organizational centers."
 
@@ -47,7 +67,7 @@ class Command(BaseCommand):
         centers = list(Center.objects.filter(parent_unit__isnull=True).select_related("treatment_management"))
         assets = list(
             Asset.objects.filter(center__isnull=True).select_related(
-                "location__center", "custodian", "department__center"
+                "location__center", "custodian__center", "department__center"
             )
         )
         users = list(
@@ -73,7 +93,7 @@ class Command(BaseCommand):
             "Department": len(departments), "Location": len(locations),
         }
 
-        def add(entity, obj, identifier, title, suggestion=None, confidence="UNRESOLVED", reason=""):
+        def add(entity, obj, identifier, title, suggestion=None, confidence="UNRESOLVED", reason="", evidence_signature=None):
             action = "DRY_RUN_PREVIEW"
             if apply_changes:
                 action = "ASSIGN" if confidence == "HIGH" and suggestion else (
@@ -92,7 +112,7 @@ class Command(BaseCommand):
                 "action": action,
             })
             if apply_changes and action in {"ASSIGN", "QUARANTINE"}:
-                plan.append((entity, obj.pk, suggestion.pk if suggestion else None, reason))
+                plan.append((entity, obj.pk, suggestion.pk if suggestion else None, reason, evidence_signature))
 
         for asset in assets:
             evidence = []
@@ -117,7 +137,15 @@ class Command(BaseCommand):
                     reason = "تنها شاهد موجود واحد سازمانی است؛ برای انتساب قطعی کافی نیست"
             else:
                 reason = "هیچ شاهد معتبر مرکز یافت نشد"
-            add("Asset", asset, asset.asset_tag, str(asset), suggestion, confidence, reason)
+            signature = (
+                "Asset", asset.location_id,
+                _center_evidence_signature(asset.location.center) if asset.location_id and asset.location.center_id else None,
+                asset.custodian_id,
+                _center_evidence_signature(asset.custodian.center) if asset.custodian_id and asset.custodian.center_id else None,
+                asset.department_id,
+                _center_evidence_signature(asset.department.center) if asset.department_id and asset.department.center_id else None,
+            )
+            add("Asset", asset, asset.asset_tag, str(asset), suggestion, confidence, reason, signature)
 
         for user in users:
             suggestion = user.department.center if user.department_id and user.department.center_id else None
@@ -125,6 +153,7 @@ class Command(BaseCommand):
                 "User", user, user.username, user.display_name, suggestion,
                 "HIGH" if suggestion else "UNRESOLVED",
                 "مرکز واحد سازمانی کاربر" if suggestion else "مرکز قطعی برای کاربر یافت نشد",
+                ("User", user.department_id, _center_evidence_signature(user.department.center) if user.department_id and user.department.center_id else None),
             )
 
         for ticket in tickets:
@@ -139,7 +168,13 @@ class Command(BaseCommand):
                 reason = "مرکز دارایی مرتبط" if asset_center else "مرکز کاربر گزارش‌دهنده"
             else:
                 suggestion, confidence, reason = None, "UNRESOLVED", "دارایی و گزارش‌دهنده مرکز مشخص ندارند"
-            add("Ticket", ticket, ticket.number, ticket.title, suggestion, confidence, reason)
+            signature = (
+                "Ticket", ticket.asset_id,
+                _center_evidence_signature(ticket.asset.center) if ticket.asset_id and ticket.asset.center_id else None,
+                ticket.reported_by_id,
+                _center_evidence_signature(ticket.reported_by.center) if ticket.reported_by_id and ticket.reported_by.center_id else None,
+            )
+            add("Ticket", ticket, ticket.number, ticket.title, suggestion, confidence, reason, signature)
 
         for center in centers:
             matches = OrganizationalUnit.objects.filter(
@@ -166,7 +201,12 @@ class Command(BaseCommand):
                 if suggestion else
                 "تطبیق شهرستان یکتا و معتبر یافت نشد یا مالکیت مدیریت درمان مرکز با استان مقصد سازگار نیست؛ انتساب دستی لازم است"
             )
-            add("Center", center, center.code or str(center.pk), center.name, suggestion, confidence, reason)
+            signature = (
+                "Center", (center.city or "").strip(), center.treatment_management_id,
+                center.treatment_management.is_active if center.treatment_management_id else None,
+                center.treatment_management.province_id if center.treatment_management_id else None,
+            )
+            add("Center", center, center.code or str(center.pk), center.name, suggestion, confidence, reason, signature)
 
         # These records are inventoried but never auto-assigned by this command.
         for entity, objects, identifier_fn, title_fn in (
@@ -197,11 +237,24 @@ class Command(BaseCommand):
         applied = quarantined = 0
         try:
             with transaction.atomic():
-                for entity, object_id, suggested_id, reason in plan:
+                for entity, object_id, suggested_id, reason, expected_signature in plan:
                     if entity == "Center":
                         obj = Center.objects.select_for_update().get(pk=object_id)
-                        if obj.parent_unit_id is not None:
-                            raise CommandError(f"مرکز {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
+                        current_signature = (
+                            "Center", (obj.city or "").strip(), obj.treatment_management_id,
+                            obj.treatment_management.is_active if obj.treatment_management_id else None,
+                            obj.treatment_management.province_id if obj.treatment_management_id else None,
+                        )
+                        if obj.parent_unit_id is not None or current_signature != expected_signature:
+                            raise CommandError(f"شواهد سازمانی مرکز {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
+                        current_matches = OrganizationalUnit.objects.filter(
+                            unit_type=OrganizationalUnit.UNIT_COUNTY, is_active=True,
+                            name__iexact=(obj.city or "").strip(),
+                            parent__unit_type=OrganizationalUnit.UNIT_PROVINCE,
+                            parent__is_active=True,
+                        ) if obj.city else OrganizationalUnit.objects.none()
+                        if current_matches.count() != 1 or current_matches.first().pk != suggested_id:
+                            raise CommandError(f"تطبیق شهرستان مرکز {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
                         unit = OrganizationalUnit.objects.select_for_update().get(
                             pk=suggested_id, unit_type=OrganizationalUnit.UNIT_COUNTY,
                             is_active=True, parent__is_active=True,
@@ -214,9 +267,19 @@ class Command(BaseCommand):
                         continue
 
                     if entity == "Asset":
-                        obj = Asset.objects.select_for_update().get(pk=object_id)
-                        if obj.center_id is not None:
-                            raise CommandError(f"دارایی {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
+                        obj = Asset.objects.select_for_update().select_related(
+                            "location__center", "custodian__center", "department__center"
+                        ).get(pk=object_id)
+                        current_signature = (
+                            "Asset", obj.location_id,
+                            _center_evidence_signature(obj.location.center) if obj.location_id and obj.location.center_id else None,
+                            obj.custodian_id,
+                            _center_evidence_signature(obj.custodian.center) if obj.custodian_id and obj.custodian.center_id else None,
+                            obj.department_id,
+                            _center_evidence_signature(obj.department.center) if obj.department_id and obj.department.center_id else None,
+                        )
+                        if obj.center_id is not None or current_signature != expected_signature:
+                            raise CommandError(f"شواهد سازمانی دارایی {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
                         if suggested_id:
                             obj.center_id = suggested_id
                             obj.is_quarantined = False
@@ -235,15 +298,27 @@ class Command(BaseCommand):
                         continue
 
                     if entity == "User":
-                        obj = User.objects.select_for_update().get(pk=object_id)
-                        if obj.center_id is not None:
-                            raise CommandError(f"کاربر {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
+                        obj = User.objects.select_for_update().select_related("department__center").get(pk=object_id)
+                        current_signature = (
+                            "User", obj.department_id,
+                            _center_evidence_signature(obj.department.center) if obj.department_id and obj.department.center_id else None,
+                        )
+                        if obj.center_id is not None or current_signature != expected_signature:
+                            raise CommandError(f"شواهد سازمانی کاربر {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
                         obj.center_id = suggested_id
                         obj.save(update_fields=["center"])
                     elif entity == "Ticket":
-                        obj = Ticket.objects.select_for_update().get(pk=object_id)
-                        if obj.center_id is not None:
-                            raise CommandError(f"تیکت {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
+                        obj = Ticket.objects.select_for_update().select_related(
+                            "asset__center", "reported_by__center"
+                        ).get(pk=object_id)
+                        current_signature = (
+                            "Ticket", obj.asset_id,
+                            _center_evidence_signature(obj.asset.center) if obj.asset_id and obj.asset.center_id else None,
+                            obj.reported_by_id,
+                            _center_evidence_signature(obj.reported_by.center) if obj.reported_by_id and obj.reported_by.center_id else None,
+                        )
+                        if obj.center_id is not None or current_signature != expected_signature:
+                            raise CommandError(f"شواهد سازمانی تیکت {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
                         obj.center_id = suggested_id
                         obj.save(update_fields=["center", "updated_at"])
                     else:
