@@ -1,6 +1,5 @@
 import tempfile
 
-from django.contrib.auth.models import AnonymousUser
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import Http404
 from django.test import RequestFactory, TestCase, override_settings
@@ -99,15 +98,11 @@ class PrivateMediaAuthorizationTests(TestCase):
         )
 
     def test_anonymous_users_receive_404_for_private_media(self):
-        # Use a fixed private namespace path so this test isolates the
-        # authentication guard from upload-storage naming behavior.
-        path = "referrals/private-document.pdf"
-        request = RequestFactory().get(f"/media/{path}")
-        request.user = AnonymousUser()
-
-        self.assertFalse(request.user.is_authenticated)
-        with self.assertRaises(Http404):
-            private_media(request, path)
+        # Exercise the actual URL + AuthenticationMiddleware path against a
+        # real uploaded referral file, not a direct view-function call.
+        path = self.referral.attachment.name
+        response = self.client.get(f"/media/{path}")
+        self.assertEqual(response.status_code, 404)
 
     def test_same_center_staff_can_download_owned_asset_attachment(self):
         request = RequestFactory().get(f"/media/{self.attachment.file.name}")
