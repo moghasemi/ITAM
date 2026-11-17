@@ -26,8 +26,8 @@ jobs:
       ITAM_SECRET_KEY: "ci-only-not-for-production"
       ITAM_ALLOWED_HOSTS: "localhost,127.0.0.1,testserver"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -70,8 +70,8 @@ jobs:
       ITAM_DB_HOST: "127.0.0.1"
       ITAM_DB_PORT: "5432"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -106,8 +106,8 @@ jobs:
       ITAM_CSRF_COOKIE_SECURE: "1"
       ITAM_CSRF_TRUSTED_ORIGINS: "https://itam.example.test"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -116,18 +116,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Django production deployment checks
-        run: python manage.py check --deploy
+        run: |
+          python manage.py check --deploy
+          python -c "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings'); from django.conf import settings; assert settings.SECURE_HSTS_INCLUDE_SUBDOMAINS is False; assert settings.SECURE_HSTS_PRELOAD is False"
 
   deploy-script-validation:
     # These steps perform syntax checks only; real Windows installation/sync
     # remains a separate manual acceptance test on a target machine.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Validate PowerShell deployment scripts
         shell: pwsh
         run: |
-          $paths = @("deploy/install_service.ps1", "deploy/backup.ps1", "HWAgent/agent.ps1")
+          $paths = @("deploy/install_service.ps1", "deploy/backup.ps1", "deploy/proxy_validation.ps1", "deploy/tests/test_proxy_validation.ps1", "HWAgent/agent.ps1")
           foreach ($path in $paths) {
             $tokens = $null
             $errors = $null
@@ -137,6 +139,8 @@ jobs:
               throw "PowerShell syntax validation failed: $path"
             }
           }
+          & pwsh -NoProfile -File "deploy/tests/test_proxy_validation.ps1"
+          if ($LASTEXITCODE -ne 0) { throw "Trusted proxy configuration tests failed." }
       - name: Validate HWAgent browser JavaScript
         shell: pwsh
         run: |

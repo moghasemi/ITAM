@@ -312,7 +312,12 @@ def private_media(request, path: str):
     allowed = False
 
     if path.startswith("settings/"):
+        # The organization logo is intentionally public (including the login page).
         allowed = SystemSetting.objects.filter(logo=path).exists()
+    elif not getattr(user, "is_authenticated", False):
+        # All other uploaded media is private. Reject anonymous requests before
+        # evaluating custom User properties or role-scoped querysets.
+        raise Http404
     elif path.startswith("signatures/"):
         owner = User.objects.filter(signature=path).first()
         if owner:

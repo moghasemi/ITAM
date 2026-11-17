@@ -1,8 +1,10 @@
 import tempfile
 
+from django.contrib.auth.models import AnonymousUser
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import Http404
 from django.test import RequestFactory, TestCase, override_settings
+from django.urls import reverse
 
 from apps.accounts.models import User
 from apps.assets.models import Asset, AssetAttachment, AssetCategory, HardwareSnapshot
@@ -96,6 +98,20 @@ class PrivateMediaAuthorizationTests(TestCase):
             resolution_attachment=SimpleUploadedFile("province-decision.pdf", b"%PDF-1.4\nprovince"),
             status=GeneralReferral.STATUS_RESOLVED, outcome="نتیجه استانی",
         )
+
+    def test_anonymous_users_cannot_reach_private_media(self):
+        path = self.referral.attachment.name
+        request = RequestFactory().get(f"/media/{path}")
+        request.user = AnonymousUser()
+
+        # login_required redirects at the HTTP boundary; the wrapped view also
+        # keeps a fail-closed guard if invoked by another internal caller.
+        with self.assertRaises(Http404):
+            private_media.__wrapped__(request, path)
+
+        response = self.client.get(f"/media/{path}")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("accounts:login"), response.url)
 
     def test_same_center_staff_can_download_owned_asset_attachment(self):
         request = RequestFactory().get(f"/media/{self.attachment.file.name}")
