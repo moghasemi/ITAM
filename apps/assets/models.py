@@ -668,6 +668,15 @@ class AgentCredential(TimeStampedModel):
         on_delete=models.PROTECT,
         related_name="agent_credentials",
     )
+    # Nullable only for legacy rows; API authentication rejects unbound credentials.
+    asset = models.ForeignKey(
+        "assets.Asset",
+        verbose_name="دارایی اختصاصی ایجنت",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="agent_credentials",
+    )
     agent_uid = models.UUIDField("شناسه یکتای ایجنت", default=uuid.uuid4, unique=True, editable=False)
     name = models.CharField("نام سیستم / کلاینت", max_length=150)
     hostname = models.CharField("نام رایانه (Hostname)", max_length=150, blank=True)
@@ -700,12 +709,19 @@ class AgentCredential(TimeStampedModel):
     def generate(
         cls,
         center,
+        asset: Asset,
         name: str,
         hostname: str = "",
         expires_in_days: int = 365,
         created_by=None,
     ) -> tuple[AgentCredential, str]:
-        """تولید اعتبارنامه جدید با آنتروپی رمزنگاری‌شده بالا و ذخیره صرفاً هش در سرور."""
+        """صدور اعتبارنامه مقید به یک دارایی فعال و hostname ثبت‌شده همان دارایی."""
+        expected_hostname = (getattr(asset, "hostname", "") or "").strip()
+        supplied_hostname = (hostname or expected_hostname).strip()
+        if not asset or asset.center_id != getattr(center, "pk", None):
+            raise ValidationError("دارایی ایجنت باید متعلق به همان مرکز اعتبارنامه باشد.")
+        if not expected_hostname or supplied_hostname.casefold() != expected_hostname.casefold():
+            raise ValidationError("برای صدور اعتبارنامه، hostname دارایی باید مشخص و با hostname اعتبارنامه یکسان باشد.")
         raw_secret = secrets.token_urlsafe(36)
         raw_token = f"itam_agt_{raw_secret}"
         prefix = raw_token[:12]
@@ -714,8 +730,9 @@ class AgentCredential(TimeStampedModel):
 
         cred = cls.objects.create(
             center=center,
+            asset=asset,
             name=name,
-            hostname=hostname,
+            hostname=expected_hostname,
             token_prefix=prefix,
             token_hash=token_hash,
             expires_at=expires_at,
@@ -755,6 +772,7 @@ class AgentCredential(TimeStampedModel):
             self.revoke(reason="چرخش توکن (Token Rotation)")
             new_cred, raw_token = self.__class__.generate(
                 center=self.center,
+                asset=self.asset,
                 name=self.name,
                 hostname=self.hostname,
                 created_by=created_by,

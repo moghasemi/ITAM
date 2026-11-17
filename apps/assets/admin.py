@@ -1,4 +1,5 @@
 """ثبت مدل‌های دارایی در پنل مدیریت جنگو."""
+from django import forms
 from django.contrib import admin, messages
 
 from apps.core.utils import log_action
@@ -53,8 +54,39 @@ class AssetAttachmentAdmin(admin.ModelAdmin):
     list_display = ("asset", "kind", "title", "uploaded_by", "created_at")
     list_filter = ("kind",)
 
+class AgentCredentialAdminForm(forms.ModelForm):
+    asset = forms.ModelChoiceField(
+        label="دارایی اختصاصی ایجنت",
+        queryset=Asset.objects.filter(center__isnull=False).select_related("center"),
+        required=True,
+    )
+
+    class Meta:
+        model = AgentCredential
+        fields = ("center", "asset", "name", "hostname", "expires_at")
+
+    def clean(self):
+        cleaned = super().clean()
+        center = cleaned.get("center")
+        asset = cleaned.get("asset")
+        hostname = (cleaned.get("hostname") or "").strip()
+        if asset and center and asset.center_id != center.pk:
+            self.add_error("asset", "دارایی باید متعلق به مرکز انتخاب‌شده باشد.")
+        if asset:
+            expected = (asset.hostname or "").strip()
+            if not expected:
+                self.add_error("asset", "ابتدا برای دارایی hostname ثبت کنید.")
+            elif hostname and hostname.casefold() != expected.casefold():
+                self.add_error("hostname", "hostname اعتبارنامه باید با hostname دارایی یکسان باشد.")
+            else:
+                cleaned["hostname"] = expected
+        return cleaned
+
+
 @admin.register(AgentCredential)
 class AgentCredentialAdmin(admin.ModelAdmin):
+    form = AgentCredentialAdminForm
+    fields = ("center", "asset", "name", "hostname", "expires_at", "agent_uid", "token_prefix", "token_hash", "status", "last_sync_at", "last_ip", "revoked_at", "created_by")
     list_display = ("name", "center", "token_prefix", "status", "expires_at", "last_sync_at", "last_ip")
     list_filter = ("status", "center")
     search_fields = ("name", "hostname", "token_prefix")
@@ -67,7 +99,7 @@ class AgentCredentialAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         fields = list(super().get_readonly_fields(request, obj))
         if obj is not None:
-            fields.extend(("center", "name", "hostname"))
+            fields.extend(("center", "asset", "name", "hostname"))
         return tuple(fields)
 
     def has_delete_permission(self, request, obj=None):
@@ -78,6 +110,7 @@ class AgentCredentialAdmin(admin.ModelAdmin):
             # The raw token is generated once and shown only in this response.
             credential, raw_token = AgentCredential.generate(
                 center=obj.center,
+                asset=obj.asset,
                 name=obj.name,
                 hostname=obj.hostname,
                 expires_in_days=365,
@@ -87,7 +120,7 @@ class AgentCredentialAdmin(admin.ModelAdmin):
                 credential.expires_at = obj.expires_at
                 credential.save(update_fields=["expires_at", "updated_at"])
             for field in (
-                "pk", "agent_uid", "token_prefix", "token_hash", "status",
+                "pk", "agent_uid", "asset", "token_prefix", "token_hash", "status",
                 "expires_at", "created_at", "updated_at", "created_by",
             ):
                 setattr(obj, field, getattr(credential, field))

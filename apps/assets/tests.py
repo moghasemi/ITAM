@@ -674,7 +674,7 @@ class MultiCenterAndHWAgentTests(TestCase):
         self.assertEqual(unauth_resp.status_code, 401)
 
         # ۲) صدور توکن اختصاصی متصل به مرکز
-        cred, raw_token = AgentCredential.generate(self.center_sub, name="PC-SUB-01-Agent")
+        cred, raw_token = AgentCredential.generate(self.center_sub, asset=self.asset_sub, name="PC-SUB-01-Agent")
 
         # ۳) ارسال درخواست احراز هویت‌شده با هدرهای امنیتی
         headers = {
@@ -694,13 +694,64 @@ class MultiCenterAndHWAgentTests(TestCase):
         self.assertEqual(data["asset_tag"], "TAG-SUB")
 
 
+    def test_api_hwagent_sync_rejects_mismatched_hostname_for_bound_asset(self):
+        import json
+        import uuid
+        from django.utils import timezone
+        from apps.assets.models import AgentCredential, HardwareSnapshot
+
+        _, token = AgentCredential.generate(
+            self.center_sub, asset=self.asset_sub, name="hostname-bound-agent"
+        )
+        payload = {
+            "computerName": "ATTACKER-CONTROLLED-HOST",
+            "os": "Windows 11",
+            "cpu": {"name": "Intel Core i5", "cores": 4, "threads": 8, "speed": 2500},
+        }
+        response = self.client.post(
+            "/api/v1/hardware/agent-sync/",
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+            HTTP_X_ITAM_TIMESTAMP=timezone.now().isoformat(),
+            HTTP_X_ITAM_NONCE=str(uuid.uuid4()),
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(HardwareSnapshot.objects.filter(asset=self.asset_sub).exists())
+
+    def test_api_hwagent_sync_rejects_asset_tag_not_bound_to_credential(self):
+        import json
+        import uuid
+        from django.utils import timezone
+        from apps.assets.models import AgentCredential, HardwareSnapshot
+
+        _, token = AgentCredential.generate(
+            self.center_sub, asset=self.asset_sub, name="asset-tag-bound-agent"
+        )
+        payload = {
+            "computerName": "PC-SUB-01",
+            "asset_tag": "TAG-HQ",
+            "os": "Windows 11",
+            "cpu": {"name": "Intel Core i5", "cores": 4, "threads": 8, "speed": 2500},
+        }
+        response = self.client.post(
+            "/api/v1/hardware/agent-sync/",
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+            HTTP_X_ITAM_TIMESTAMP=timezone.now().isoformat(),
+            HTTP_X_ITAM_NONCE=str(uuid.uuid4()),
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(HardwareSnapshot.objects.filter(asset=self.asset_sub).exists())
+
     def test_api_hwagent_sync_rejects_inactive_center(self):
         import json
         import uuid
         from django.utils import timezone
         from apps.assets.models import AgentCredential, HardwareSnapshot
 
-        credential, token = AgentCredential.generate(self.center_sub, name="inactive-center-agent")
+        credential, token = AgentCredential.generate(self.center_sub, asset=self.asset_sub, name="inactive-center-agent")
         self.center_sub.is_active = False
         self.center_sub.save(update_fields=["is_active"])
         payload = {
@@ -726,7 +777,7 @@ class MultiCenterAndHWAgentTests(TestCase):
         from django.utils import timezone
         from apps.assets.models import AgentCredential, AgentNonce
 
-        credential, token = AgentCredential.generate(self.center_sub, name="nonce-validation")
+        credential, token = AgentCredential.generate(self.center_sub, asset=self.asset_sub, name="nonce-validation")
         response = Client().post(
             "/api/v1/hardware/agent-sync/",
             data=json.dumps({}),
@@ -744,7 +795,7 @@ class MultiCenterAndHWAgentTests(TestCase):
         from django.utils import timezone
         from apps.assets.models import AgentCredential, AgentNonce
 
-        credential, token = AgentCredential.generate(self.center_sub, name="json-shape-validation")
+        credential, token = AgentCredential.generate(self.center_sub, asset=self.asset_sub, name="json-shape-validation")
         nonce = "json-shape-test-001"
         response = Client().post(
             "/api/v1/hardware/agent-sync/",
@@ -765,7 +816,7 @@ class MultiCenterAndHWAgentTests(TestCase):
         from django.utils import timezone
         from apps.assets.models import AgentCredential, AgentNonce
 
-        credential, token = AgentCredential.generate(self.center_sub, name="nonce-retention")
+        credential, token = AgentCredential.generate(self.center_sub, asset=self.asset_sub, name="nonce-retention")
         old_nonce = AgentNonce.objects.create(agent=credential, nonce="old-nonce")
         AgentNonce.objects.filter(pk=old_nonce.pk).update(
             created_at=timezone.now() - dt.timedelta(hours=1)

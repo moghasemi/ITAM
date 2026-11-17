@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from apps.assets.models import AgentCredential
+from apps.assets.models import AgentCredential, Asset, AssetCategory
 from apps.org.models import Center, OrganizationalUnit
 
 
@@ -22,10 +22,15 @@ class AgentCredentialLifecycleTests(TestCase):
         cls.center = Center.objects.create(
             name="مرکز ایجنت", code="AGENT-CENTER", parent_unit=county
         )
+        category = AssetCategory.objects.create(name="دارایی آزمون ایجنت")
+        cls.asset = Asset.objects.create(
+            asset_tag="AGENT-ASSET-001", category=category,
+            center=cls.center, hostname="AGENT-PC-01",
+        )
 
     def test_raw_token_is_not_persisted_and_revocation_is_immediate(self):
         credential, raw_token = AgentCredential.generate(
-            center=self.center, name="Test PC"
+            center=self.center, asset=self.asset, name="Test PC"
         )
         self.assertNotEqual(credential.token_hash, raw_token)
         self.assertEqual(AgentCredential.verify_token(raw_token).pk, credential.pk)
