@@ -1392,6 +1392,45 @@ class SnapshotAccessBoundaryTests(TestCase):
         self.assertEqual(own_response.status_code, 200)
         self.assertEqual(foreign_response.status_code, 404)
 
+
+
+    def test_center_it_and_manager_lose_asset_access_when_center_is_inactive(self):
+        from apps.assets.services import can_edit_asset
+
+        manager = User.objects.create_user(
+            username="snapshot_access_manager",
+            password="test-password",
+            role=User.ROLE_MANAGER,
+            center=self.center_a,
+        )
+        requester = User.objects.create_user(
+            username="snapshot_access_requester",
+            password="test-password",
+            role=User.ROLE_REQUESTER,
+            center=self.center_a,
+        )
+        Asset.objects.filter(pk=self.asset_a.pk).update(custodian=requester)
+        Center.objects.filter(pk=self.center_a.pk).update(is_active=False)
+
+        for user in (self.it_a, manager, requester):
+            self.assertFalse(
+                visible_assets(user).filter(pk=self.asset_a.pk).exists(),
+                f"{user.role} retained access to an inactive center",
+            )
+        self.assertFalse(can_edit_asset(self.it_a, self.asset_a))
+        self.assertFalse(can_record_snapshot(self.it_a, self.asset_a))
+
+    def test_center_it_loses_asset_access_when_geographic_and_management_provinces_mismatch(self):
+        from apps.assets.services import can_edit_asset
+
+        Center.objects.filter(pk=self.center_a.pk).update(
+            treatment_management_id=self.center_b.treatment_management_id
+        )
+
+        self.assertFalse(visible_assets(self.it_a).filter(pk=self.asset_a.pk).exists())
+        self.assertFalse(can_edit_asset(self.it_a, self.asset_a))
+        self.assertFalse(can_record_snapshot(self.it_a, self.asset_a))
+
     def test_anonymous_user_is_denied_pending_snapshot_list(self):
         from django.test import Client
 
