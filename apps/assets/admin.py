@@ -1,4 +1,4 @@
-"""ثبت مدل‌های دارایی در پنل مدیریت جنگو."""
+""""ثبت مدل‌های دارایی در پنل مدیریت جنگو."""
 from django import forms
 from django.contrib import admin, messages
 
@@ -11,6 +11,15 @@ class SnapshotItemInline(admin.TabularInline):
     model = SnapshotItem
     extra = 0
     fields = ("component_type", "brand", "model_name", "serial_number", "capacity", "quantity", "slot", "condition")
+
+    def has_add_permission(self, request, obj=None):
+        return bool(obj and obj.is_editable and super().has_add_permission(request, obj))
+
+    def has_change_permission(self, request, obj=None):
+        return bool(obj and obj.is_editable and super().has_change_permission(request, obj))
+
+    def has_delete_permission(self, request, obj=None):
+        return bool(obj and obj.is_editable and super().has_delete_permission(request, obj))
 
 
 @admin.register(AssetCategory)
@@ -41,12 +50,39 @@ class HardwareSnapshotAdmin(admin.ModelAdmin):
     inlines = [SnapshotItemInline]
     readonly_fields = ("diff_data", "diff_count", "locked_at")
 
+    def has_add_permission(self, request):
+        # Snapshots must be created through the application workflow, not Django Admin.
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        if obj is not None and not obj.is_editable:
+            return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        # Preserve the audit trail and prevent deletion outside the workflow.
+        return False
+
 
 @admin.register(SnapshotItem)
 class SnapshotItemAdmin(admin.ModelAdmin):
     list_display = ("snapshot", "component_type", "brand", "model_name", "serial_number", "condition")
     list_filter = ("component_type", "condition")
     search_fields = ("serial_number", "brand", "model_name")
+
+    def has_add_permission(self, request):
+        # Snapshot items are created only as part of an editable snapshot inline.
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        if obj is None or not obj.snapshot.is_editable:
+            return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is None or not obj.snapshot.is_editable:
+            return False
+        return super().has_delete_permission(request, obj)
 
 
 @admin.register(AssetAttachment)
@@ -201,9 +237,6 @@ class AgentCredentialAdmin(admin.ModelAdmin):
             )
             count += 1
         self.message_user(request, f"{count} اعتبارنامه فعال شد.")
-
-    def has_delete_permission(self, request, obj=None):
-        return False
 
 
 @admin.register(AgentSyncAuditLog)
