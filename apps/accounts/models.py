@@ -289,6 +289,18 @@ class User(AbstractUser):
             return self.contractor
         return None
 
+class LoginThrottleLock(models.Model):
+    """Short-lived coordination rows; keys are keyed digests, never raw identities."""
+
+    key = models.CharField("اثر انگشت قفل", max_length=67, unique=True)
+    lock_version = models.PositiveBigIntegerField(default=0)
+    updated_at = models.DateTimeField("آخرین استفاده", default=timezone.now, db_index=True)
+
+    class Meta:
+        verbose_name = "قفل محدودسازی ورود"
+        verbose_name_plural = "قفل‌های محدودسازی ورود"
+
+
 class LoginAttempt(models.Model):
     """ثبت حداقلی تلاش‌های ناموفق ورود برای محدودسازی حملات حدس گذرواژه."""
 

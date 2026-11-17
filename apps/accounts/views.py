@@ -42,6 +42,18 @@ class ItamLoginView(LoginView):
             return target
         return reverse(landing_url_name(self.request.user))
 
+    def post(self, request, *args, **kwargs):
+        # Keep admission, authentication, failure recording, and success reset
+        # in one serialized critical section across all application workers.
+        from apps.core.middleware import client_ip
+        from .rate_limit import login_admission_lock
+
+        with login_admission_lock(
+            request.POST.get("username", ""),
+            client_ip(request),
+        ):
+            return super().post(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["page_title"] = "ورود به سامانه"

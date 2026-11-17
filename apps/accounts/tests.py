@@ -1,10 +1,16 @@
 """Regression tests for administrative password validation."""
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.contrib.auth import get_user_model
 
 from .forms import AdminSetPasswordForm
 from .models import LoginAttempt, User
-from .rate_limit import LOGIN_FAILURE_LIMIT, LOGIN_IP_FAILURE_LIMIT, is_login_throttled, record_login_failure
+from .rate_limit import (
+    LOGIN_FAILURE_LIMIT,
+    LOGIN_IP_FAILURE_LIMIT,
+    is_login_throttled,
+    login_admission_lock,
+    record_login_failure,
+)
 
 
 class AdminSetPasswordFormTests(SimpleTestCase):
@@ -85,3 +91,57 @@ class LoginThrottlingTests(TestCase):
             record_login_failure(f"unknown-user-{index}", "192.0.2.10")
         self.assertTrue(is_login_throttled("another-user", "192.0.2.10"))
         self.assertFalse(is_login_throttled("another-user", "192.0.2.11"))
+
+
+
+class LoginAdmissionLockTests(TransactionTestCase):
+    reset_sequences = True
+
+    def test_same_identity_login_posts_are_serialized(self):
+        import threading
+        from django.db import close_old_connections
+
+        first_entered = threading.Event()
+        release_first = threading.Event()
+        second_entered = threading.Event()
+        errors = []
+
+        def first_request():
+            close_old_connections()
+            try:
+                with login_admission_lock("parallel-user", "192.0.2.44"):
+                    first_entered.set()
+                    if not release_first.wait(5):
+                        raise AssertionError("first lock holder timed out")
+            except Exception as exc:  # surface worker-thread failures in the test
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        def second_request():
+            close_old_connections()
+            try:
+                if not first_entered.wait(5):
+                    raise AssertionError("first request did not acquire its lock")
+                with login_admission_lock("parallel-user", "192.0.2.44"):
+                    second_entered.set()
+            except Exception as exc:
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        first = threading.Thread(target=first_request, daemon=True)
+        second = threading.Thread(target=second_request, daemon=True)
+        first.start()
+        self.assertTrue(first_entered.wait(5))
+        second.start()
+
+        # The second request must wait until the first finishes authentication.
+        self.assertFalse(second_entered.wait(0.25))
+        release_first.set()
+        self.assertTrue(second_entered.wait(5))
+        first.join(5)
+        second.join(5)
+        self.assertFalse(first.is_alive())
+        self.assertFalse(second.is_alive())
+        self.assertEqual(errors, [])
