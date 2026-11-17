@@ -340,6 +340,15 @@ class SnapshotEditView(RepairStaffRequiredMixin, PageContextMixin, UpdateView):
 
     @transaction.atomic
     def form_valid(self, form):
+        # Serialize edits with approve/reject services, which lock the same row.
+        locked_snapshot = get_object_or_404(
+            HardwareSnapshot.objects.select_for_update().select_related("asset", "previous"),
+            pk=self.object.pk,
+        )
+        if not locked_snapshot.is_editable or not can_record_snapshot(self.request.user, locked_snapshot.asset):
+            raise PermissionDenied("این اسنپ‌شات دیگر قابل ویرایش نیست یا خارج از حوزه مجاز شماست.")
+        self.object = locked_snapshot
+        form.instance = locked_snapshot
         context = self.get_context_data()
         formset = context["formset"]
         if not formset.is_valid():
