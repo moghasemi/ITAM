@@ -211,7 +211,7 @@
               <i class="ki-filled ki-notification-bing text-lg"></i>
               {% if unread_notifications %}<span class="itam-notification-count">{{ unread_notifications|fa }}</span>{% endif %}
             </button>
-            <div class="kt-dropdown-menu itam-dropdown-panel w-[min(90vw,320px)] p-4" data-kt-dropdown-menu="true">
+            <div class="kt-dropdown-menu itam-dropdown-panel itam-notification-menu p-4" data-kt-dropdown-menu="true">
               <div class="flex items-center justify-between mb-3">
                 <strong class="text-sm">اعلان‌ها</strong>
                 {% if unread_notifications %}<span class="kt-badge kt-badge-sm kt-badge-primary">{{ unread_notifications|fa }} خوانده‌نشده</span>{% endif %}
@@ -229,7 +229,7 @@
               </span>
               <i class="ki-filled ki-down text-xs text-secondary-foreground"></i>
             </button>
-            <div class="kt-dropdown-menu itam-dropdown-panel min-w-[220px] p-2" data-kt-dropdown-menu="true">
+            <div class="kt-dropdown-menu itam-dropdown-panel itam-user-menu p-2" data-kt-dropdown-menu="true">
               <div class="px-3 py-2 border-b border-border mb-1">
                 <strong class="block text-sm">{{ user.display_name }}</strong>
                 <span class="text-xs text-secondary-foreground">{{ user.role_label }}</span>

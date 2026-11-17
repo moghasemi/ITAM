@@ -227,3 +227,15 @@ body.itam-sidebar-collapsed .itam-sidebar-collapse i{transform:rotate(180deg)}
   .itam-global-search kbd { display: none; }
   .itam-global-search input { font-size: 10px !important; }
 }
+
+/* Fine-grained dropdown and dark-mode states */
+.itam-notification-menu { width: min(90vw, 320px); }
+.itam-user-menu { min-width: 220px; }
+.dark .itam-sidebar-collapse { background: #17253a !important; border-color: #34465f !important; color: #c0cddd !important; }
+.dark .form-label, .dark .filter-label, .dark .section-title { color: #b8c6d8 !important; }
+.dark .form-help, .dark .pagination-info { color: #91a2b8 !important; }
+.dark .btn-ghost { background: #17253a !important; border-color: #34465f !important; color: #c0cddd !important; }
+.dark .formset-row { background: #0e1929 !important; border-color: #34465f !important; }
+.dark .step { background: #111c2d !important; border-color: #34465f !important; color: #9fb0c6 !important; }
+.dark .tab { color: #9fb0c6 !important; }
+.dark .tab.active { background: #17253a !important; border-color: #34465f !important; color: #8bb6ff !important; }

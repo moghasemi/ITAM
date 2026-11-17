@@ -97,6 +97,7 @@
       {% if monthly_series %}
         <div class="itam-chart-wrap">
           <div id="itam-monthly-chart" class="itam-chart" role="img" aria-label="نمودار روند درخواست‌های خرابی در شش ماه اخیر"></div>
+          <noscript><p class="form-help">برای نمایش نمودار، JavaScript را فعال کنید.</p></noscript>
         </div>
         {{ monthly_series|json_script:"itam-monthly-series" }}
       {% else %}
