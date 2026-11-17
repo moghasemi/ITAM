@@ -13,7 +13,7 @@ from apps.accounts.models import User
 from apps.core.models import Notification
 from apps.core.utils import log_action
 from apps.core.validators import validate_document_file
-from apps.org.models import ContractCenterAssignment, OrganizationalUnit
+from apps.org.models import Center, Contract, ContractCenterAssignment, OrganizationalUnit
 
 from .repair_models import (
     GeneralITRequest,
@@ -237,9 +237,18 @@ def set_repairer_active(*, repairer, active, reason, actor):
 
 
 @transaction.atomic
+@transaction.atomic
 def assign_contractor_to_center(*, contract, center, start_date, actor):
     if not _is_province_admin(actor):
         raise PermissionDenied("انتساب پیمانکار رسمی فقط توسط مدیر استان انجام می‌شود.")
+
+    # Serialize assignments for a center on databases that support row locks.
+    # The database uniqueness constraint remains the final concurrency guard.
+    center = Center.objects.select_for_update(of=("self",)).select_related(
+        "treatment_management"
+    ).get(pk=center.pk)
+    contract = Contract.objects.select_for_update().get(pk=contract.pk)
+
     if not _is_country_admin(actor) and (
         not center.treatment_management_id
         or center.treatment_management.province_id != _province_id_for_user(actor)

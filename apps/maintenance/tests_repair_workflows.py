@@ -1,5 +1,6 @@
 import datetime as dt
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -11,6 +12,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.core.models import AuditLog, Notification
 from apps.assets.models import Asset, AssetCategory
+from apps.maintenance.repair_forms import IndependentRepairerForm
 from apps.maintenance.repair_models import (
     GeneralITRequest, GeneralReferral, IndependentRepairer, RepairFeedback, RepairerProfileEvent,
     RepairRequest, RepairerStatusEvent,
@@ -647,6 +649,49 @@ class RepairAndReferralWorkflowTests(TestCase):
         )
         self.assertEqual(assignment.status, ContractCenterAssignment.STATUS_ENDED)
         self.assertTrue(ContractCenterAssignment.objects.filter(pk=assignment.pk).exists())
+
+    def test_contractor_assignment_rolls_back_when_audit_write_fails(self):
+        contractor = Contractor.objects.create(name="پیمانکار ممیزی ناموفق")
+        today = timezone.localdate()
+        contract = Contract.objects.create(
+            contractor=contractor, province=self.province,
+            number="WF-CONTRACT-AUDIT-FAIL", title="قرارداد آزمون اتمیک",
+            start_date=today - dt.timedelta(days=1),
+            end_date=today + dt.timedelta(days=90),
+            is_provincial=True,
+        )
+        with patch(
+            "apps.maintenance.repair_services.log_action",
+            side_effect=RuntimeError("audit storage unavailable"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "audit storage"):
+                assign_contractor_to_center(
+                    contract=contract, center=self.center, start_date=today,
+                    actor=self.province_admin,
+                )
+        self.assertFalse(
+            ContractCenterAssignment.objects.filter(
+                contract=contract, center=self.center
+            ).exists()
+        )
+
+    def test_country_repairer_form_excludes_inactive_provinces(self):
+        country_admin = User.objects.create_user(
+            username="wf-country-admin", password="test-password",
+            role=User.ROLE_ADMIN_COUNTRY,
+        )
+        inactive_province = OrganizationalUnit.objects.create(
+            name="استان غیرفعال", code="WF-INACTIVE-PROV",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE,
+            parent=self.province.parent, is_active=False,
+        )
+        form = IndependentRepairerForm(user=country_admin)
+        self.assertTrue(
+            form.fields["province"].queryset.filter(pk=self.province.pk).exists()
+        )
+        self.assertFalse(
+            form.fields["province"].queryset.filter(pk=inactive_province.pk).exists()
+        )
 
     def test_stale_repair_decision_cannot_overwrite_a_newer_decision(self):
         stale_repair = self._repair()

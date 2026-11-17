@@ -33,14 +33,19 @@ class IndependentRepairerForm(StyledModelForm):
             return
         if user.is_admin_country:
             self.fields["province"].queryset = OrganizationalUnit.objects.filter(
-                unit_type=OrganizationalUnit.UNIT_PROVINCE
+                unit_type=OrganizationalUnit.UNIT_PROVINCE,
+                is_active=True,
             )
         else:
             province_id = user.org_unit_id if user.is_admin_province else (
                 user.center.treatment_management.province_id
                 if user.center_id and user.center.treatment_management_id else None
             )
-            self.fields["province"].queryset = OrganizationalUnit.objects.filter(pk=province_id)
+            self.fields["province"].queryset = OrganizationalUnit.objects.filter(
+                pk=province_id,
+                unit_type=OrganizationalUnit.UNIT_PROVINCE,
+                is_active=True,
+            )
             self.fields["province"].initial = province_id
             self.fields["province"].disabled = True
 
