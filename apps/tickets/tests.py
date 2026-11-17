@@ -397,10 +397,22 @@ class TicketWorkflowTests(TestCase):
         self.assertIsNone(ticket.resolved_declared_at)
 
 
-    def test_it_role_cannot_impersonate_requester_for_user_confirmation(self):
+    def test_it_role_cannot_confirm_as_user_even_when_it_reported_the_ticket(self):
+        ticket = self._create(user=self.it_expert)
+        Ticket.objects.filter(pk=ticket.pk).update(status=STATUS_RESOLVED)
+        ticket.refresh_from_db()
+
+        self.assertFalse(can_confirm_as_user(self.it_expert, ticket))
+        with self.assertRaises(PermissionDenied):
+            confirm_by_user(ticket, self.it_expert, "تایید به جای کاربر")
+
+    def test_it_role_cannot_confirm_as_user_when_it_is_the_asset_custodian(self):
+        self.asset.custodian = self.it_expert
+        self.asset.save(update_fields=["custodian", "updated_at"])
         ticket = self._create()
         Ticket.objects.filter(pk=ticket.pk).update(status=STATUS_RESOLVED)
         ticket.refresh_from_db()
+
         self.assertFalse(can_confirm_as_user(self.it_expert, ticket))
         with self.assertRaises(PermissionDenied):
             confirm_by_user(ticket, self.it_expert, "تایید به جای کاربر")

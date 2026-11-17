@@ -138,6 +138,11 @@ def can_manage_ticket(user, ticket: Ticket) -> bool:
 def can_confirm_as_user(user, ticket: Ticket) -> bool:
     if not getattr(user, "is_authenticated", False):
         return False
+    # IT roles (including inherited country/province/county administrators)
+    # must never satisfy the independent end-user confirmation step, even
+    # when they are the ticket reporter or the asset custodian.
+    if user.has_role(User.ROLE_ADMIN_IT):
+        return False
     if not ticket.asset.center_id or not user.get_scoped_centers().filter(
         pk=ticket.asset.center_id
     ).exists():
