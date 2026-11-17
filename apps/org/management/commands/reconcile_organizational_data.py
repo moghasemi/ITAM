@@ -1,11 +1,14 @@
-"""فرمان تطبیق، موجودی‌برداری و تعیین تکلیف داده‌های فاقد مرکز سازمانی."""
+"""Safe inventory and reconciliation of records missing organizational centers.
 
+The command is intentionally conservative: only unambiguous, single-source
+matches are eligible for --apply. The CSV must be written successfully before
+any database mutation begins.
+"""
 from __future__ import annotations
 
 import csv
-import os
 from datetime import datetime
-from typing import Any, Dict, List
+from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -13,284 +16,235 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.assets.models import Asset
+from apps.core.utils import log_action
 from apps.maintenance.models import MaintenanceVisit
 from apps.org.models import Center, Department, Location, OrganizationalUnit
 from apps.tickets.models import Ticket
 
 
+FIELDS = (
+    "entity_type", "object_id", "identifier", "title_or_name",
+    "current_center", "suggested_center_id", "suggested_center_name",
+    "confidence", "heuristic_reason", "action",
+)
+
+
 class Command(BaseCommand):
-    help = "موجودی‌برداری و تطبیق ساختار سازمانی داده‌های فاقد مرکز با پشتیبانی از Dry-Run و گزارش CSV."
+    help = "Inventory and safely reconcile records missing organizational centers."
 
     def add_arguments(self, parser):
         mode = parser.add_mutually_exclusive_group()
-        mode.add_argument(
-            "--dry-run",
-            action="store_true",
-            default=False,
-            help="اجرای آزمایشی بدون اعمال هرگونه تغییر در پایگاه داده (پیش‌فرض).",
-        )
-        mode.add_argument(
-            "--apply",
-            action="store_true",
-            default=False,
-            help="اعمال قطعی تطبیق‌های با قطعیت بالا در پایگاه داده.",
-        )
-        parser.add_argument(
-            "--output",
-            type=str,
-            default="",
-            help="مسیر دلخواه ذخیره فایل گزارش CSV (اختیاری).",
-        )
+        mode.add_argument("--dry-run", action="store_true", default=False)
+        mode.add_argument("--apply", action="store_true", default=False)
+        parser.add_argument("--output", type=str, default="")
 
     def handle(self, *args, **options):
-        is_apply = options.get("apply", False)
-        if is_apply and options.get("dry_run", False):
-            raise CommandError("گزینه‌های --apply و --dry-run قابل استفاده هم‌زمان نیستند.")
-        # پیش‌فرض امن همیشه Dry-Run است؛ --apply به‌تنهایی باید واقعاً اعمال کند.
-        is_dry_run = not is_apply
-        output_file = options.get("output") or f"reconciliation_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-
-        self.stdout.write(self.style.NOTICE("=" * 70))
-        self.stdout.write(self.style.NOTICE("   ITAM — موجودی‌برداری و تطبیق داده‌های فاقد مرکز سازمانی"))
-        mode_str = "اجرای آزمایشی (DRY-RUN — بدون تغییر در دیتابیس)" if is_dry_run else "اعمال قطعی تغییرات (APPLY MODE)"
-        self.stdout.write(self.style.WARNING(f"   وضعیت اجرا: {mode_str}"))
-        self.stdout.write(self.style.NOTICE("=" * 70))
-
-        # موجودی‌برداری
-        orphaned_centers = list(Center.objects.filter(parent_unit__isnull=True))
-        orphaned_assets = list(Asset.objects.filter(center__isnull=True).select_related("location", "custodian", "department"))
-        quarantined_existing_count = Asset.objects.filter(is_quarantined=True).count()
-        orphaned_users = list(User.objects.filter(center__isnull=True, is_superuser=False, role__in=[User.ROLE_ADMIN_IT, User.ROLE_REQUESTER, User.ROLE_MANAGER]))
-        orphaned_tickets = list(Ticket.objects.filter(center__isnull=True).select_related("asset", "reported_by"))
-        orphaned_visits = list(MaintenanceVisit.objects.filter(center__isnull=True).prefetch_related("checks__asset"))
-        orphaned_departments = list(Department.objects.filter(center__isnull=True))
-        orphaned_locations = list(Location.objects.filter(center__isnull=True))
-
-        total_orphaned = (
-            len(orphaned_centers)
-            + len(orphaned_assets)
-            + len(orphaned_users)
-            + len(orphaned_tickets)
-            + len(orphaned_visits)
-            + len(orphaned_departments)
-            + len(orphaned_locations)
+        apply_changes = bool(options.get("apply"))
+        output = options.get("output") or (
+            f"reconciliation_report_{datetime.now():%Y%m%d_%H%M%S}.csv"
         )
 
-        self.stdout.write(" آمار اقلام فاقد مرکز / والد سازمانی شناسایی‌شده:")
-        self.stdout.write(f"  * مراکز فاقد واحد شهرستانی بالادست (Centers without County): {len(orphaned_centers)}")
-        self.stdout.write(f"  * دارایی‌های فاقد مرکز (Assets without Center): {len(orphaned_assets)}")
-        self.stdout.write(f"  * دارایی‌های در قرنطینه جاری (Quarantined Assets): {quarantined_existing_count}")
-        self.stdout.write(f"  * کاربران (Users): {len(orphaned_users)}")
-        self.stdout.write(f"  * درخواست‌های خرابی (Tickets): {len(orphaned_tickets)}")
-        self.stdout.write(f"  * نوبت‌های بازدید دوره‌ای (Visits): {len(orphaned_visits)}")
-        self.stdout.write(f"  * واحدهای سازمانی (Departments): {len(orphaned_departments)}")
-        self.stdout.write(f"  * محل‌های استقرار (Locations): {len(orphaned_locations)}")
-        self.stdout.write(self.style.NOTICE(f"  مجموع کل رکوردهای نیازمند تعیین تکلیف: {total_orphaned}"))
+        centers = list(Center.objects.filter(parent_unit__isnull=True).select_related("treatment_management"))
+        assets = list(
+            Asset.objects.filter(center__isnull=True).select_related(
+                "location__center", "custodian", "department__center"
+            )
+        )
+        users = list(
+            User.objects.filter(
+                center__isnull=True, is_superuser=False,
+                role__in=[User.ROLE_ADMIN_IT, User.ROLE_REQUESTER, User.ROLE_MANAGER],
+            ).select_related("department__center")
+        )
+        tickets = list(
+            Ticket.objects.filter(center__isnull=True).select_related(
+                "asset__center", "reported_by__center"
+            )
+        )
+        visits = list(MaintenanceVisit.objects.filter(center__isnull=True))
+        departments = list(Department.objects.filter(center__isnull=True))
+        locations = list(Location.objects.filter(center__isnull=True))
 
-        report_rows: List[Dict[str, Any]] = []
-        high_confidence_count = 0
-        quarantine_count = 0
+        rows = []
+        plan = []
+        counts = {
+            "Center": len(centers), "Asset": len(assets), "User": len(users),
+            "Ticket": len(tickets), "MaintenanceVisit": len(visits),
+            "Department": len(departments), "Location": len(locations),
+        }
 
-        # ۱) بررسی دارایی‌ها
-        for asset in orphaned_assets:
-            suggested_center = None
-            confidence = "UNRESOLVED"
-            reason = "هیچ شواهد قطعی رابطه‌ای یافت نشد"
-
-            if asset.location and asset.location.center:
-                suggested_center = asset.location.center
-                confidence = "HIGH"
-                reason = f"تطبیق بر اساس مرکز محل استقرار ({asset.location.name})"
-            elif asset.custodian and asset.custodian.center:
-                suggested_center = asset.custodian.center
-                confidence = "HIGH"
-                reason = f"تطبیق بر اساس مرکز امانت‌دار ({asset.custodian.display_name})"
-            elif asset.department and asset.department.center:
-                suggested_center = asset.department.center
-                confidence = "MEDIUM"
-                reason = f"تطبیق احتمالی بر اساس واحد سازمانی ({asset.department.name})"
-
-            status = "RESOLVED" if confidence == "HIGH" else "QUARANTINED"
-            if status == "RESOLVED":
-                high_confidence_count += 1
-            else:
-                quarantine_count += 1
-
-            report_rows.append({
-                "entity_type": "Asset",
-                "object_id": asset.pk,
-                "identifier": asset.asset_tag,
-                "title_or_name": str(asset),
-                "current_center": "None",
-                "suggested_center_id": suggested_center.pk if suggested_center else "",
-                "suggested_center_name": suggested_center.name if suggested_center else "",
-                "confidence": confidence,
-                "heuristic_reason": reason,
-                "action": "ASSIGN" if (status == "RESOLVED" and not is_dry_run) else ("QUARANTINE" if not is_dry_run else "DRY_RUN_PREVIEW"),
-            })
-
-        # ۲) بررسی کاربران
-        for user in orphaned_users:
-            suggested_center = None
-            confidence = "UNRESOLVED"
-            reason = "هیچ مرکز قطعی برای کاربر یافت نشد"
-
-            if user.department and user.department.center:
-                suggested_center = user.department.center
-                confidence = "HIGH"
-                reason = f"تطبیق بر اساس واحد سازمانی کاربر ({user.department.name})"
-
-            status = "RESOLVED" if confidence == "HIGH" else "QUARANTINED"
-            if status == "RESOLVED":
-                high_confidence_count += 1
-            else:
-                quarantine_count += 1
-
-            report_rows.append({
-                "entity_type": "User",
-                "object_id": user.pk,
-                "identifier": user.username,
-                "title_or_name": user.display_name,
-                "current_center": "None",
-                "suggested_center_id": suggested_center.pk if suggested_center else "",
-                "suggested_center_name": suggested_center.name if suggested_center else "",
-                "confidence": confidence,
-                "heuristic_reason": reason,
-                "action": "ASSIGN" if (status == "RESOLVED" and not is_dry_run) else ("QUARANTINE" if not is_dry_run else "DRY_RUN_PREVIEW"),
-            })
-
-        # ۳) بررسی تیکت‌ها
-        for ticket in orphaned_tickets:
-            suggested_center = None
-            confidence = "UNRESOLVED"
-            reason = "عدم ارتباط با دارایی یا کاربر دارای مرکز"
-
-            if ticket.asset and ticket.asset.center:
-                suggested_center = ticket.asset.center
-                confidence = "HIGH"
-                reason = f"تطبیق مستقیم با مرکز دارایی مرتبط ({ticket.asset.asset_tag})"
-            elif ticket.reported_by and ticket.reported_by.center:
-                suggested_center = ticket.reported_by.center
-                confidence = "HIGH"
-                reason = f"تطبیق با مرکز کاربر اعلام‌کننده ({ticket.reported_by.display_name})"
-
-            status = "RESOLVED" if confidence == "HIGH" else "QUARANTINED"
-            if status == "RESOLVED":
-                high_confidence_count += 1
-            else:
-                quarantine_count += 1
-
-            report_rows.append({
-                "entity_type": "Ticket",
-                "object_id": ticket.pk,
-                "identifier": ticket.number,
-                "title_or_name": ticket.title,
-                "current_center": "None",
-                "suggested_center_id": suggested_center.pk if suggested_center else "",
-                "suggested_center_name": suggested_center.name if suggested_center else "",
-                "confidence": confidence,
-                "heuristic_reason": reason,
-                "action": "ASSIGN" if (status == "RESOLVED" and not is_dry_run) else ("QUARANTINE" if not is_dry_run else "DRY_RUN_PREVIEW"),
-            })
-
-        # ۰) بررسی مراکز فاقد واحد شهرستانی
-        for center in orphaned_centers:
-            suggested_unit = None
-            confidence = "UNRESOLVED"
-            reason = "مرکز بدون واحد سازمانی شهرستانی بالادست - نیازمند تعیین انتساب دستی"
-            if center.city:
-                matching_counties = OrganizationalUnit.objects.filter(
-                    unit_type=OrganizationalUnit.UNIT_COUNTY,
-                    is_active=True,
-                    name__iexact=center.city,
+        def add(entity, obj, identifier, title, suggestion=None, confidence="UNRESOLVED", reason=""):
+            action = "DRY_RUN_PREVIEW"
+            if apply_changes:
+                action = "ASSIGN" if confidence == "HIGH" and suggestion else (
+                    "QUARANTINE" if entity == "Asset" else "MANUAL_REVIEW"
                 )
-                if matching_counties.count() == 1:
-                    suggested_unit = matching_counties.first()
-                    confidence = "HIGH"
-                    reason = f"تطبیق بر اساس انطباق شهر مرکز ({center.city}) با واحد شهرستانی ({suggested_unit.name})"
-            status = "RESOLVED" if confidence == "HIGH" else "QUARANTINED"
-            if status == "RESOLVED":
-                high_confidence_count += 1
-            else:
-                quarantine_count += 1
-            report_rows.append({
-                "entity_type": "Center",
-                "object_id": center.pk,
-                "identifier": center.code or str(center.pk),
-                "title_or_name": center.name,
-                "current_center": "None (Missing Parent Unit)",
-                "suggested_center_id": suggested_unit.pk if suggested_unit else "",
-                "suggested_center_name": suggested_unit.name if suggested_unit else "",
+            rows.append({
+                "entity_type": entity,
+                "object_id": obj.pk,
+                "identifier": identifier,
+                "title_or_name": title,
+                "current_center": "None",
+                "suggested_center_id": suggestion.pk if suggestion else "",
+                "suggested_center_name": suggestion.name if suggestion else "",
                 "confidence": confidence,
                 "heuristic_reason": reason,
-                "action": "ASSIGN" if (status == "RESOLVED" and not is_dry_run) else ("QUARANTINE" if not is_dry_run else "DRY_RUN_PREVIEW"),
+                "action": action,
             })
+            if apply_changes and action in {"ASSIGN", "QUARANTINE"}:
+                plan.append((entity, obj.pk, suggestion.pk if suggestion else None, reason))
 
-        # تولید گزارش CSV
-        fieldnames = [
-            "entity_type",
-            "object_id",
-            "identifier",
-            "title_or_name",
-            "current_center",
-            "suggested_center_id",
-            "suggested_center_name",
-            "confidence",
-            "heuristic_reason",
-            "action",
-        ]
+        for asset in assets:
+            evidence = []
+            if asset.location_id and asset.location.center_id:
+                evidence.append(("location", asset.location.center))
+            if asset.custodian_id and asset.custodian.center_id:
+                evidence.append(("custodian", asset.custodian.center))
+            if asset.department_id and asset.department.center_id:
+                evidence.append(("department", asset.department.center))
 
+            centers_found = {item[1].pk: item[1] for item in evidence}
+            suggestion = None
+            confidence = "UNRESOLVED"
+            if len(centers_found) > 1:
+                reason = "تعارض شواهد: محل استقرار، امانت‌دار یا واحد سازمانی به مراکز متفاوت اشاره می‌کنند"
+            elif len(centers_found) == 1:
+                source, candidate = evidence[0]
+                if source in {"location", "custodian"}:
+                    suggestion, confidence = candidate, "HIGH"
+                    reason = f"تنها شاهد معتبر از مسیر {source}"
+                else:
+                    reason = "تنها شاهد موجود واحد سازمانی است؛ برای انتساب قطعی کافی نیست"
+            else:
+                reason = "هیچ شاهد معتبر مرکز یافت نشد"
+            add("Asset", asset, asset.asset_tag, str(asset), suggestion, confidence, reason)
+
+        for user in users:
+            suggestion = user.department.center if user.department_id and user.department.center_id else None
+            add(
+                "User", user, user.username, user.display_name, suggestion,
+                "HIGH" if suggestion else "UNRESOLVED",
+                "مرکز واحد سازمانی کاربر" if suggestion else "مرکز قطعی برای کاربر یافت نشد",
+            )
+
+        for ticket in tickets:
+            asset_center = ticket.asset.center if ticket.asset_id and ticket.asset.center_id else None
+            reporter_center = ticket.reported_by.center if ticket.reported_by_id and ticket.reported_by.center_id else None
+            if asset_center and reporter_center and asset_center.pk != reporter_center.pk:
+                suggestion, confidence = None, "UNRESOLVED"
+                reason = "تعارض مرکز دارایی و کاربر گزارش‌دهنده"
+            elif asset_center or reporter_center:
+                suggestion = asset_center or reporter_center
+                confidence = "HIGH"
+                reason = "مرکز دارایی مرتبط" if asset_center else "مرکز کاربر گزارش‌دهنده"
+            else:
+                suggestion, confidence, reason = None, "UNRESOLVED", "دارایی و گزارش‌دهنده مرکز مشخص ندارند"
+            add("Ticket", ticket, ticket.number, ticket.title, suggestion, confidence, reason)
+
+        for center in centers:
+            matches = OrganizationalUnit.objects.filter(
+                unit_type=OrganizationalUnit.UNIT_COUNTY,
+                is_active=True,
+                name__iexact=(center.city or "").strip(),
+                parent__unit_type=OrganizationalUnit.UNIT_PROVINCE,
+                parent__is_active=True,
+            ) if center.city else OrganizationalUnit.objects.none()
+            match_count = matches.count()
+            suggestion = matches.first() if match_count == 1 else None
+            confidence = "HIGH" if suggestion else "UNRESOLVED"
+            reason = (
+                "تنها شهرستان فعال با نام منطبق و استان فعال"
+                if suggestion else
+                "تطبیق شهرستان یکتا و معتبر یافت نشد؛ انتساب دستی لازم است"
+            )
+            add("Center", center, center.code or str(center.pk), center.name, suggestion, confidence, reason)
+
+        # These records are inventoried but never auto-assigned by this command.
+        for entity, objects, identifier_fn, title_fn in (
+            ("MaintenanceVisit", visits, lambda x: str(x.pk), lambda x: str(x)),
+            ("Department", departments, lambda x: str(x.pk), lambda x: x.name),
+            ("Location", locations, lambda x: str(x.pk), lambda x: x.name),
+        ):
+            for obj in objects:
+                add(entity, obj, identifier_fn(obj), title_fn(obj), reason="این نوع رکورد در این فرمان به‌صورت خودکار منتسب نمی‌شود")
+
+        # A complete report is a prerequisite for any apply operation.
         try:
-            with open(output_file, mode="w", newline="", encoding="utf-8-sig") as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
+            output_path = Path(output)
+            with output_path.open("w", newline="", encoding="utf-8-sig") as handle:
+                writer = csv.DictWriter(handle, fieldnames=FIELDS)
                 writer.writeheader()
-                for row in report_rows:
-                    writer.writerow(row)
-            self.stdout.write(self.style.SUCCESS(f"✅ فایل گزارش مشروح تطبیق تولید شد: {output_file}"))
-        except Exception as exc:
-            self.stdout.write(self.style.ERROR(f"خطا در ایجاد فایل CSV: {exc}"))
+                writer.writerows(rows)
+        except (OSError, csv.Error) as exc:
+            raise CommandError(f"گزارش CSV ایجاد نشد؛ هیچ تغییری اعمال نشد: {exc}") from exc
 
-        # اعمال در پایگاه داده در صورت فعال بودن flag --apply
-        if not is_dry_run:
-            self.stdout.write(self.style.WARNING("\n⏳ در حال اعمال تطبیق‌های با قطعیت بالا در تراکنش اتمیک..."))
-            applied_count = 0
+        self.stdout.write(self.style.SUCCESS(f"گزارش کامل ذخیره شد: {output_path}"))
+        self.stdout.write("موجودی رکوردهای فاقد مرکز: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
+
+        if not apply_changes:
+            self.stdout.write(self.style.SUCCESS("Dry-run تمام شد؛ دیتابیس تغییر نکرد."))
+            return
+
+        applied = quarantined = 0
+        try:
             with transaction.atomic():
-                for row in report_rows:
-                    if row["confidence"] == "HIGH" and row["suggested_center_id"]:
-                        if row["entity_type"] == "Center":
-                            # این شناسه متعلق به OrganizationalUnit است، نه Center.
-                            unit_obj = OrganizationalUnit.objects.get(
-                                pk=row["suggested_center_id"],
-                                unit_type=OrganizationalUnit.UNIT_COUNTY,
-                                is_active=True,
-                            )
-                            if not unit_obj.parent or not unit_obj.parent.is_active:
-                                raise CommandError(f"واحد شهرستانی {unit_obj.pk} فاقد استان فعال است؛ هیچ تغییری اعمال نشد.")
-                            Center.objects.filter(pk=row["object_id"], parent_unit__isnull=True).update(
-                                parent_unit=unit_obj,
-                                province=unit_obj.parent.name,
-                            )
-                            applied_count += 1
-                        elif row["entity_type"] in {"Asset", "User", "Ticket"}:
-                            center_obj = Center.objects.get(pk=row["suggested_center_id"], is_active=True)
-                            if row["entity_type"] == "Asset":
-                                Asset.objects.filter(pk=row["object_id"], center__isnull=True).update(center=center_obj, is_quarantined=False)
-                            elif row["entity_type"] == "User":
-                                User.objects.filter(pk=row["object_id"], center__isnull=True).update(center=center_obj)
-                            elif row["entity_type"] == "Ticket":
-                                Ticket.objects.filter(pk=row["object_id"], center__isnull=True).update(center=center_obj)
-                            applied_count += 1
-                    elif row["confidence"] != "HIGH":
-                        if row["entity_type"] == "Asset":
-                            Asset.objects.filter(pk=row["object_id"]).update(
-                                is_quarantined=True,
-                                quarantine_notes=f"قرنطینه شده در تاریخ {timezone.now():%Y-%m-%d}: نیازمند بررسی حضوری جهت تعیین مرکز",
-                            )
+                for entity, object_id, suggested_id, reason in plan:
+                    if entity == "Center":
+                        obj = Center.objects.select_for_update().get(pk=object_id)
+                        if obj.parent_unit_id is not None:
+                            raise CommandError(f"مرکز {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
+                        unit = OrganizationalUnit.objects.select_for_update().get(
+                            pk=suggested_id, unit_type=OrganizationalUnit.UNIT_COUNTY,
+                            is_active=True, parent__is_active=True,
+                        )
+                        obj.parent_unit = unit
+                        obj.province = unit.parent.name
+                        obj.save(update_fields=["parent_unit", "province", "treatment_management", "updated_at"])
+                        log_action("update", obj, note="تطبیق سازمانی: انتساب شهرستان بر اساس تطبیق یکتای نام شهر")
+                        applied += 1
+                        continue
 
-            self.stdout.write(self.style.SUCCESS(f"✅ با موفقیت {applied_count} رکورد با قطعیت بالا به مراکز مربوطه منتسب شدند."))
-            self.stdout.write(self.style.WARNING(f"⚠️ تعداد {quarantine_count} رکورد مبهم جهت حفظ یکپارچگی حقوقی در قرنطینه نگهداری شدند."))
-        else:
-            self.stdout.write(self.style.SUCCESS(f"\n✅ اجرای آزمایشی (Dry-Run) با موفقیت به پایان رسید. هیچ تغییری در پایگاه داده اعمال نشد."))
-            self.stdout.write(f"   - تطبیق‌های با قطعیت بالا: {high_confidence_count}")
-            self.stdout.write(f"   - موارد مبهم / قرنطینه‌شده: {quarantine_count}")
-            self.stdout.write(self.style.NOTICE("   برای اعمال تغییرات با قطعیت بالا، فرمان را با آرگومان --apply اجرا کنید.\n"))
+                    if entity == "Asset":
+                        obj = Asset.objects.select_for_update().get(pk=object_id)
+                        if obj.center_id is not None:
+                            raise CommandError(f"دارایی {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
+                        if suggested_id:
+                            obj.center_id = suggested_id
+                            obj.is_quarantined = False
+                            obj.quarantine_notes = ""
+                            obj.save(update_fields=["center", "is_quarantined", "quarantine_notes", "updated_at"])
+                            log_action("update", obj, note="تطبیق سازمانی: انتساب مرکز با شاهد یکتا")
+                            applied += 1
+                        else:
+                            obj.is_quarantined = True
+                            obj.quarantine_notes = (
+                                f"قرنطینه تطبیق سازمانی در {timezone.now():%Y-%m-%d %H:%M}: {reason}"
+                            )
+                            obj.save(update_fields=["is_quarantined", "quarantine_notes", "updated_at"])
+                            log_action("update", obj, note="قرنطینه به علت ابهام/تعارض در تطبیق سازمانی")
+                            quarantined += 1
+                        continue
+
+                    if entity == "User":
+                        obj = User.objects.select_for_update().get(pk=object_id)
+                        if obj.center_id is not None:
+                            raise CommandError(f"کاربر {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
+                        obj.center_id = suggested_id
+                        obj.save(update_fields=["center", "updated_at"])
+                    elif entity == "Ticket":
+                        obj = Ticket.objects.select_for_update().get(pk=object_id)
+                        if obj.center_id is not None:
+                            raise CommandError(f"تیکت {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
+                        obj.center_id = suggested_id
+                        obj.save(update_fields=["center", "updated_at"])
+                    else:
+                        continue
+                    log_action("update", obj, note="تطبیق سازمانی: انتساب مرکز با شاهد یکتا")
+                    applied += 1
+        except Exception:
+            # The atomic block rolls back all DB writes; the CSV remains as the
+            # pre-apply inventory and can be inspected for diagnosis.
+            raise
+
+        self.stdout.write(self.style.SUCCESS(f"تطبیق‌های اعمال‌شده: {applied}"))
+        self.stdout.write(self.style.WARNING(f"دارایی‌های قرنطینه‌شده: {quarantined}"))
