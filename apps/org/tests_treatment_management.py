@@ -169,3 +169,31 @@ class TreatmentManagementSeparationTests(TestCase):
             center_a.pk,
             center_user.get_scoped_centers().values_list("pk", flat=True),
         )
+
+
+    def test_county_save_rejects_moving_away_from_existing_treatment_owner(self):
+        Center.objects.create(
+            name="مرکز شهرستان با مالکیت", code="TM-CENTER-SAVE-COUNTY",
+            parent_unit=self.county_a,
+        )
+        self.county_a.parent = self.province_b
+
+        with self.assertRaises(ValidationError):
+            self.county_a.save()
+
+        self.county_a.refresh_from_db()
+        self.assertEqual(self.county_a.parent_id, self.province_a.pk)
+
+    def test_treatment_management_save_rejects_moving_away_from_existing_centers(self):
+        center = Center.objects.create(
+            name="مرکز مدیریت درمان با ذخیره", code="TM-CENTER-SAVE-TM",
+            parent_unit=self.county_a,
+        )
+        management = center.treatment_management
+        management.province = self.province_b
+
+        with self.assertRaises(ValidationError):
+            management.save()
+
+        management.refresh_from_db()
+        self.assertEqual(management.province_id, self.province_a.pk)

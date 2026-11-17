@@ -7,6 +7,7 @@ import math
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.core import jalali
@@ -49,6 +50,10 @@ class OrganizationalUnit(TimeStampedModel):
     def __str__(self) -> str:
         return f"{self.name} [{self.get_unit_type_display()}]"
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
         if self.pk and self.parent_id == self.pk:
@@ -80,8 +85,9 @@ class OrganizationalUnit(TimeStampedModel):
         # another province is unsafe while any center remains owned by the
         # previous province's TreatmentManagement.
         if self.pk and self.unit_type == self.UNIT_COUNTY and self.parent_id:
-            if Center.objects.filter(parent_unit_id=self.pk).exclude(
-                treatment_management__province_id=self.parent_id
+            if Center.objects.filter(parent_unit_id=self.pk).filter(
+                Q(treatment_management__isnull=True)
+                | ~Q(treatment_management__province_id=self.parent_id)
             ).exists():
                 raise ValidationError({
                     "parent": "ابتدا باید مالکیت مدیریت درمان مراکز این شهرستان با استان مقصد هماهنگ شود."
@@ -111,13 +117,20 @@ class TreatmentManagement(TimeStampedModel):
     def __str__(self) -> str:
         return self.name
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
         if self.province_id and self.province.unit_type != OrganizationalUnit.UNIT_PROVINCE:
             raise ValidationError({"province": "مدیریت درمان باید دقیقاً به یک استان متصل باشد."})
         if self.pk and self.province_id and Center.objects.filter(
             treatment_management_id=self.pk
-        ).exclude(parent_unit__parent_id=self.province_id).exists():
+        ).filter(
+            Q(parent_unit__isnull=True)
+            | ~Q(parent_unit__parent_id=self.province_id)
+        ).exists():
             raise ValidationError({
                 "province": "استان مدیریت درمان باید با استان جغرافیایی تمام مراکز وابسته یکسان باشد."
             })
