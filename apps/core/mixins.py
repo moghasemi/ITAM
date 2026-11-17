@@ -4,6 +4,7 @@ from __future__ import annotations
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Q
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
@@ -94,6 +95,7 @@ class BaseCreateView(LoginRequiredMixin, AuditMixin, PageContextMixin, CreateVie
             return reverse(self.success_url_name, args=[self.object.pk])
         return super().get_success_url()
 
+    @transaction.atomic
     def form_valid(self, form):
         response = super().form_valid(form)
         self._audit("create", self.object)
@@ -112,6 +114,7 @@ class BaseUpdateView(LoginRequiredMixin, AuditMixin, PageContextMixin, UpdateVie
             return reverse(self.success_url_name, args=[self.object.pk])
         return super().get_success_url()
 
+    @transaction.atomic
     def form_valid(self, form):
         before = snapshot_instance(self.object, self.audit_fields or None)
         response = super().form_valid(form)
@@ -122,6 +125,7 @@ class BaseUpdateView(LoginRequiredMixin, AuditMixin, PageContextMixin, UpdateVie
 
 
 class BaseDeleteView(LoginRequiredMixin, AuditMixin, PageContextMixin, DeleteView):
+    @transaction.atomic
     def form_valid(self, form):
         obj = self.get_object()
         label = str(obj)

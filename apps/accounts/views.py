@@ -11,6 +11,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
+from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, UpdateView
 
 from apps.core.mixins import BaseListView, PageContextMixin, apply_search
@@ -277,6 +278,8 @@ class UserDetailView(AdminItRequiredMixin, PageContextMixin, DetailView):
         return visible_users(self.request.user)
 
 
+@login_required
+@require_POST
 def user_toggle_active(request, pk: int):
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("دسترسی ندارید.")
@@ -285,22 +288,22 @@ def user_toggle_active(request, pk: int):
     if user.is_superuser and not request.user.is_superuser:
         raise PermissionDenied("امکان تغییر وضعیت مدیر ارشد کلان وجود ندارد.")
 
-    if request.method == "POST":
-        if user.pk == request.user.pk:
-            messages.error(request, "نمی‌توانید حساب کاربری خود را غیرفعال کنید.")
-        else:
-            user.is_active = not user.is_active
-            user.save(update_fields=["is_active"])
-            log_action(
-                "update",
-                user,
-                note=f"تغییر وضعیت فعال بودن به {'فعال' if user.is_active else 'غیرفعال'}",
-                user=request.user,
-            )
-            messages.success(request, "وضعیت کاربر تغییر کرد.")
+    if user.pk == request.user.pk:
+        messages.error(request, "نمی‌توانید حساب کاربری خود را غیرفعال کنید.")
+    else:
+        user.is_active = not user.is_active
+        user.save(update_fields=["is_active"])
+        log_action(
+            "update",
+            user,
+            note=f"تغییر وضعیت فعال بودن به {'فعال' if user.is_active else 'غیرفعال'}",
+            user=request.user,
+        )
+        messages.success(request, "وضعیت کاربر تغییر کرد.")
     return redirect("accounts:user_list")
 
 
+@login_required
 def user_set_password(request, pk: int):
     if not request.user.has_role("admin_it"):
         raise PermissionDenied("دسترسی ندارید.")

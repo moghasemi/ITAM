@@ -14,11 +14,33 @@ class TicketEventInline(admin.TabularInline):
 class TicketPartInline(admin.TabularInline):
     model = TicketPart
     extra = 0
+    can_delete = False
+    readonly_fields = [field.name for field in TicketPart._meta.fields]
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class TicketPauseInline(admin.TabularInline):
     model = TicketPause
     extra = 0
+    can_delete = False
+    readonly_fields = [field.name for field in TicketPause._meta.fields]
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Ticket)
@@ -30,13 +52,17 @@ class TicketAdmin(admin.ModelAdmin):
     list_filter = ("status", "priority", "failure_type", "assigned_contractor")
     search_fields = ("number", "title", "description", "asset__asset_tag")
     date_hierarchy = "reported_at"
-    readonly_fields = (
-        "number", "reported_at", "acknowledged_at", "arrived_at", "work_started_at",
-        "resolved_declared_at", "user_confirmed_at", "it_confirmed_at", "closed_at",
-        "response_due_at", "resolve_due_at", "response_minutes_used", "resolve_minutes_used",
-        "total_minutes_used", "paused_minutes", "response_met", "resolve_met",
-    )
+    readonly_fields = [field.name for field in Ticket._meta.fields]
     inlines = [TicketEventInline, TicketPartInline, TicketPauseInline]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(TicketEvent)

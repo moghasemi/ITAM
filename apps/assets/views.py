@@ -338,6 +338,7 @@ class SnapshotEditView(RepairStaffRequiredMixin, PageContextMixin, UpdateView):
         context["is_baseline"] = snapshot.is_baseline
         return context
 
+    @transaction.atomic
     def form_valid(self, form):
         context = self.get_context_data()
         formset = context["formset"]
@@ -422,11 +423,15 @@ def snapshot_approve(request, pk: int):
     if request.method == "POST":
         from .services import approve_snapshot
 
-        approve_snapshot(snapshot, request.user)
-        if snapshot.is_baseline:
-            messages.success(request, "اسنپ‌شات پایه تایید و قفل شد؛ از این پس تغییرات اقلام پایش می‌شود.")
+        try:
+            approve_snapshot(snapshot, request.user)
+        except ValidationError as exc:
+            messages.error(request, "؛ ".join(exc.messages))
         else:
-            messages.success(request, "اسنپ‌شات تایید و قفل شد.")
+            if snapshot.is_baseline:
+                messages.success(request, "اسنپ‌شات پایه تایید و قفل شد؛ از این پس تغییرات اقلام پایش می‌شود.")
+            else:
+                messages.success(request, "اسنپ‌شات تایید و قفل شد.")
     return redirect("assets:snapshot_detail", pk=pk)
 
 
@@ -441,8 +446,12 @@ def snapshot_reject(request, pk: int):
     if request.method == "POST":
         from .services import reject_snapshot
 
-        reject_snapshot(snapshot, request.user, request.POST.get("note", ""))
-        messages.warning(request, "اسنپ‌شات برای اصلاح برگشت داده شد.")
+        try:
+            reject_snapshot(snapshot, request.user, request.POST.get("note", ""))
+        except ValidationError as exc:
+            messages.error(request, "؛ ".join(exc.messages))
+        else:
+            messages.warning(request, "اسنپ‌شات برای اصلاح برگشت داده شد.")
     return redirect("assets:snapshot_detail", pk=pk)
 
 

@@ -7,7 +7,18 @@ from .models import MaintenanceVisit, VisitAssetCheck
 class VisitAssetCheckInline(admin.TabularInline):
     model = VisitAssetCheck
     extra = 0
+    can_delete = False
     fields = ("asset", "checked", "condition", "actions_taken", "parts_replaced", "next_due_date", "checked_by")
+    readonly_fields = [field.name for field in VisitAssetCheck._meta.fields]
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(MaintenanceVisit)
@@ -17,6 +28,16 @@ class MaintenanceVisitAdmin(admin.ModelAdmin):
     search_fields = ("number", "period_label", "contract__number")
     date_hierarchy = "scheduled_date"
     inlines = [VisitAssetCheckInline]
+    readonly_fields = [field.name for field in MaintenanceVisit._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(VisitAssetCheck)
@@ -24,6 +45,16 @@ class VisitAssetCheckAdmin(admin.ModelAdmin):
     list_display = ("visit", "asset", "checked", "condition", "checked_by", "checked_at")
     list_filter = ("checked", "condition")
     search_fields = ("asset__asset_tag", "visit__number")
+    readonly_fields = [field.name for field in VisitAssetCheck._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 from .repair_models import (
