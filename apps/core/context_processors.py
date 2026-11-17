@@ -30,8 +30,13 @@ def site_context(request):
         user_center = getattr(request.user, "center", None)
         if getattr(request.user, "is_admin_province", False) or request.user.is_superuser:
             try:
-                from apps.org.models import Center
-                all_centers = list(Center.objects.filter(is_active=True).order_by("-is_headquarters", "name"))
+                # The header selector must never disclose centers outside the
+                # user's active organizational scope (especially province admins).
+                all_centers = list(
+                    request.user.get_scoped_centers()
+                    .filter(is_active=True)
+                    .order_by("-is_headquarters", "name")
+                )
             except Exception:
                 all_centers = []
 
