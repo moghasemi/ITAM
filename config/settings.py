@@ -129,8 +129,10 @@ default_hsts_seconds = 31536000 if (not DEBUG and not RUNNING_TESTS and (SECURE_
 hsts_seconds = int(os.environ.get("ITAM_HSTS_SECONDS", default_hsts_seconds))
 if hsts_seconds > 0:
     SECURE_HSTS_SECONDS = hsts_seconds
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("ITAM_HSTS_INCLUDE_SUBDOMAINS", True)
-    SECURE_HSTS_PRELOAD = env_bool("ITAM_HSTS_PRELOAD", True)
+    # Subdomain coverage and browser preload are opt-in: enabling them before
+    # verifying every subdomain can make those hosts unreachable over HTTP.
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("ITAM_HSTS_INCLUDE_SUBDOMAINS", False)
+    SECURE_HSTS_PRELOAD = env_bool("ITAM_HSTS_PRELOAD", False)
 
 X_FRAME_OPTIONS = "DENY"
 # ---------------------------------------------------------------------------

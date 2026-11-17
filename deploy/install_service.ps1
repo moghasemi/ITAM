@@ -84,6 +84,8 @@ if ($envSettings["ITAM_SECURE_COOKIES"] -notin @("1", "true", "True", "yes", "Ye
 if ($envSettings["ITAM_USE_PROXY_SSL_HEADER"] -notin @("1", "true", "True", "yes", "Yes")) {
     throw "ITAM_USE_PROXY_SSL_HEADER باید برای Reverse Proxy فعال باشد."
 }
+. (Join-Path $PSScriptRoot "proxy_validation.ps1")
+Assert-ItamTrustedProxyEntries -Value ([string]$envSettings["ITAM_TRUSTED_PROXY_IPS"])
 if ($envSettings["ITAM_PUBLIC_BASE_URL"] -notmatch "^https://") {
     throw "ITAM_PUBLIC_BASE_URL باید نشانی HTTPS باشد."
 }
