@@ -289,6 +289,18 @@
     noData: { text: "داده‌ای برای نمایش وجود ندارد" }
   });
   chart.render();
+  var themeButton = document.querySelector("[data-theme-toggle]");
+  if (themeButton) themeButton.addEventListener("click", function () {
+    window.setTimeout(function () {
+      var isDark = document.documentElement.classList.contains("dark");
+      chart.updateOptions({
+        chart: { foreColor: isDark ? "#9fb0c6" : "#7b8798" },
+        grid: { borderColor: isDark ? "#26364c" : "#edf1f6" },
+        tooltip: { theme: isDark ? "dark" : "light" },
+        colors: [isDark ? "#70a5ff" : "#3978e8"]
+      });
+    }, 0);
+  });
 })();
 </script>
 {% endblock %}

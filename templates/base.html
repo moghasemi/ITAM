@@ -15,7 +15,6 @@
       } catch (error) {}
     })();
   </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="{% static 'vendor/metronic9/assets/css/styles.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/metronic9/assets/vendors/keenicons/styles.bundle.css' %}">
   <link rel="stylesheet" href="{% static 'css/itam.css' %}">
@@ -162,7 +161,7 @@
       <div class="flex items-center gap-2">
         <span class="itam-status-dot"></span>
         <span class="text-xs text-secondary-foreground">سامانه فعال</span>
-        <span class="ms-auto text-xs text-secondary-foreground">نسخه ۱.۱</span>
+        <span class="ms-auto text-xs text-secondary-foreground">ITAM</span>
       </div>
     </div>
   </aside>
@@ -182,7 +181,7 @@
           </div>
         </div>
 
-        <form class="itam-global-search hidden md:flex" method="get" action="{% url 'core:search' %}" role="search">
+        <form class="itam-global-search flex" method="get" action="{% url 'core:search' %}" role="search">
           <i class="ki-filled ki-magnifier" aria-hidden="true"></i>
           <input type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="جستجوی دارایی، سریال یا شماره درخواست…" aria-label="جستجو">
           <kbd>Enter</kbd>
