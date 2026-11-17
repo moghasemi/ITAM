@@ -134,8 +134,13 @@ def visible_users(current_user):
     if not getattr(current_user, "is_authenticated", False):
         return User.objects.none()
 
-    if current_user.is_superuser or current_user.role == User.ROLE_ADMIN_COUNTRY:
+    if current_user.is_superuser:
         return User.objects.all()
+
+    if current_user.role == User.ROLE_ADMIN_COUNTRY:
+        # A country administrator may manage all ordinary accounts, but
+        # must not deactivate, edit, or reset the root superuser account.
+        return User.objects.exclude(is_superuser=True)
 
     scoped_centers = current_user.get_scoped_centers()
 

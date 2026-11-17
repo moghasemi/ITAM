@@ -15,6 +15,30 @@ class UserAdministrationEndpointSecurityTests(TestCase):
         self.toggle_url = reverse("accounts:user_toggle", args=[self.requester.pk])
         self.password_url = reverse("accounts:user_password", args=[self.requester.pk])
 
+    def test_country_admin_cannot_edit_or_reset_a_superuser_account(self):
+        country_admin = User.objects.create_user(
+            username="endpoint-country-admin",
+            password="Strong-Endpoint-Password-2026!",
+            role=User.ROLE_ADMIN_COUNTRY,
+        )
+        root = User.objects.create_superuser(
+            username="endpoint-root",
+            email="root@example.test",
+            password="Strong-Root-Password-2026!",
+        )
+        self.client.force_login(country_admin)
+
+        self.assertEqual(
+            self.client.get(reverse("accounts:user_update", args=[root.pk])).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.get(reverse("accounts:user_password", args=[root.pk])).status_code,
+            404,
+        )
+        root.refresh_from_db()
+        self.assertTrue(root.is_active)
+
     def test_anonymous_users_cannot_toggle_accounts(self):
         response = self.client.post(self.toggle_url)
         self.assertEqual(response.status_code, 302)
