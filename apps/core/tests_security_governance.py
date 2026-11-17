@@ -224,13 +224,22 @@ class OrganizationalHierarchyTests(TestCase):
     def test_invalid_parent_unit_type_rejected(self):
         national = OrganizationalUnit.objects.create(name="ستاد کشوری", code="OU-N1", unit_type=OrganizationalUnit.UNIT_NATIONAL)
 
-        # تلاش برای اتصال مستقیم شهرستان به کشوری بدون استان
-        county = OrganizationalUnit.objects.create(name="شهرستان بدون استان", code="OU-C1", unit_type=OrganizationalUnit.UNIT_COUNTY, parent=national)
+        # تلاش برای اتصال مستقیم شهرستان به کشوری بدون استان؛ save باید آن را رد کند.
         with self.assertRaises(ValidationError):
-            county.clean()
+            OrganizationalUnit.objects.create(
+                name="شهرستان بدون استان", code="OU-C1",
+                unit_type=OrganizationalUnit.UNIT_COUNTY, parent=national,
+            )
 
     def test_center_parent_unit_must_be_county(self):
-        province = OrganizationalUnit.objects.create(name="استان", code="OU-P1", unit_type=OrganizationalUnit.UNIT_PROVINCE)
+        national = OrganizationalUnit.objects.create(
+            name="ستاد مرکزی", code="OU-P1-NAT",
+            unit_type=OrganizationalUnit.UNIT_NATIONAL,
+        )
+        province = OrganizationalUnit.objects.create(
+            name="استان", code="OU-P1",
+            unit_type=OrganizationalUnit.UNIT_PROVINCE, parent=national,
+        )
         with self.assertRaises(ValidationError):
             Center.objects.create(name="مرکز با والد غیرشهرستانی", code="C-ERR", parent_unit=province)
 
