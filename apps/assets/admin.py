@@ -39,7 +39,17 @@ class AssetAdmin(admin.ModelAdmin):
     list_display = ("asset_tag", "title", "category", "brand", "serial_number", "department", "status")
     list_filter = ("category", "status", "department", "contract")
     search_fields = ("asset_tag", "title", "serial_number", "hostname", "ip_address")
-    readonly_fields = ("qr_token", "current_snapshot", "baseline_locked_at")
+    # Asset mutations must pass through scoped application views and audit services.
+    readonly_fields = [field.name for field in Asset._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(HardwareSnapshot)
@@ -97,6 +107,16 @@ class SnapshotItemAdmin(admin.ModelAdmin):
 class AssetAttachmentAdmin(admin.ModelAdmin):
     list_display = ("asset", "kind", "title", "uploaded_by", "created_at")
     list_filter = ("kind",)
+    readonly_fields = [field.name for field in AssetAttachment._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 class AgentCredentialAdminForm(forms.ModelForm):
     asset = forms.ModelChoiceField(
