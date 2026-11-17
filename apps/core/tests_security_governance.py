@@ -140,7 +140,8 @@ class HWAgentSecurityTests(TestCase):
             content_type="application/json",
             **headers,
         )
-        self.assertEqual(resp.status_code, 404)
+        # A mismatched asset/hostname is rejected against the credential's fixed binding.
+        self.assertEqual(resp.status_code, 403)
 
         # دارایی مرکز B باید دست‌نخورده باقی بماند
         self.asset_b.refresh_from_db()

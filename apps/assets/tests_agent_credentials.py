@@ -73,7 +73,7 @@ class AgentCredentialLifecycleTests(TestCase):
 
     def test_rotation_revokes_old_token_and_issues_new_token(self):
         credential, old_token = AgentCredential.generate(
-            center=self.center, name="Test PC"
+            center=self.center, asset=self.asset, name="Test PC"
         )
         replacement, new_token = credential.rotate()
 
