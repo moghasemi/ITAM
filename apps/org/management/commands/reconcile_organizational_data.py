@@ -267,7 +267,7 @@ class Command(BaseCommand):
                         continue
 
                     if entity == "Asset":
-                        obj = Asset.objects.select_for_update().select_related(
+                        obj = Asset.objects.select_for_update(of=("self",)).select_related(
                             "location__center", "custodian__center", "department__center"
                         ).get(pk=object_id)
                         current_signature = (
@@ -298,7 +298,7 @@ class Command(BaseCommand):
                         continue
 
                     if entity == "User":
-                        obj = User.objects.select_for_update().select_related("department__center").get(pk=object_id)
+                        obj = User.objects.select_for_update(of=("self",)).select_related("department__center").get(pk=object_id)
                         current_signature = (
                             "User", obj.department_id,
                             _center_evidence_signature(obj.department.center) if obj.department_id and obj.department.center_id else None,
@@ -308,7 +308,7 @@ class Command(BaseCommand):
                         obj.center_id = suggested_id
                         obj.save(update_fields=["center"])
                     elif entity == "Ticket":
-                        obj = Ticket.objects.select_for_update().select_related(
+                        obj = Ticket.objects.select_for_update(of=("self",)).select_related(
                             "asset__center", "reported_by__center"
                         ).get(pk=object_id)
                         current_signature = (
