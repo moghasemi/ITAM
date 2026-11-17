@@ -1,6 +1,7 @@
 from datetime import timedelta
 from io import StringIO
 
+from django.core.exceptions import ValidationError
 from django.core.management import call_command
 
 from django.test import Client, TestCase
@@ -9,6 +10,7 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.org.models import Center, Contract, ContractCenterAssignment, Contractor, OrganizationalUnit
+from apps.org.forms import ContractCenterAssignmentForm
 from apps.maintenance.repair_services import assign_contractor_to_center
 
 
@@ -100,6 +102,46 @@ class TechnicianProvinceContractScopeTests(TestCase):
         self.assign(first, self.center_a1)
         self.assign(second, self.center_a2)
         self.assertEqual(self.scoped_ids(), {self.center_a1.pk, self.center_a2.pk})
+
+    def test_assignment_form_derives_province_from_center_when_org_unit_is_empty(self):
+        contract = self.make_contract("CON-FORM-FALLBACK", self.province_a)
+        province_admin = User.objects.create_user(
+            username="province-admin-center-bound",
+            password="Strong-Test-Password-2026!",
+            role=User.ROLE_ADMIN_PROVINCE,
+            center=self.center_a1,
+        )
+
+        form = ContractCenterAssignmentForm(user=province_admin)
+
+        self.assertIn(self.center_a1, form.fields["center"].queryset)
+        self.assertIn(contract, form.fields["contract"].queryset)
+
+    def test_assignment_form_excludes_inactive_centers_for_country_admin(self):
+        country_admin = User.objects.create_user(
+            username="country-admin-assignment-form",
+            password="Strong-Test-Password-2026!",
+            role=User.ROLE_ADMIN_COUNTRY,
+        )
+        self.center_a1.is_active = False
+        self.center_a1.save(update_fields=["is_active", "updated_at"])
+
+        form = ContractCenterAssignmentForm(user=country_admin)
+
+        self.assertNotIn(self.center_a1, form.fields["center"].queryset)
+
+    def test_assignment_service_rejects_inactive_center(self):
+        contract = self.make_contract("CON-INACTIVE-ASSIGNMENT", self.province_a)
+        self.center_a1.is_active = False
+        self.center_a1.save(update_fields=["is_active", "updated_at"])
+
+        with self.assertRaises(ValidationError):
+            assign_contractor_to_center(
+                contract=contract,
+                center=self.center_a1,
+                start_date=self.today,
+                actor=self.province_admin_a,
+            )
 
     def test_contracts_in_two_provinces_grant_only_those_two_provinces(self):
         contract_a = self.make_contract("CON-A-1", self.province_a)

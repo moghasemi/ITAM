@@ -267,14 +267,21 @@ class ContractCenterAssignmentForm(StyledModelForm):
             self.fields["contract"].queryset = Contract.objects.none()
             self.fields["center"].queryset = Center.objects.none()
             return
-        centers = user.get_scoped_centers()
+        # Country administrators can assign any active center. Other users
+        # (the view permits province administrators) are limited to active
+        # centers and provinces derived from that same fail-closed scope.
+        centers = user.get_scoped_centers().filter(is_active=True)
         self.fields["center"].queryset = centers.order_by("name")
         if user.is_admin_country:
             contracts = Contract.objects.filter(is_provincial=True)
         else:
-            province_id = getattr(user, "org_unit_id", None)
+            province_ids = centers.filter(
+                treatment_management__is_active=True,
+                treatment_management__province__is_active=True,
+                treatment_management__province__unit_type=OrganizationalUnit.UNIT_PROVINCE,
+            ).values_list("treatment_management__province_id", flat=True).distinct()
             contracts = Contract.objects.filter(
-                province_id=province_id, is_provincial=True
+                province_id__in=province_ids, is_provincial=True
             )
         self.fields["contract"].queryset = contracts.select_related("contractor").order_by("-start_date")
 

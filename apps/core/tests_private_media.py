@@ -1,5 +1,6 @@
 import tempfile
 
+from django.contrib.auth.models import AnonymousUser
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import Http404
 from django.test import RequestFactory, TestCase, override_settings
@@ -96,6 +97,14 @@ class PrivateMediaAuthorizationTests(TestCase):
             resolution_attachment=SimpleUploadedFile("province-decision.pdf", b"%PDF-1.4\nprovince"),
             status=GeneralReferral.STATUS_RESOLVED, outcome="نتیجه استانی",
         )
+
+    def test_anonymous_users_receive_404_for_private_referral_media(self):
+        path = self.referral.attachment.name
+        request = RequestFactory().get(f"/media/{path}")
+        request.user = AnonymousUser()
+
+        with self.assertRaises(Http404):
+            private_media(request, path)
 
     def test_same_center_staff_can_download_owned_asset_attachment(self):
         request = RequestFactory().get(f"/media/{self.attachment.file.name}")

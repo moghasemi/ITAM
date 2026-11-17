@@ -249,10 +249,10 @@ def assign_contractor_to_center(*, contract, center, start_date, actor):
     ).get(pk=center.pk)
     contract = Contract.objects.select_for_update().get(pk=contract.pk)
 
-    if not _is_country_admin(actor) and (
-        not center.treatment_management_id
-        or center.treatment_management.province_id != _province_id_for_user(actor)
-    ):
+    center_province_id = _province_id_for_center(center)
+    if not center_province_id:
+        raise ValidationError("انتساب به مرکز غیرفعال یا دارای ساختار سازمانی ناسازگار مجاز نیست.")
+    if not _is_country_admin(actor) and center_province_id != _province_id_for_user(actor):
         raise PermissionDenied("مرکز خارج از استان مجاز شماست.")
     if not contract.is_current or not contract.is_provincial:
         raise ValidationError("فقط قرارداد استانیِ جاری قابل انتساب است.")
