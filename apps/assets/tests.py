@@ -694,6 +694,37 @@ class MultiCenterAndHWAgentTests(TestCase):
         self.assertEqual(data["asset_tag"], "TAG-SUB")
 
 
+    def test_api_hwagent_sync_rejects_legacy_unbound_credential(self):
+        import hashlib
+        import json
+        import uuid
+        from django.utils import timezone
+        from apps.assets.models import AgentCredential, HardwareSnapshot
+
+        raw_token = "itam_agt_legacy_unbound_test_token"
+        AgentCredential.objects.create(
+            center=self.center_sub,
+            name="legacy-unbound-agent",
+            hostname="PC-SUB-01",
+            token_prefix=raw_token[:12],
+            token_hash=hashlib.sha256(raw_token.encode("utf-8")).hexdigest(),
+        )
+        payload = {
+            "computerName": "PC-SUB-01",
+            "os": "Windows 11",
+            "cpu": {"name": "Intel Core i5", "cores": 4, "threads": 8, "speed": 2500},
+        }
+        response = self.client.post(
+            "/api/v1/hardware/agent-sync/",
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {raw_token}",
+            HTTP_X_ITAM_TIMESTAMP=timezone.now().isoformat(),
+            HTTP_X_ITAM_NONCE=str(uuid.uuid4()),
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(HardwareSnapshot.objects.filter(asset=self.asset_sub).exists())
+
     def test_api_hwagent_sync_rejects_mismatched_hostname_for_bound_asset(self):
         import json
         import uuid

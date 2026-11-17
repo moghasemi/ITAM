@@ -720,6 +720,8 @@ class AgentCredential(TimeStampedModel):
         supplied_hostname = (hostname or expected_hostname).strip()
         if not asset or asset.center_id != getattr(center, "pk", None):
             raise ValidationError("دارایی ایجنت باید متعلق به همان مرکز اعتبارنامه باشد.")
+        if asset.status != "active":
+            raise ValidationError("برای دارایی غیرفعال نمی‌توان اعتبارنامه HWAgent صادر کرد.")
         if not expected_hostname or supplied_hostname.casefold() != expected_hostname.casefold():
             raise ValidationError("برای صدور اعتبارنامه، hostname دارایی باید مشخص و با hostname اعتبارنامه یکسان باشد.")
         raw_secret = secrets.token_urlsafe(36)

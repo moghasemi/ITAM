@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError, PermissionDenied
 from django.test import TestCase
 
 from apps.assets.models import AgentCredential, Asset, AssetCategory
@@ -40,6 +41,35 @@ class AgentCredentialLifecycleTests(TestCase):
         credential.refresh_from_db()
         self.assertEqual(credential.status, AgentCredential.STATUS_REVOKED)
         self.assertEqual(credential.revocation_reason, "test revocation")
+
+    def test_credential_issuance_rejects_hostname_drift(self):
+        with self.assertRaises(ValidationError):
+            AgentCredential.generate(
+                center=self.center,
+                asset=self.asset,
+                name="Wrong Host",
+                hostname="UNREGISTERED-HOST",
+            )
+
+    def test_snapshot_service_rejects_credential_for_another_asset(self):
+        from apps.assets.hwagent_service import apply_hwagent_snapshot
+
+        other_asset = Asset.objects.create(
+            asset_tag="AGENT-ASSET-002",
+            category=self.asset.category,
+            center=self.center,
+            hostname="AGENT-PC-02",
+        )
+        credential, _ = AgentCredential.generate(
+            center=self.center, asset=self.asset, name="Bound Agent"
+        )
+        with self.assertRaises(PermissionDenied):
+            apply_hwagent_snapshot(
+                asset=other_asset,
+                raw_data={"computerName": "AGENT-PC-02", "cpu": {"name": "CPU"}},
+                user=None,
+                agent_credential=credential,
+            )
 
     def test_rotation_revokes_old_token_and_issues_new_token(self):
         credential, old_token = AgentCredential.generate(

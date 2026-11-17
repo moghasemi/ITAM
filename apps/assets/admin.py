@@ -57,7 +57,7 @@ class AssetAttachmentAdmin(admin.ModelAdmin):
 class AgentCredentialAdminForm(forms.ModelForm):
     asset = forms.ModelChoiceField(
         label="دارایی اختصاصی ایجنت",
-        queryset=Asset.objects.filter(center__isnull=False).select_related("center"),
+        queryset=Asset.objects.filter(center__isnull=False, status="active").select_related("center"),
         required=True,
     )
 
@@ -74,7 +74,9 @@ class AgentCredentialAdminForm(forms.ModelForm):
             self.add_error("asset", "دارایی باید متعلق به مرکز انتخاب‌شده باشد.")
         if asset:
             expected = (asset.hostname or "").strip()
-            if not expected:
+            if asset.status != "active":
+                self.add_error("asset", "برای دارایی غیرفعال نمی‌توان اعتبارنامه صادر کرد.")
+            elif not expected:
                 self.add_error("asset", "ابتدا برای دارایی hostname ثبت کنید.")
             elif hostname and hostname.casefold() != expected.casefold():
                 self.add_error("hostname", "hostname اعتبارنامه باید با hostname دارایی یکسان باشد.")
