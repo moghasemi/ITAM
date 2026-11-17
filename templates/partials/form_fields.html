@@ -1,5 +1,6 @@
+{% load itam_tags %}
 {% if form.non_field_errors or formset.non_form_errors %}
-  <div class="alert alert-danger">
+  <div class="alert alert-danger" role="alert">
     {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
     {% if formset %}{% for error in formset.non_form_errors %}<div>{{ error }}</div>{% endfor %}{% endif %}
   </div>
@@ -7,13 +8,15 @@
 
 {% for field in form %}
   <div class="form-row {% if field.field.widget.input_type == 'checkbox' %}form-row-check{% endif %}">
-    <label class="form-label" for="{{ field.id_for_label }}">
-      {{ field.label }}{% if field.field.required %}<span class="req">*</span>{% endif %}
-    </label>
-    <div class="form-control-wrap">
-      {{ field }}
-      {% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}
-      {% for error in field.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
-    </div>
+    {% if field.field.widget.input_type == 'checkbox' %}
+      <label class="form-label itam-checkbox-label" for="{{ field.id_for_label }}">{{ field|field_class:"kt-checkbox" }}<span>{{ field.label }}</span></label>
+    {% else %}
+      <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="req">*</span>{% endif %}</label>
+      <div class="form-control-wrap">
+        {{ field|field_class:"kt-input" }}
+        {% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}
+        {% for error in field.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
+      </div>
+    {% endif %}
   </div>
 {% endfor %}

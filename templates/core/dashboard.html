@@ -1,5 +1,9 @@
 {% extends "base.html" %}
-{% load itam_tags %}
+{% load itam_tags static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'vendor/metronic9/assets/vendors/apexcharts/apexcharts.css' %}">
+{% endblock %}
 
 {% block page_actions %}
   {% if user.is_admin_it %}
@@ -90,15 +94,14 @@
       <h2 class="card-title">روند درخواست‌های خرابی (۶ ماه اخیر)</h2>
     </div>
     <div class="card-body">
-      <div class="bar-chart">
-        {% for point in monthly_series %}
-          <div class="bar-wrap">
-            <div class="bar-value">{{ point.value|fa }}</div>
-            <div class="bar" style="height:{% if point.value %}{{ point.value }}0{% else %}2{% endif %}px;max-height:110px"></div>
-            <div class="bar-label">{{ point.label }}</div>
-          </div>
-        {% endfor %}
-      </div>
+      {% if monthly_series %}
+        <div class="itam-chart-wrap">
+          <div id="itam-monthly-chart" class="itam-chart" role="img" aria-label="نمودار روند درخواست‌های خرابی در شش ماه اخیر"></div>
+        </div>
+        {{ monthly_series|json_script:"itam-monthly-series" }}
+      {% else %}
+        {% include "partials/empty.html" with text="داده‌ای برای نمایش روند درخواست‌ها وجود ندارد." %}
+      {% endif %}
     </div>
   </div>
 
@@ -252,4 +255,40 @@
   </div>
 </div>
 
+{% endblock %}
+
+
+{% block extra_js %}
+<script src="{% static 'vendor/metronic9/assets/vendors/apexcharts/apexcharts.min.js' %}"></script>
+<script>
+(function () {
+  var target = document.getElementById("itam-monthly-chart");
+  var source = document.getElementById("itam-monthly-series");
+  if (!target || !source || !window.ApexCharts) return;
+  var points;
+  try { points = JSON.parse(source.textContent || "[]"); } catch (error) { return; }
+  if (!Array.isArray(points) || !points.length) return;
+  var dark = document.documentElement.classList.contains("dark");
+  var chart = new ApexCharts(target, {
+    chart: {
+      type: "area", height: 270, fontFamily: "Vazirmatn, Tahoma, sans-serif",
+      toolbar: { show: false }, zoom: { enabled: false },
+      animations: { enabled: true, easing: "easeinout", speed: 450 },
+      foreColor: dark ? "#9fb0c6" : "#7b8798"
+    },
+    series: [{ name: "درخواست خرابی", data: points.map(function (p) { return Number(p.value || 0); }) }],
+    colors: [dark ? "#70a5ff" : "#3978e8"],
+    dataLabels: { enabled: false },
+    stroke: { curve: "smooth", width: 3 },
+    fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: .25, opacityTo: .02, stops: [0, 95, 100] } },
+    grid: { borderColor: dark ? "#26364c" : "#edf1f6", strokeDashArray: 4, padding: { left: 8, right: 8 } },
+    xaxis: { categories: points.map(function (p) { return p.label; }), axisBorder: { show: false }, axisTicks: { show: false }, labels: { style: { fontFamily: "Vazirmatn" } } },
+    yaxis: { min: 0, forceNiceScale: true, labels: { formatter: function (v) { return Math.round(v).toLocaleString("fa-IR"); }, style: { fontFamily: "Vazirmatn" } } },
+    tooltip: { theme: dark ? "dark" : "light", y: { formatter: function (v) { return Number(v).toLocaleString("fa-IR") + " درخواست"; } } },
+    markers: { size: 4, strokeWidth: 0, hover: { size: 6 } },
+    noData: { text: "داده‌ای برای نمایش وجود ندارد" }
+  });
+  chart.render();
+})();
+</script>
 {% endblock %}
