@@ -194,10 +194,10 @@ class TechnicianProvinceContractScopeTests(TestCase):
         self.assertEqual(self.scoped_ids(), set())
 
     def test_inactive_center_is_excluded_from_scope(self):
-        self.center_a1.is_active = False
-        self.center_a1.save(update_fields=["is_active"])
         contract = self.make_contract("CON-INACTIVE-CENTER", self.province_a)
         self.assign(contract, self.center_a1)
+        self.center_a1.is_active = False
+        self.center_a1.save(update_fields=["is_active"])
         self.assign(contract, self.center_a2)
         self.assertEqual(self.scoped_ids(), {self.center_a2.pk})
 

@@ -98,11 +98,14 @@ class PrivateMediaAuthorizationTests(TestCase):
             status=GeneralReferral.STATUS_RESOLVED, outcome="نتیجه استانی",
         )
 
-    def test_anonymous_users_receive_404_for_private_referral_media(self):
-        path = self.referral.attachment.name
+    def test_anonymous_users_receive_404_for_private_media(self):
+        # Use a fixed private namespace path so this test isolates the
+        # authentication guard from upload-storage naming behavior.
+        path = "referrals/private-document.pdf"
         request = RequestFactory().get(f"/media/{path}")
         request.user = AnonymousUser()
 
+        self.assertFalse(request.user.is_authenticated)
         with self.assertRaises(Http404):
             private_media(request, path)
 
