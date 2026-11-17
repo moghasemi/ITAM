@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import sys
+import time
 from contextlib import contextmanager
 from datetime import timedelta
 
 from django.conf import settings
-from django.db import IntegrityError, transaction
+from django.db import OperationalError, connection, transaction
 from django.db.models import F
 from django.utils import timezone
 
@@ -17,6 +19,8 @@ LOGIN_FAILURE_LIMIT = 5
 LOGIN_IP_FAILURE_LIMIT = 40
 LOGIN_FAILURE_WINDOW = timedelta(minutes=15)
 LOGIN_ATTEMPT_RETENTION = timedelta(days=30)
+LOGIN_LOCK_WAIT_SECONDS = 30
+LOGIN_LOCK_RETRY_SECONDS = 0.05
 
 
 def _fingerprint(value: str, purpose: str) -> str:
@@ -45,8 +49,10 @@ def login_admission_lock(username: str, ip_address: str | None = None):
     """Serialize throttle-check + authenticate + failure-recording for both DBs.
 
     UPDATE is intentional: PostgreSQL holds row locks until transaction end,
-    while SQLite (which ignores select_for_update) obtains its database write
-    lock. The caller must keep the context around the complete login POST.
+    while SQLite obtains a database write lock. SQLite shared-cache databases
+    can report SQLITE_LOCKED immediately instead of waiting, so acquisition
+    retries that transient condition until the holder releases the transaction.
+    The caller must keep this context around the complete login POST.
     """
     keys = _lock_keys(username, ip_address)
     if not keys:
@@ -54,19 +60,25 @@ def login_admission_lock(username: str, ip_address: str | None = None):
         yield
         return
 
-    # Expired coordination rows are safe to prune. If a concurrent request
-    # removes a row between ensure and UPDATE, the zero-row update retries.
-    for _ in range(3):
-        now = timezone.now()
-        LoginThrottleLock.objects.filter(
-            updated_at__lt=now - LOGIN_ATTEMPT_RETENTION
-        ).delete()
+    deadline = time.monotonic() + LOGIN_LOCK_WAIT_SECONDS
+    while True:
+        atomic = transaction.atomic()
+        entered = False
+        try:
+            atomic.__enter__()
+            entered = True
+            now = timezone.now()
 
-        for key in keys:
-            LoginThrottleLock.objects.get_or_create(key=key)
+            # Keep pruning and row creation in the same transaction as lock
+            # acquisition, so SQLite lock conflicts are retried as one unit.
+            LoginThrottleLock.objects.filter(
+                updated_at__lt=now - LOGIN_ATTEMPT_RETENTION
+            ).delete()
 
-        acquired = True
-        with transaction.atomic():
+            for key in keys:
+                LoginThrottleLock.objects.get_or_create(key=key)
+
+            acquired = True
             for key in keys:  # deterministic ordering avoids cross-key deadlocks
                 changed = LoginThrottleLock.objects.filter(key=key).update(
                     lock_version=F("lock_version") + 1,
@@ -75,11 +87,40 @@ def login_admission_lock(username: str, ip_address: str | None = None):
                 if changed != 1:
                     acquired = False
                     break
-            if acquired:
-                yield
-                return
+        except OperationalError as exc:
+            if entered:
+                atomic.__exit__(type(exc), exc, exc.__traceback__)
+            is_sqlite_lock = (
+                connection.vendor == "sqlite" and "locked" in str(exc).lower()
+            )
+            if not is_sqlite_lock or time.monotonic() >= deadline:
+                raise
+            time.sleep(LOGIN_LOCK_RETRY_SECONDS)
+            continue
+        except BaseException:
+            if entered:
+                atomic.__exit__(*sys.exc_info())
+            raise
 
-    raise RuntimeError("Unable to acquire login admission locks; retry the login request.")
+        if not acquired:
+            atomic.__exit__(None, None, None)
+            if time.monotonic() >= deadline:
+                raise RuntimeError(
+                    "Unable to acquire login admission locks; retry the login request."
+                )
+            time.sleep(LOGIN_LOCK_RETRY_SECONDS)
+            continue
+
+        # Keep the transaction open while the caller checks throttling,
+        # authenticates, and records success/failure.
+        try:
+            yield
+        except BaseException:
+            atomic.__exit__(*sys.exc_info())
+            raise
+        else:
+            atomic.__exit__(None, None, None)
+        return
 
 
 def is_login_throttled(username: str, ip_address: str | None = None) -> bool:
