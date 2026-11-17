@@ -135,7 +135,7 @@ def match_asset_for_hwagent(data: Dict[str, Any], center=None, asset_tag: Option
     if center is None:
         return None
 
-    base_qs = Asset.objects.filter(center=center)
+    base_qs = Asset.objects.filter(center=center, status="active")
 
     # ۱) تطبیق بر اساس شماره اموال مشخص‌شده
     if asset_tag and asset_tag.strip():
