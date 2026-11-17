@@ -151,11 +151,20 @@ class Command(BaseCommand):
             ) if center.city else OrganizationalUnit.objects.none()
             match_count = matches.count()
             suggestion = matches.first() if match_count == 1 else None
+            if (
+                suggestion
+                and center.treatment_management_id
+                and (
+                    not center.treatment_management.is_active
+                    or center.treatment_management.province_id != suggestion.parent_id
+                )
+            ):
+                suggestion = None
             confidence = "HIGH" if suggestion else "UNRESOLVED"
             reason = (
-                "تنها شهرستان فعال با نام منطبق و استان فعال"
+                "تنها شهرستان فعال با نام منطبق و استان فعال؛ مالکیت مدیریت درمان نیز سازگار است"
                 if suggestion else
-                "تطبیق شهرستان یکتا و معتبر یافت نشد؛ انتساب دستی لازم است"
+                "تطبیق شهرستان یکتا و معتبر یافت نشد یا مالکیت مدیریت درمان مرکز با استان مقصد سازگار نیست؛ انتساب دستی لازم است"
             )
             add("Center", center, center.code or str(center.pk), center.name, suggestion, confidence, reason)
 
