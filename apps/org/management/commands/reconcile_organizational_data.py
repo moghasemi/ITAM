@@ -230,7 +230,7 @@ class Command(BaseCommand):
                         if obj.center_id is not None:
                             raise CommandError(f"کاربر {obj.pk} پس از تهیه گزارش تغییر کرده؛ عملیات لغو شد.")
                         obj.center_id = suggested_id
-                        obj.save(update_fields=["center", "updated_at"])
+                        obj.save(update_fields=["center"])
                     elif entity == "Ticket":
                         obj = Ticket.objects.select_for_update().get(pk=object_id)
                         if obj.center_id is not None:
