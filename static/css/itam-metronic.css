@@ -15,6 +15,8 @@ body.app-body *{letter-spacing:0!important}
 body.app-body button,body.app-body input,body.app-body select,body.app-body textarea{font-family:inherit}
 a{text-decoration:none}a:hover{text-decoration:none}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(37,99,235,.2);outline-offset:2px}
+.itam-skip-link{position:fixed;inset-block-start:12px;inset-inline-start:12px;z-index:100;transform:translateY(-160%);padding:9px 14px;border:1px solid var(--itam-border);border-radius:9px;background:var(--itam-surface);color:var(--itam-text);font-size:12px;font-weight:800;box-shadow:0 8px 24px rgba(15,23,42,.16);transition:transform .16s ease}
+.itam-skip-link:focus{transform:translateY(0);outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
 .itam-shell{width:100%;min-height:100vh}
 .itam-sidebar{inset-block:0;inset-inline-start:0;width:var(--itam-sidebar-width);min-width:var(--itam-sidebar-width);border-color:var(--itam-border)!important;background:var(--itam-surface)!important;box-shadow:0 0 24px rgba(15,23,42,.025);transition:width .2s ease,min-width .2s ease,transform .22s ease}
 .itam-sidebar-header{min-height:78px;border-bottom:1px solid var(--itam-border)}
