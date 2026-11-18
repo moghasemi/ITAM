@@ -2,17 +2,17 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-ghost {% if unread_only %}active{% endif %}" href="?unread=1">فقط خوانده‌نشده‌ها</a>
-  <a class="btn btn-ghost" href="{% url 'core:notification_list' %}">همه اعلان‌ها</a>
+  <a class="btn btn-ghost {% if unread_only %}active{% endif %} kt-btn kt-btn-light" href="?unread=1">فقط خوانده‌نشده‌ها</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'core:notification_list' %}">همه اعلان‌ها</a>
   <form method="post" action="{% url 'core:notifications_read_all' %}" class="inline-form">{% csrf_token %}
-    <button class="btn btn-primary" type="submit">علامت‌گذاری همه به‌عنوان خوانده‌شده</button>
+    <button class="btn btn-primary kt-btn kt-btn-primary" type="submit">علامت‌گذاری همه به‌عنوان خوانده‌شده</button>
   </form>
 {% endblock %}
 
 {% block content %}
-<div class="card">
-  <div class="card-head"><h2 class="card-title">کارتابل اعلان‌ها</h2></div>
-  <div class="card-body">
+<div class="card kt-card">
+  <div class="card-head kt-card-header"><h2 class="card-title">کارتابل اعلان‌ها</h2></div>
+  <div class="card-body kt-card-content">
     <ul class="timeline">
       {% for note in notifications %}
         <li class="{% if note.is_read %}is-done{% else %}is-current{% endif %}">
