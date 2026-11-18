@@ -2,6 +2,7 @@
 نمایش مجموعه فرم‌های وابسته (Formset) با امکان افزودن/حذف ردیف.
 پارامترها: formset، title، add_label
 {% endcomment %}
+{% load itam_tags %}
 <div class="formset kt-form-item" data-formset data-prefix="{{ formset.prefix }}">
   {% if title %}<h3 class="section-title kt-card-title">{{ title }}</h3>{% endif %}
   {{ formset.management_form }}
