@@ -297,3 +297,13 @@ class MetronicMigrationCoverageTests(SimpleTestCase):
             for class_value in re.findall(r"class=[\\\"']([^\\\"']+)[\\\"']", source):
                 for class_name in class_value.split():
                     self.assertNotIn(class_name, retired_classes, msg=f"{template_path}: obsolete class {class_name}")
+
+
+    def test_retired_shell_selectors_are_absent_from_compatibility_stylesheet(self):
+        css_path = finders.find("css/itam.css")
+        self.assertIsNotNone(css_path)
+        css = Path(css_path).read_text(encoding="utf-8")
+        for selector in (".app-shell", ".sidebar", ".topbar", ".menu-toggle", ".user-meta",
+                         ".user-menu", ".page-actions", ".page-head"):
+            with self.subTest(selector=selector):
+                self.assertNotRegex(css, re.escape(selector) + r"(?![\\w-])")
