@@ -1,0 +1,75 @@
+<header class="kt-header itam-header fixed top-0 z-10 start-0 end-0 flex items-stretch shrink-0 bg-background" id="header">
+  <div class="kt-container-fixed itam-header-inner flex justify-between items-center gap-3">
+    <div class="flex items-center gap-3 min-w-0">
+      <button class="kt-btn kt-btn-icon kt-btn-ghost itam-mobile-menu lg:hidden" type="button" data-toggle="sidebar" aria-controls="sidebar" aria-expanded="false" aria-label="بازکردن منو">
+        <i class="ki-filled ki-menu text-xl"></i>
+      </button>
+      <div class="itam-header-context min-w-0">
+        <span class="itam-header-eyebrow">سامانه مدیریت فناوری اطلاعات</span>
+        <strong class="itam-header-org truncate">{{ org_name }}</strong>
+      </div>
+    </div>
+
+    <form class="itam-global-search flex" method="get" action="{% url 'core:search' %}" role="search">
+      <i class="ki-filled ki-magnifier" aria-hidden="true"></i>
+      <input type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="جستجوی دارایی، سریال یا شماره درخواست…" aria-label="جستجو">
+      <kbd>Enter</kbd>
+    </form>
+
+    <div class="itam-header-actions flex items-center gap-1.5">
+      {% if user.is_admin_province and all_centers %}
+        <div class="itam-center-switch hidden xl:flex items-center gap-2">
+          <i class="ki-filled ki-geolocation text-secondary-foreground"></i>
+          <select class="kt-select itam-center-select" aria-label="انتخاب مرکز" onchange="if(this.value){window.location.href=this.value;}">
+            <option value="{% url 'core:dashboard' %}">تمام مراکز استان</option>
+            {% for c in all_centers %}
+              <option value="{% url 'assets:list' %}?center={{ c.pk }}" {% if request.GET.center == c.pk|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% elif user.center %}
+        <span class="itam-center-chip hidden xl:inline-flex"><i class="ki-filled ki-geolocation"></i>{{ user.center.name }}</span>
+      {% endif %}
+
+      <button class="kt-btn kt-btn-icon kt-btn-ghost" type="button" data-theme-toggle aria-label="تغییر پوسته روشن و تاریک" title="تغییر پوسته">
+        <i class="ki-filled ki-moon itam-theme-icon-dark"></i><i class="ki-filled ki-sun itam-theme-icon-light"></i>
+      </button>
+
+      <div class="itam-dropdown" data-kt-dropdown="true" data-kt-dropdown-placement="bottom-end" data-kt-dropdown-placement-rtl="bottom-start">
+        <button class="kt-btn kt-btn-icon kt-btn-ghost relative" type="button" data-kt-dropdown-toggle="true" aria-label="اعلان‌ها" title="اعلان‌ها">
+          <i class="ki-filled ki-notification-bing text-lg"></i>
+          {% if unread_notifications %}<span class="itam-notification-count">{{ unread_notifications|fa }}</span>{% endif %}
+        </button>
+        <div class="kt-dropdown-menu itam-dropdown-panel itam-notification-menu p-4" data-kt-dropdown-menu="true">
+          <div class="flex items-center justify-between mb-3">
+            <strong class="text-sm">اعلان‌ها</strong>
+            {% if unread_notifications %}<span class="kt-badge kt-badge-sm kt-badge-primary">{{ unread_notifications|fa }} خوانده‌نشده</span>{% endif %}
+          </div>
+          <p class="text-sm text-secondary-foreground mb-3">{% if unread_notifications %}اعلان جدید برای بررسی دارید.{% else %}اعلان خوانده‌نشده‌ای ندارید.{% endif %}</p>
+          <a class="kt-btn kt-btn-sm kt-btn-light w-full justify-center" href="{% url 'core:notification_list' %}">مشاهده همه اعلان‌ها</a>
+        </div>
+      </div>
+
+      <div class="itam-dropdown" data-kt-dropdown="true" data-kt-dropdown-placement="bottom-end" data-kt-dropdown-placement-rtl="bottom-start">
+        <button class="itam-user-toggle" type="button" data-kt-dropdown-toggle="true" aria-label="منوی حساب کاربری">
+          <span class="itam-avatar">{{ user.short_name|slice:":1" }}</span>
+          <span class="itam-user-meta hidden sm:flex flex-col text-start">
+            <strong>{{ user.display_name }}</strong><small>{{ user.role_label }}</small>
+          </span>
+          <i class="ki-filled ki-down text-xs text-secondary-foreground"></i>
+        </button>
+        <div class="kt-dropdown-menu itam-dropdown-panel itam-user-menu p-2" data-kt-dropdown-menu="true">
+          <div class="px-3 py-2 border-b border-border mb-1">
+            <strong class="block text-sm">{{ user.display_name }}</strong>
+            <span class="text-xs text-secondary-foreground">{{ user.role_label }}</span>
+          </div>
+          <a class="itam-dropdown-link" href="{% url 'accounts:profile' %}"><i class="ki-filled ki-profile-circle"></i> نمایه من</a>
+          <a class="itam-dropdown-link" href="{% url 'accounts:password_change' %}"><i class="ki-filled ki-lock"></i> تغییر گذرواژه</a>
+          <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+            <button type="submit" class="itam-dropdown-link itam-logout-link"><i class="ki-filled ki-exit-right"></i> خروج از سامانه</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>

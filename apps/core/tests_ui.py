@@ -15,6 +15,9 @@ class MetronicTemplateCompilationTests(SimpleTestCase):
     def test_shared_and_key_templates_compile(self):
         for template_name in (
             "base.html",
+            "partials/metronic/sidebar.html",
+            "partials/metronic/header.html",
+            "partials/metronic/footer.html",
             "accounts/login.html",
             "core/dashboard.html",
             "partials/form_fields.html",
@@ -63,6 +66,20 @@ class MetronicSidebarLayoutContractTests(SimpleTestCase):
             "--itam-sidebar-width:var(--sidebar-width-collapse,80px)}",
             css,
         )
+
+
+class MetronicShellCompositionTests(SimpleTestCase):
+    def test_base_template_delegates_shell_regions_to_shared_partials(self):
+        template = get_template("base.html")
+        source = Path(template.origin.name).read_text(encoding="utf-8")
+
+        for partial in (
+            'partials/metronic/sidebar.html',
+            'partials/metronic/header.html',
+            'partials/metronic/footer.html',
+        ):
+            with self.subTest(partial=partial):
+                self.assertIn('{% include "' + partial + '" %}', source)
 
 
 class MetronicShellAccessibilityContractTests(SimpleTestCase):
