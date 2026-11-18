@@ -301,7 +301,7 @@ PRهای #17 (مستندات) و #18 (private media و scope انتساب پیم
   - هم‌راستاسازی HWAgent مستقل با زبان بصری Metronic؛ تب‌های ARIA/keyboard و حذف Chart.js CDN با meterهای سبک RAM/دیسک.
   - partialهای مشترک فرم، فیلتر، صفحه‌بندی، formset، پیام‌ها، empty state و action button به hookهای Metronic مجهز شده‌اند.
   - کلاس‌های سازگاری و data-hookهای قدیمی لازم برای رفتار Django/JavaScript حفظ شده‌اند.
-- CI قبلی روی head پیشین #25 به علت بارگذاری‌نشدن `itam_tags` در partial فرم‌ست شکست خورد؛ همان علت باعث خطای رندر صفحه قرارداد نیز شده بود. head فعلی این import را اضافه کرده است؛ اجرای CI جدید در زمان ثبت هنوز queued/pending است.
+- CI نهایی run `44403052061` روی head `94005a451252b501b5667edf3ca87ad8fbbb9f50` completed/success و 5/5 job موفق است: Python 3.11 و 3.12 هرکدام 393 تست؛ PostgreSQL 16 تعداد 393 تست با 3 skipped؛ production settings و deploy-script validation نیز موفق. شکست قبلی ناشی از نبود `itam_tags` در formset بود و اصلاح شد.
 - workflow موجود، JavaScript درون HWAgent را با `node --check` بررسی می‌کند؛ این syntax check جایگزین اجرای واقعی Windows agent نیست.
 - هیچ view، model، URL، permission، workflow دامنه‌ای، migration، داده یا vendor asset در PR #25 تغییر نکرده است.
 

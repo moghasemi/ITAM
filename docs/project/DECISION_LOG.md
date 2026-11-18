@@ -40,5 +40,5 @@
 - **تصمیم تکمیلی:** partialهای مشترک form/filter/pagination/formset/messages/empty/action button از hookهای بومی Metronic استفاده کنند، اما کلاس‌های سازگاری و data-hookهای لازم برای Django/JavaScript حفظ شوند؛ حذف سراسری CSS legacy در این مرحله مجاز نیست.
 - **HWAgent:** مستقل از base template باقی بماند؛ تب‌ها با ARIA و keyboard قابل استفاده باشند؛ Chart.js CDN حذف و meterهای سبک داخلی استفاده شوند.
 - **پیاده‌سازی:** PR #25، branch `ui/metronic-print-hwagent-finalization`، head ثبت‌شده `94005a451252b501b5667edf3ca87ad8fbbb9f50`.
-- **تست:** CI روی head پیشین به علت نبود `{% load itam_tags %}` در partial فرم‌ست شکست خورد؛ اصلاح ثبت شده و CI جدید در زمان این تصمیم pending است. تست محلی/مرورگر/چاپ فیزیکی اجرا نشده.
+- **تست:** CI قبلی به علت نبود `{% load itam_tags %}` در partial فرم‌ست شکست خورد؛ اصلاح ثبت شد. run `44403052061` روی head `94005a451252b501b5667edf3ca87ad8fbbb9f50` completed/success و 5/5 job موفق: Python 3.11/3.12 هرکدام 393 تست، PostgreSQL 393 تست با 3 skipped، production settings و deploy validation موفق. تست محلی/مرورگر/چاپ فیزیکی اجرا نشده.
 - **پیامد:** PR تا سبزشدن CI و پذیرش محلی در وضعیت Draft بماند؛ عدم Merge/Deploy همچنان برقرار است.

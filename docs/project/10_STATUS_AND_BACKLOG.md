@@ -63,7 +63,7 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - #15 و #16 پایه مرحله UI؛ #19 تا #25 زنجیره تکمیل Metronic.
 - #17 (handbook) و #18 (private media/contractor assignment scope) شاخه‌های موازی روی پایه #16 هستند و مستقل باید بازبینی شوند.
 - PR #25: branch `ui/metronic-print-hwagent-finalization`، head `94005a451252b501b5667edf3ca87ad8fbbb9f50`, base #24؛ 14 فایل، 355 additions/300 deletions.
-- PR #25 CI قبلی شکست خورد چون `formset.html` فیلتر `field_class` را بدون `{% load itam_tags %}` استفاده کرده بود. import اضافه شده و CI روی head جدید در انتظار نتیجه است.
+- PR #25 CI قبلی شکست خورد چون `formset.html` فیلتر `field_class` را بدون `{% load itam_tags %}` استفاده کرده بود. import اضافه شد؛ run `44403052061` روی head `94005a451252b501b5667edf3ca87ad8fbbb9f50` با 5/5 job موفق شد (393 تست در هر دو Python؛ PostgreSQL 393 تست با 3 skipped).
 
 ### P0 — اکنون
 1. صبر برای CI کامل PR #25؛ اگر شکست جدیدی رخ داد، فقط علت واقعی اصلاح شود.
