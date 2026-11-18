@@ -19,3 +19,14 @@
 - **خارج از دامنه:** Merge، Deploy، Migration، Seed، حذف یا بازنویسی داده و هر اقدام مخرب؛ این موارد همچنان نیازمند اجازه صریح جداگانه‌اند.
 - **پیامد:** مستندسازی بخشی از تحویل هر مرحله است و نباید به backlog نامشخص موکول شود.
 - **مراجع:** docs/project/09_DOCUMENTATION_AND_DECISION_RULES.md، docs/project/11_AI_AGENT_RULES.md، docs/project/04_DEVELOPMENT_WORKFLOW.md.
+
+## D-2026-11-18-002 — اولویت‌دهی CSS قدیمی در کنار Metronic
+- **تاریخ:** 2026-11-18
+- **وضعیت:** Accepted (اصلاح ساختاری)؛ پذیرش بصری: Open
+- **زمینه:** فایل `static/css/itam.css` شامل قواعد legacy بدون cascade layer بود، درحالی‌که Metronic/Tailwind 4 لایه‌های `theme`، `base`، `components` و `utilities` را تعریف می‌کند. قواعد عادی خارج از layer می‌توانند بر قواعد عادی داخل layer اولویت پیدا کنند؛ بنابراین CSS قدیمی ممکن بود utility/componentهای Metronic را خنثی کند.
+- **تصمیم:** تمام محتوای stylesheet قدیمی در `@layer base` قرار گیرد. selectorهای قدیمی حذف یا بازنویسی نشوند تا templateهای موجود Django همچنان سازگار بمانند. bridge اختصاصی `itam-metronic.css` بدون layer باقی می‌ماند.
+- **پیاده‌سازی:** PR #19، branch `fix/metronic-legacy-css-cascade`، head `dccd73e2e11092850a1b5b94e73a7b3da5e54a49`.
+- **مبنای PR:** PR #19 به‌صورت Draft روی branch مربوط به PR #16 ساخته شده است؛ PR #16 همچنان Draft است.
+- **محدودیت شواهد:** این تغییر یک تعارض ساختاری cascade را رفع می‌کند، اما اثبات نمی‌کند تمام بی‌نظمی‌های بصری برطرف شده‌اند. آزمون مرورگر و پذیرش صفحات dashboard، فهرست و فرم هنوز باز است.
+- **تست:** در زمان ثبت، workflow run یا status check برای head PR #19 در GitHub گزارش نشده بود. تست محلی یا مرورگر اجرا/تأیید نشده است.
+- **پیامد:** پس از دریافت تغییرات PR #19 در محیط محلی، صفحات کلیدی در عرض 1365px و موبایل، فرم‌ها، جدول‌ها، دکمه‌ها و حالت چاپ بررسی شوند.
