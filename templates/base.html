@@ -23,13 +23,14 @@
 </head>
 <body class="app-body antialiased flex min-h-screen text-base text-foreground bg-background demo1 kt-sidebar-fixed kt-header-fixed">
 {% if user.is_authenticated %}
+<a class="itam-skip-link" href="#content">پرش به محتوای اصلی</a>
 <div class="itam-shell flex grow min-h-screen" id="app-shell">
   {% include "partials/metronic/sidebar.html" %}
 
   <div class="kt-wrapper itam-wrapper flex grow flex-col min-w-0">
     {% include "partials/metronic/header.html" %}
 
-    <main class="itam-main grow pt-5" id="content" role="main">
+    <main class="itam-main grow pt-5" id="content" role="main" tabindex="-1">
       <div class="kt-container-fixed">
         {% include "partials/messages.html" %}
         <div class="itam-page-head">
