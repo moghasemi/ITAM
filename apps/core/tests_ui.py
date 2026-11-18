@@ -317,7 +317,7 @@ class MetronicSharedPartialMigrationTests(SimpleTestCase):
             "partials/pagination.html": ("kt-pagination", "kt-pagination-item", "kt-btn-outline", "pagination"),
             "partials/formset.html": ("kt-form-item", "kt-form-control", "kt-form-message", "data-formset-add"),
             "partials/empty.html": ("kt-alert", "empty-state", 'role="status"'),
-            "partials/messages.html": ("kt-alert", "kt-alert-close", "data-dismiss"),
+            "partials/messages.html": ("kt-alert", "kt-alert-destructive", "alert-danger", "kt-alert-close", "aria-live", "data-dismiss"),
         }
         for template_name, tokens in expected.items():
             with self.subTest(template=template_name):
