@@ -3,26 +3,26 @@
 
 {% block page_actions %}
   {% if user.is_admin_province or user.is_superuser %}
-    <a class="btn btn-primary" href="{% url 'org:center_create' %}">➕ افزودن مرکز جدید</a>
+    <a class="btn btn-primary kt-btn kt-btn-primary" href="{% url 'org:center_create' %}">➕ افزودن مرکز جدید</a>
   {% endif %}
-  <a class="btn btn-ghost" href="{% url 'org:department_list' %}">واحدهای سازمانی</a>
-  <a class="btn btn-ghost" href="{% url 'org:location_list' %}">محل‌های استقرار</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'org:department_list' %}">واحدهای سازمانی</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'org:location_list' %}">محل‌های استقرار</a>
 {% endblock %}
 
 {% block content %}
-<form method="get" class="filter-bar">
+<form method="get" class="filter-bar itam-ops-filter">
   <div class="filter-field">
     <label class="filter-label">جستجو</label>
     <input class="input" type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="نام مرکز، شهرستان، مسئول…">
   </div>
   <div class="filter-actions">
-    <button class="btn btn-primary" type="submit">جستجو</button>
+    <button class="btn btn-primary kt-btn kt-btn-primary" type="submit">جستجو</button>
   </div>
 </form>
 
-<div class="card">
+<div class="card kt-card">
   <div class="table-wrap">
-    <table class="table">
+    <table class="table kt-table">
       <thead>
         <tr>
           <th>نام مرکز</th>
@@ -71,10 +71,10 @@
           </td>
           <td class="table-actions">
             {% if user.is_admin_province or user.is_superuser %}
-              <a class="btn btn-ghost btn-sm" href="{% url 'org:center_update' item.pk %}">ویرایش</a>
+              <a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'org:center_update' item.pk %}">ویرایش</a>
             {% endif %}
-            <a class="btn btn-ghost btn-sm" href="{% url 'assets:list' %}?center={{ item.pk }}">دارایی‌ها</a>
-            <a class="btn btn-ghost btn-sm" href="{% url 'tickets:list' %}?center={{ item.pk }}">تیکت‌ها</a>
+            <a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'assets:list' %}?center={{ item.pk }}">دارایی‌ها</a>
+            <a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'tickets:list' %}?center={{ item.pk }}">تیکت‌ها</a>
           </td>
         </tr>
       {% empty %}
@@ -83,6 +83,6 @@
       </tbody>
     </table>
   </div>
-  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+  <div class="card-foot kt-card-footer">{% include "partials/pagination.html" %}</div>
 </div>
 {% endblock %}
