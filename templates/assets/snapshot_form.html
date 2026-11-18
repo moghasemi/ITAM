@@ -2,27 +2,27 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">شناسنامه تجهیز</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'assets:detail' asset.pk %}">شناسنامه تجهیز</a>
   {% if not snapshot.is_baseline %}
-    <a class="btn btn-ghost" href="{% url 'assets:snapshot_detail' snapshot.pk %}">مشاهده بدون ویرایش</a>
+    <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'assets:snapshot_detail' snapshot.pk %}">مشاهده بدون ویرایش</a>
   {% endif %}
 {% endblock %}
 
 {% block content %}
 
-<div class="stat-grid">
-  <div class="stat-card">
+<div class="stat-grid itam-ops-stat-grid">
+  <div class="stat-card itam-ops-stat-card">
     <div class="stat-icon">🖥</div>
     <div><div class="stat-value">{{ asset.asset_tag }}</div><div class="stat-label">{{ asset.display_name }}</div></div>
   </div>
-  <div class="stat-card {% if is_baseline %}is-warning{% else %}is-info{% endif %}">
+  <div class="stat-card {% if is_baseline %}is-warning{% else %}is-info{% endif %} itam-ops-stat-card">
     <div class="stat-icon">{% if is_baseline %}🔒{% else %}🔍{% endif %}</div>
     <div>
       <div class="stat-value">{% if is_baseline %}پایه{% else %}نسخه {{ snapshot.version|fa }}{% endif %}</div>
       <div class="stat-label">{% if is_baseline %}نخستین ثبت{% else %}بازبینی دوره‌ای{% endif %}</div>
     </div>
   </div>
-  <div class="stat-card {% if preview.has_alarm %}is-danger{% elif preview.total_changes %}is-warning{% else %}is-success{% endif %}">
+  <div class="stat-card {% if preview.has_alarm %}is-danger{% elif preview.total_changes %}is-warning{% else %}is-success{% endif %} itam-ops-stat-card">
     <div class="stat-icon">📊</div>
     <div>
       <div class="stat-value">{{ preview.total_changes|fa }}</div>
@@ -43,35 +43,35 @@
 <form method="post" enctype="multipart/form-data">
   {% csrf_token %}
 
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">اطلاعات کلی بازبینی</h2></div>
-    <div class="card-body">
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">اطلاعات کلی بازبینی</h2></div>
+    <div class="card-body kt-card-content">
       <div class="form-grid">
         {% include "partials/form_fields.html" with form=form %}
       </div>
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-head">
+  <div class="card kt-card">
+    <div class="card-head kt-card-header">
       <h2 class="card-title">اقلام داخل کیس</h2>
       <span class="muted small">اقلام کلیدی (پردازنده، حافظه، هارد، گرافیک، پاور) را دقیق ثبت کنید.</span>
     </div>
-    <div class="card-body">
+    <div class="card-body kt-card-content">
       {% include "partials/formset.html" with formset=formset title="" add_label="افزودن قلم سخت‌افزاری" %}
     </div>
   </div>
 
   {% if preview.total_changes %}
-    <div class="card">
-      <div class="card-head">
+    <div class="card kt-card">
+      <div class="card-head kt-card-header">
         <h2 class="card-title">پیش‌نمایش تغییرات نسبت به وضعیت قبلی</h2>
         {% if preview.removed %}<span class="badge badge-danger">{{ preview.removed|fa }} قلم مفقود</span>{% endif %}
         {% if preview.replaced %}<span class="badge badge-warning">{{ preview.replaced|fa }} قلم تعویض‌شده</span>{% endif %}
         {% if preview.added %}<span class="badge badge-info">{{ preview.added|fa }} قلم اضافه‌شده</span>{% endif %}
       </div>
       <div class="table-wrap">
-        <table class="table compact">
+        <table class="table compact kt-table">
           <thead><tr><th>وضعیت</th><th>قطعه</th><th>مقدار قبلی</th><th>مقدار فعلی</th><th>توضیح تفاوت</th></tr></thead>
           <tbody>
           {% for row in preview.rows %}
@@ -101,12 +101,12 @@
   {% endif %}
 
   <div class="form-actions">
-    <button type="submit" class="btn btn-primary btn-lg">💾 ذخیره پیش‌نویس</button>
-    <button type="submit" name="submit_for_review" value="1" class="btn btn-success btn-lg"
+    <button type="submit" class="btn btn-primary btn-lg kt-btn kt-btn-primary">💾 ذخیره پیش‌نویس</button>
+    <button type="submit" name="submit_for_review" value="1" class="btn btn-success btn-lg kt-btn kt-btn-success"
             data-confirm="اقلام ثبت‌شده برای تایید کارشناس فناوری اطلاعات ارسال شود؟ پس از تایید، سند قفل می‌شود.">
       ✅ ذخیره و ارسال برای تایید
     </button>
-    <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">انصراف</a>
+    <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'assets:detail' asset.pk %}">انصراف</a>
   </div>
 </form>
 {% endblock %}
