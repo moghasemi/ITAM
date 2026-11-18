@@ -307,3 +307,37 @@ class MetronicMigrationCoverageTests(SimpleTestCase):
                          ".user-menu", ".page-actions", ".page-head"):
             with self.subTest(selector=selector):
                 self.assertNotRegex(css, re.escape(selector) + r"(?![\\w-])")
+
+
+class MetronicPrintAndAgentFinalizationTests(SimpleTestCase):
+    def test_dedicated_print_templates_use_metronic_print_components(self):
+        for template_name in ("assets/label_print.html", "maintenance/visit_print.html", "tickets/ticket_print.html"):
+            with self.subTest(template=template_name):
+                template = get_template(template_name)
+                source = Path(template.origin.name).read_text(encoding="utf-8")
+                self.assertIn("itam-print-page", source)
+                self.assertIn("kt-card", source)
+                self.assertIn("no-print", source)
+
+        for template_name in ("maintenance/visit_print.html", "tickets/ticket_print.html"):
+            source = Path(get_template(template_name).origin.name).read_text(encoding="utf-8")
+            self.assertIn("kt-table", source)
+            self.assertIn("itam-print-signatures", source)
+
+    def test_print_styles_cover_shell_suppression_and_label_dimensions(self):
+        css_path = finders.find("css/itam-metronic.css")
+        self.assertIsNotNone(css_path)
+        css = Path(css_path).read_text(encoding="utf-8")
+        for token in ("@media print", ".itam-sidebar", ".itam-header", ".itam-label-card", "62mm", ".itam-print-signatures"):
+            with self.subTest(token=token):
+                self.assertIn(token, css)
+
+    def test_standalone_hwagent_has_no_chart_cdn_and_uses_accessible_tabs(self):
+        agent_path = Path(__file__).resolve().parents[2] / "HWAgent" / "index.html"
+        source = agent_path.read_text(encoding="utf-8")
+        self.assertNotIn("cdn.jsdelivr.net", source)
+        self.assertNotIn("new Chart(", source)
+        self.assertIn('role="tab"', source)
+        self.assertIn('role="tabpanel"', source)
+        self.assertIn("renderMeters(", source)
+        self.assertIn("prefers-reduced-motion", source)
