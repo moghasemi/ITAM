@@ -2,5 +2,5 @@
 <form method="post" action="{{ action }}" class="inline-form"
       {% if confirm %}data-confirm="{{ confirm }}"{% endif %}>
   {% csrf_token %}
-  <button type="submit" class="btn btn-{{ css|default:'primary' }}">{{ label }}</button>
+  <button type="submit" class="btn kt-btn btn-{{ css|default:'primary' }}">{{ label }}</button>
 </form>
