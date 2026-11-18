@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-header"><div><h1>{{ page_title }}</h1></div></div>
-<div class="card">
+<div class="card kt-card">
   <form method="post" enctype="multipart/form-data" novalidate>
     {% csrf_token %}
     {{ form.as_p }}
-    <div class="form-actions"><button class="btn btn-primary" type="submit">ذخیره</button><a class="btn btn-secondary" href="javascript:history.back()">بازگشت</a></div>
+    <div class="form-actions"><button class="btn btn-primary kt-btn kt-btn-primary" type="submit">ذخیره</button><a class="btn btn-secondary kt-btn kt-btn-secondary" href="javascript:history.back()">بازگشت</a></div>
   </form>
 </div>
 {% endblock %}
