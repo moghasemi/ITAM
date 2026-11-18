@@ -20,6 +20,15 @@ class MetronicTemplateCompilationTests(SimpleTestCase):
             "partials/metronic/footer.html",
             "accounts/login.html",
             "core/dashboard.html",
+            "assets/asset_list.html",
+            "assets/asset_detail.html",
+            "assets/asset_form.html",
+            "tickets/ticket_list.html",
+            "tickets/ticket_detail.html",
+            "tickets/ticket_form.html",
+            "maintenance/visit_list.html",
+            "maintenance/visit_detail.html",
+            "maintenance/visit_form.html",
             "partials/form_fields.html",
             "partials/filter_bar.html",
         ):
@@ -172,3 +181,74 @@ class MetronicDashboardCompositionTests(SimpleTestCase):
         self.assertIn('id="itam-monthly-chart"', source)
         self.assertIn('json_script:"itam-monthly-series"', source)
         self.assertIn("window.ApexCharts", source)
+
+
+class MetronicOperationalPageCompositionTests(SimpleTestCase):
+    def _source(self, template_name):
+        template = get_template(template_name)
+        return Path(template.origin.name).read_text(encoding="utf-8")
+
+    def test_operational_templates_use_metronic_cards_and_responsive_tables(self):
+        for template_name in (
+            "assets/asset_list.html", "assets/asset_detail.html", "assets/asset_form.html",
+            "tickets/ticket_list.html", "tickets/ticket_detail.html", "tickets/ticket_form.html",
+            "maintenance/visit_list.html", "maintenance/visit_detail.html", "maintenance/visit_form.html",
+        ):
+            with self.subTest(template=template_name):
+                source = self._source(template_name)
+                self.assertIn('class="itam-ops-page', source)
+                self.assertIn("kt-card", source)
+
+        for template_name in (
+            "assets/asset_list.html", "assets/asset_detail.html",
+            "tickets/ticket_list.html", "tickets/ticket_detail.html",
+            "maintenance/visit_list.html", "maintenance/visit_detail.html",
+        ):
+            with self.subTest(template=template_name):
+                self.assertIn("itam-ops-table-wrap", self._source(template_name))
+
+    def test_asset_pages_preserve_snapshot_qr_and_ticket_workflows(self):
+        listing = self._source("assets/asset_list.html")
+        detail = self._source("assets/asset_detail.html")
+        form = self._source("assets/asset_form.html")
+        for token in ("assets:create", "assets:hwagent_batch_import", "assets:label_print",
+                      "assets:hardware_report", "assets:detail", "tickets:create"):
+            self.assertIn("{% url '" + token + "'", listing)
+        for token in ("can_edit", "can_snapshot", "object.requires_component_tracking",
+                      "object.current_snapshot", "asset_relationships", "components",
+                      "snapshots", "tickets", "visits", "attachments", "data-tabs"):
+            self.assertIn(token, detail)
+        self.assertIn("data-computer-only", form)
+        self.assertIn("data-peripheral-only", form)
+        self.assertIn("id_category", form)
+
+    def test_ticket_pages_preserve_sla_roles_and_all_workflow_actions(self):
+        listing = self._source("tickets/ticket_list.html")
+        detail = self._source("tickets/ticket_detail.html")
+        form = self._source("tickets/ticket_form.html")
+        for token in ("open_count", "ticket.response_met", "ticket.resolve_met",
+                      "tickets:create", "tickets:detail"):
+            self.assertIn(token, listing)
+        for token in ("is_manager_side", "can_user_confirm", "is_it", "sla.is_paused",
+                      "tickets:acknowledge", "tickets:arrive", "tickets:start", "tickets:pause",
+                      "tickets:resume", "tickets:resolve", "tickets:user_confirm",
+                      "tickets:user_reject", "tickets:it_confirm", "tickets:cancel",
+                      "tickets:add_part", "tickets:add_attachment", "tickets:add_note",
+                      "ticket.response_minutes_used", "ticket.resolve_minutes_used"):
+            self.assertIn(token, detail)
+        self.assertIn("tickets:list", form)
+        self.assertIn("ساعت SLA", form)
+
+    def test_maintenance_pages_preserve_visit_states_permissions_and_post_actions(self):
+        listing = self._source("maintenance/visit_list.html")
+        detail = self._source("maintenance/visit_detail.html")
+        form = self._source("maintenance/visit_form.html")
+        for token in ("counts.planned", "counts.in_progress", "counts.done", "counts.missed",
+                      "can_create", "maintenance:visit_create", "reports:visits"):
+            self.assertIn(token, listing)
+        for token in ("can_manage", "can_confirm", "object.is_overdue",
+                      "maintenance:visit_start", "maintenance:visit_bulk_healthy",
+                      "maintenance:visit_confirm", "maintenance:visit_complete",
+                      "maintenance:check_edit", "checks", "stats.conditions"):
+            self.assertIn(token, detail)
+        self.assertIn("maintenance:visit_list", form)

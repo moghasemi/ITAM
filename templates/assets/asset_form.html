@@ -1,16 +1,17 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="card" style="max-width:1000px">
-  <div class="card-body">
+<div class="itam-ops-page itam-ops-form-page">
+<div class="card kt-card itam-ops-card" style="max-width:1000px">
+  <div class="card-body kt-card-content itam-ops-card-content">
     <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
       <div class="form-grid">
         {% include "partials/form_fields.html" with form=form %}
       </div>
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary btn-lg">ذخیره دارایی</button>
-        <a class="btn btn-ghost" href="{% url 'assets:list' %}">بازگشت به فهرست</a>
+        <button type="submit" class="btn kt-btn kt-btn-primary btn-primary btn-lg">ذخیره دارایی</button>
+        <a class="btn kt-btn kt-btn-light btn-ghost" href="{% url 'assets:list' %}">بازگشت به فهرست</a>
       </div>
     </form>
   </div>
@@ -37,4 +38,5 @@
     updateAssetFields();
   })();
   </script>
+</div>
 {% endblock %}

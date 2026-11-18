@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="card" style="max-width:820px">
-  <div class="card-head"><h2 class="card-title">اعلام خرابی تجهیز</h2></div>
-  <div class="card-body">
+<div class="itam-ops-page itam-ops-form-page">
+<div class="card kt-card itam-ops-card" style="max-width:820px">
+  <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">اعلام خرابی تجهیز</h2></div>
+  <div class="card-body kt-card-content itam-ops-card-content">
     <div class="alert alert-info">
       <span>
         با ثبت این فرم، «زمان اعلام خرابی توسط اداره» ثبت می‌شود و ساعت SLA از همین لحظه آغاز می‌گردد.
@@ -16,10 +17,11 @@
         {% include "partials/form_fields.html" with form=form %}
       </div>
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary btn-lg">ثبت و اعلام به پیمانکار</button>
-        <a class="btn btn-ghost" href="{% url 'tickets:list' %}">بازگشت</a>
+        <button type="submit" class="btn kt-btn kt-btn-primary btn-primary btn-lg">ثبت و اعلام به پیمانکار</button>
+        <a class="btn kt-btn kt-btn-light btn-ghost" href="{% url 'tickets:list' %}">بازگشت</a>
       </div>
     </form>
   </div>
+</div>
 </div>
 {% endblock %}
