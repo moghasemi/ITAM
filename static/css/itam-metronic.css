@@ -244,3 +244,113 @@ body.itam-sidebar-collapsed .itam-sidebar-collapse i{transform:rotate(180deg)}
 .dark .step { background: #111c2d !important; border-color: #34465f !important; color: #9fb0c6 !important; }
 .dark .tab { color: #9fb0c6 !important; }
 .dark .tab.active { background: #17253a !important; border-color: #34465f !important; color: #8bb6ff !important; }
+
+
+/* Dashboard — Metronic 9 native card composition */
+.itam-dashboard{display:flex;flex-direction:column;gap:18px;min-width:0}
+.itam-dashboard-section-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:2px 2px 0}
+.itam-dashboard-eyebrow{display:block;margin-bottom:4px;color:#3978e8;font-size:10px;font-weight:850}
+.itam-dashboard-section-intro h2{margin:0;color:#1d2939;font-size:16px;font-weight:850}
+.itam-dashboard-section-intro p{margin:4px 0 0;color:#8793a4;font-size:10px}
+.itam-dashboard-period{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;color:#8290a3;font-size:10px}
+.itam-dashboard-period i{font-size:14px}
+.itam-dashboard-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.itam-dashboard-stat{display:flex;align-items:center;gap:13px;min-width:0;padding:15px 16px;border:1px solid var(--itam-border);border-radius:13px;background:var(--itam-surface);box-shadow:var(--itam-shadow)}
+.itam-dashboard-stat-icon,.itam-dashboard-panel-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:42px;height:42px;border-radius:12px;font-size:19px}
+.itam-dashboard-stat-icon.is-primary,.itam-dashboard-panel-icon.is-primary{background:#edf3ff;color:#2866c7}
+.itam-dashboard-stat-icon.is-warning,.itam-dashboard-panel-icon.is-warning{background:#fff5e7;color:#bd760d}
+.itam-dashboard-stat-icon.is-danger,.itam-dashboard-panel-icon.is-danger{background:#fff0ef;color:#c44740}
+.itam-dashboard-stat-icon.is-success,.itam-dashboard-panel-icon.is-success{background:#eaf8ef;color:#16804b}
+.itam-dashboard-stat-icon.is-info,.itam-dashboard-panel-icon.is-info{background:#eaf5ff;color:#1d70b8}
+.itam-dashboard-stat-copy{display:flex;flex-direction:column;min-width:0;gap:3px}
+.itam-dashboard-stat-label{color:#8190a3;font-size:10px;font-weight:650}
+.itam-dashboard-stat-value{color:#1e293b;font-size:23px;font-weight:900;line-height:1.3;font-variant-numeric:tabular-nums}
+.itam-dashboard-stat-foot{color:#9aa5b4;font-size:9px;line-height:1.6}
+.itam-dashboard-main-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(310px,.85fr);gap:14px;align-items:stretch}
+.itam-dashboard-content-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.itam-dashboard-panel{min-width:0;overflow:hidden;border:1px solid var(--itam-border);border-radius:14px;background:var(--itam-surface);box-shadow:var(--itam-shadow)}
+.itam-dashboard-panel-header{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:70px;padding:13px 16px;border-bottom:1px solid var(--itam-border)}
+.itam-dashboard-panel-heading{display:flex;align-items:center;gap:10px;min-width:0}
+.itam-dashboard-panel-icon{width:36px;height:36px;border-radius:10px;font-size:16px}
+.itam-dashboard-panel-heading>div{min-width:0}
+.itam-dashboard-panel-heading h2{margin:0;color:#344256;font-size:12px;font-weight:850;line-height:1.7}
+.itam-dashboard-panel-heading p{margin:1px 0 0;color:#94a0af;font-size:9px;line-height:1.7}
+.itam-dashboard-panel-content{padding:15px 16px}
+.itam-dashboard-panel .kt-btn{flex-shrink:0}
+.itam-dashboard-table-wrap{width:100%;overflow-x:auto}
+.itam-dashboard-table{width:100%;min-width:520px}
+.itam-dashboard-table th,.itam-dashboard-table td{white-space:nowrap;vertical-align:middle}
+.itam-dashboard-table td{font-size:10px}
+.itam-dashboard-table .badge{display:inline-flex;align-items:center;white-space:nowrap}
+.itam-dashboard-link{color:#2866c7;font-weight:750}
+.itam-dashboard-link:hover{color:#174b9c;text-decoration:underline}
+.itam-dashboard-mono{font-variant-numeric:tabular-nums}
+.itam-dashboard-kv{display:flex;flex-direction:column;margin:0}
+.itam-dashboard-kv>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #edf0f5}
+.itam-dashboard-kv>div:last-child{border-bottom:0}
+.itam-dashboard-kv dt{color:#8290a3;font-size:10px}
+.itam-dashboard-kv dd{margin:0;color:#435267;font-size:10px;font-weight:750;text-align:left}
+.itam-dashboard-muted{color:#9aa5b4;font-size:9px;font-weight:500}
+.itam-dashboard-timeline{display:flex;flex-direction:column;gap:0;margin:0;padding:0;list-style:none}
+.itam-dashboard-timeline li{position:relative;display:flex;gap:12px;padding:0 0 16px}
+.itam-dashboard-timeline li:last-child{padding-bottom:0}
+.itam-dashboard-timeline li:not(:last-child):before{position:absolute;top:13px;bottom:-1px;inset-inline-start:5px;width:1px;background:#e6ebf2;content:""}
+.itam-dashboard-timeline-marker{position:relative;z-index:1;flex:0 0 auto;width:11px;height:11px;margin-top:4px;border:2px solid #cbd7e7;border-radius:50%;background:var(--itam-surface)}
+.itam-dashboard-timeline .is-current .itam-dashboard-timeline-marker{border-color:#3978e8;background:#3978e8;box-shadow:0 0 0 3px #eaf1ff}
+.itam-dashboard-timeline-body{min-width:0}
+.itam-dashboard-timeline-title{display:flex;flex-wrap:wrap;gap:5px;color:#526174;font-size:10px;font-weight:700;line-height:1.8}
+.itam-dashboard-timeline-meta{margin-top:2px;color:#9aa5b4;font-size:9px}
+.itam-dashboard-timeline-body p{margin:5px 0 0;color:#718096;font-size:9px;line-height:1.8;overflow-wrap:anywhere}
+.itam-dashboard-timeline-empty{color:#94a0af;font-size:10px}
+.itam-dashboard-primary-action,.itam-dashboard-secondary-action{display:inline-flex;align-items:center;gap:7px}
+.dark .itam-dashboard-section-intro h2,.dark .itam-dashboard-stat-value{color:#e2eaf5}
+.dark .itam-dashboard-section-intro p,.dark .itam-dashboard-stat-label,.dark .itam-dashboard-stat-foot{color:#91a2b8}
+.dark .itam-dashboard-stat,.dark .itam-dashboard-panel{background:#111c2d;border-color:#26364c}
+.dark .itam-dashboard-panel-header,.dark .itam-dashboard-kv>div{border-color:#26364c}
+.dark .itam-dashboard-panel-heading h2,.dark .itam-dashboard-kv dd{color:#dce6f3}
+.dark .itam-dashboard-panel-heading p,.dark .itam-dashboard-kv dt,.dark .itam-dashboard-muted{color:#91a2b8}
+.dark .itam-dashboard-timeline li:not(:last-child):before{background:#34465f}
+.dark .itam-dashboard-timeline-marker{background:#111c2d;border-color:#52647c}
+.dark .itam-dashboard-timeline-title{color:#c0cddd}
+.dark .itam-dashboard-timeline-body p{color:#9fb0c6}
+.dark .itam-dashboard-link{color:#8bb6ff}
+@media(max-width:1100px){
+ .itam-dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .itam-dashboard-main-grid{grid-template-columns:minmax(0,1fr) minmax(280px,.85fr)}
+}
+@media(max-width:850px){
+ .itam-dashboard-main-grid,.itam-dashboard-content-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:639px){
+ .itam-dashboard{gap:12px}
+ .itam-dashboard-section-intro{align-items:flex-start}
+ .itam-dashboard-section-intro h2{font-size:14px}
+ .itam-dashboard-period{font-size:9px}
+ .itam-dashboard-stats{gap:8px}
+ .itam-dashboard-stat{align-items:flex-start;gap:8px;padding:11px 10px}
+ .itam-dashboard-stat-icon{width:32px;height:32px;border-radius:9px;font-size:15px}
+ .itam-dashboard-stat-label{font-size:9px}
+ .itam-dashboard-stat-value{font-size:19px}
+ .itam-dashboard-stat-foot{font-size:8px}
+ .itam-dashboard-panel-header{align-items:flex-start;padding:11px 12px}
+ .itam-dashboard-panel-icon{width:31px;height:31px;font-size:14px}
+ .itam-dashboard-panel-heading h2{font-size:11px}
+ .itam-dashboard-panel-heading p{font-size:8px}
+ .itam-dashboard-panel-header>.kt-btn{font-size:9px;padding-inline:7px}
+ .itam-dashboard-panel-content{padding:12px}
+ .itam-dashboard-kv>div{align-items:flex-start}
+ .itam-dashboard-kv dd{text-align:left}
+}
+@media(max-width:370px){
+ .itam-dashboard-stats{grid-template-columns:minmax(0,1fr)}
+ .itam-dashboard-stat{align-items:center}
+}
+@media(prefers-reduced-motion:reduce){
+ .itam-dashboard *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}
+}
+@media print{
+ .itam-dashboard{gap:10px}
+ .itam-dashboard-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .itam-dashboard-panel{break-inside:avoid;box-shadow:none}
+ .itam-dashboard-main-grid,.itam-dashboard-content-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

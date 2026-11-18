@@ -131,3 +131,44 @@ class ScopedCenterSelectorContextTests(SimpleTestCase):
         scoped_centers.filter.assert_called_once_with(is_active=True)
         active_centers.order_by.assert_called_once_with("-is_headquarters", "name")
         self.assertEqual(context["all_centers"], visible_centers)
+
+
+class MetronicDashboardCompositionTests(SimpleTestCase):
+    def test_dashboard_uses_metronic_cards_and_responsive_sections(self):
+        template = get_template("core/dashboard.html")
+        source = Path(template.origin.name).read_text(encoding="utf-8")
+
+        self.assertIn('class="itam-dashboard"', source)
+        self.assertIn('class="kt-card itam-dashboard-stat"', source)
+        self.assertIn('class="kt-card itam-dashboard-panel"', source)
+        self.assertIn('class="itam-dashboard-main-grid"', source)
+        self.assertIn('class="itam-dashboard-content-grid"', source)
+        self.assertIn('aria-labelledby="monthly-chart-title"', source)
+
+    def test_dashboard_preserves_existing_context_and_workflow_links(self):
+        template = get_template("core/dashboard.html")
+        source = Path(template.origin.name).read_text(encoding="utf-8")
+
+        for context_key in (
+            "assets_total", "open_tickets", "overdue_response", "overdue_resolve",
+            "awaiting_user_confirm", "awaiting_it_confirm", "visits_planned",
+            "visits_overdue", "pending_snapshots_count", "monthly_series",
+            "calendar.work_start", "setting.work_day_labels", "sla_paused_count",
+            "my_visits", "recent_tickets", "pending_snapshots", "upcoming_visits",
+            "recent_events", "top_assets",
+        ):
+            with self.subTest(context_key=context_key):
+                self.assertIn(context_key, source)
+
+        for route_name in (
+            "tickets:create", "tickets:list", "tickets:detail",
+            "assets:create", "assets:snapshot_pending", "assets:snapshot_detail",
+            "assets:detail", "maintenance:my_visits", "maintenance:visit_detail",
+        ):
+            with self.subTest(route=route_name):
+                self.assertIn("{% url '" + route_name + "'", source)
+
+        self.assertIn("{% if user.is_technician and my_visits %}", source)
+        self.assertIn('id="itam-monthly-chart"', source)
+        self.assertIn('json_script:"itam-monthly-series"', source)
+        self.assertIn("window.ApexCharts", source)
