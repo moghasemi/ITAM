@@ -459,7 +459,7 @@ body.itam-sidebar-collapsed .itam-sidebar-collapse i{transform:rotate(180deg)}
   .itam-print-landscape{page:itam-landscape}
   .itam-label-print{page:itam-label}
   body.app-body{background:#fff!important;color:#111827!important;font-size:10pt}
-  .itam-sidebar,.itam-header,.itam-sidebar-backdrop,.itam-sidebar-footer,.itam-footer,.itam-page-head,.itam-breadcrumbs,.itam-page-actions,.no-print{display:none!important}
+  .itam-sidebar,.itam-header,.itam-sidebar-backdrop,.itam-sidebar-footer,.itam-footer,.itam-page-head,.itam-breadcrumbs,.itam-page-actions,.itam-skip-link,.messages,.no-print{display:none!important}
   .kt-wrapper,.itam-wrapper,.itam-main,.itam-page-content,.itam-content,.content{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}
   .itam-print-page{max-width:none;gap:8px}
   .itam-print-heading{padding-bottom:7px}
@@ -472,6 +472,7 @@ body.itam-sidebar-collapsed .itam-sidebar-collapse i{transform:rotate(180deg)}
   .itam-print-table th,.itam-print-table td{padding:5px}
   .itam-print-signatures>div{min-height:25mm}
   .itam-print-footer{margin-top:4px}
+  .itam-label-print .itam-print-heading,.itam-label-print .itam-print-footer{display:none!important}
   .itam-label-sheet{grid-template-columns:repeat(3,62mm);gap:3mm;justify-content:start}
   .itam-label-card{width:62mm;height:42mm;min-height:0;padding:3mm;border-radius:2mm;gap:1mm}
   .itam-label-qr svg{width:23mm;height:23mm}
