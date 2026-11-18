@@ -2,7 +2,7 @@
 {% load itam_tags %}
 {% block page_actions %}<button class="kt-btn kt-btn-primary no-print" type="button" data-print>🖨 چاپ برگه بازدید</button>{% endblock %}
 {% block content %}
-<section class="itam-print-page" dir="rtl">
+<section class="itam-print-page itam-print-landscape" dir="rtl">
 <header class="itam-print-heading"><div><p class="itam-print-eyebrow">گزارش رسمی نگهداری و تعمیرات</p><h1>برگه بازدید دوره‌ای {{ visit.number }}</h1><p class="itam-print-subtitle">{{ visit.contract.title }}</p></div><div class="itam-print-document-id">{{ visit.number }}</div></header>
 <section class="kt-card itam-print-card"><div class="kt-card-header itam-print-card-heading"><h2>مشخصات بازدید</h2></div><div class="kt-card-content"><dl class="itam-print-details">
 <div><dt>قرارداد</dt><dd>{{ visit.contract.number }} — {{ visit.contract.title }}</dd></div><div><dt>پیمانکار</dt><dd>{{ visit.contract.contractor.name }}</dd></div><div><dt>دوره</dt><dd>{{ visit.period_label }} (نوبت {{ visit.sequence_number|fa }})</dd></div><div><dt>تاریخ برنامه‌ریزی‌شده</dt><dd>{{ visit.scheduled_date|jdate_full }}</dd></div><div><dt>آخرین مهلت</dt><dd>{{ visit.scheduled_end_date|jdate_full }}</dd></div><div><dt>کارشناس بازدیدکننده</dt><dd>{{ visit.technician.display_name|default:"—" }}</dd></div><div><dt>زمان شروع / پایان</dt><dd>{{ visit.started_at|jdatetime|default:"—" }} — {{ visit.finished_at|jdatetime|default:"—" }}</dd></div><div><dt>وضعیت</dt><dd>{{ visit.get_status_display }}</dd></div>
