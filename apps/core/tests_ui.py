@@ -352,7 +352,7 @@ class MetronicPrintAndAgentFinalizationTests(SimpleTestCase):
         for token in ("@media print", ".itam-sidebar", ".itam-header", ".itam-page-content", ".itam-skip-link", ".messages", "@page itam-landscape", "@page itam-label", "page:itam-label", ".itam-label-print .itam-print-heading", ".itam-label-card", "62mm", "gap:3mm", ".itam-print-signatures"):
             with self.subTest(token=token):
                 self.assertIn(token, css)
-        self.assertNotIn(r"\\n  @page", css)
+        self.assertNotIn(r"\n  @page", css)
 
     def test_standalone_hwagent_has_no_chart_cdn_and_uses_accessible_tabs(self):
         agent_path = Path(__file__).resolve().parents[2] / "HWAgent" / "index.html"
