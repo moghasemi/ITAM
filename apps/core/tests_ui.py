@@ -316,7 +316,11 @@ class MetronicPrintAndAgentFinalizationTests(SimpleTestCase):
                 template = get_template(template_name)
                 source = Path(template.origin.name).read_text(encoding="utf-8")
                 self.assertIn("itam-print-page", source)
-                self.assertIn("kt-card", source)
+                if template_name == "assets/label_print.html":
+                    # Label sheets use a dedicated physical label grid, not dashboard cards.
+                    self.assertIn("itam-label-card", source)
+                else:
+                    self.assertIn("kt-card", source)
                 self.assertIn("no-print", source)
 
         for template_name in ("maintenance/visit_print.html", "tickets/ticket_print.html"):
