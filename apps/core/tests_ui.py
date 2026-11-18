@@ -1,5 +1,6 @@
 """Regression checks for the Metronic-based Django template shell."""
 from pathlib import Path
+import re
 
 from django.contrib.staticfiles import finders
 from django.template.loader import get_template
@@ -252,3 +253,47 @@ class MetronicOperationalPageCompositionTests(SimpleTestCase):
                       "maintenance:check_edit", "checks", "stats.conditions"):
             self.assertIn(token, detail)
         self.assertIn("maintenance:visit_list", form)
+
+
+class MetronicMigrationCoverageTests(SimpleTestCase):
+    """Guard the completed migration wave and retired shell selectors."""
+
+    def test_remaining_application_templates_use_metronic_component_hooks(self):
+        template_names = (
+            "accounts/password_change.html", "accounts/profile.html", "accounts/profile_form.html",
+            "accounts/user_detail.html", "accounts/user_form.html", "accounts/user_list.html",
+            "accounts/user_password.html", "org/center_list.html", "org/contract_list.html",
+            "org/contract_detail.html", "org/contractor_list.html", "org/contractor_detail.html",
+            "org/assignment_list.html", "org/contract_form.html", "org/contractor_form.html",
+            "org/department_list.html", "org/location_list.html", "org/simple_form.html",
+            "org/assignment_form.html", "core/audit_list.html", "core/notification_list.html",
+            "core/search.html", "assets/attachment_form.html", "assets/category_list.html",
+            "assets/component_type_list.html", "assets/snapshot_detail.html", "assets/snapshot_form.html",
+            "assets/snapshot_pending.html", "assets/snapshot_start.html", "assets/hardware_change_report.html",
+            "assets/hwagent_batch_import.html", "assets/hwagent_upload.html", "assets/simple_form.html",
+            "tickets/my_tickets.html", "maintenance/my_visits.html", "maintenance/it_request_detail.html",
+            "maintenance/repair_detail.html", "maintenance/workflow_list.html", "maintenance/workflow_form.html",
+            "maintenance/check_form.html", "reports/home.html", "reports/sla.html", "reports/inventory.html",
+            "reports/contractors.html", "reports/failures.html", "reports/repairs.html", "reports/visits.html",
+            "integrations/endpoint_list.html", "integrations/endpoint_form.html", "integrations/api_call_list.html",
+            "integrations/outbox_detail.html", "integrations/outbox_list.html",
+        )
+        for template_name in template_names:
+            with self.subTest(template=template_name):
+                source = Path(get_template(template_name).origin.name).read_text(encoding="utf-8")
+                self.assertRegex(source, r"kt-(?:card|btn|table)")
+
+    def test_retired_pre_metronic_shell_classes_are_not_used_in_templates(self):
+        template_root = Path(__file__).resolve().parents[2] / "templates"
+        retired_classes = {
+            "app-shell", "sidebar", "sidebar-brand", "brand-mark", "brand-text", "sidebar-nav",
+            "nav-section", "nav-item", "nav-icon", "nav-count", "sidebar-footer", "topbar",
+            "topbar-search", "topbar-actions", "icon-btn", "menu-toggle", "user-chip", "user-meta",
+            "user-menu", "link-danger", "page-head", "page-title", "page-subtitle", "page-actions",
+            "breadcrumbs",
+        }
+        for template_path in template_root.rglob("*.html"):
+            source = template_path.read_text(encoding="utf-8")
+            for class_value in re.findall(r"class=[\\\"']([^\\\"']+)[\\\"']", source):
+                for class_name in class_value.split():
+                    self.assertNotIn(class_name, retired_classes, msg=f"{template_path}: obsolete class {class_name}")
