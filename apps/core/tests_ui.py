@@ -83,6 +83,8 @@ class MetronicShellAccessibilityContractTests(SimpleTestCase):
         self.assertIn('sidebar.setAttribute("inert"', script)
         self.assertIn('if(event.key==="Escape")', script)
         self.assertIn('if(event.key!=="Tab")return;', script)
+        self.assertIn('firstMenuLink.focus()', script)
+        self.assertIn('link.setAttribute("aria-label",accessibleLabel)', script)
         self.assertNotIn(".user-chip", script)
         self.assertNotIn(".user-menu", script)
 
