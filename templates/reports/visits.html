@@ -2,45 +2,45 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-primary" href="?{{ request.GET.urlencode }}&export=1&format=xlsx">📊 خروجی Excel</a>
-  <a class="btn btn-ghost" href="{% url 'reports:home' %}">همه گزارش‌ها</a>
+  <a class="btn btn-primary kt-btn kt-btn-primary" href="?{{ request.GET.urlencode }}&export=1&format=xlsx">📊 خروجی Excel</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'reports:home' %}">همه گزارش‌ها</a>
 {% endblock %}
 
 {% block content %}
 
-<div class="stat-grid">
-  <div class="stat-card"><div class="stat-icon">📋</div><div>
+<div class="stat-grid itam-ops-stat-grid">
+  <div class="stat-card itam-ops-stat-card"><div class="stat-icon">📋</div><div>
     <div class="stat-value">{{ summary.total|fa }}</div><div class="stat-label">کل نوبت‌های بازدید</div></div></div>
-  <div class="stat-card is-info"><div class="stat-icon">🗓</div><div>
+  <div class="stat-card is-info itam-ops-stat-card"><div class="stat-icon">🗓</div><div>
     <div class="stat-value">{{ summary.planned|fa }}</div><div class="stat-label">برنامه‌ریزی‌شده</div></div></div>
-  <div class="stat-card is-success"><div class="stat-icon">✅</div><div>
+  <div class="stat-card is-success itam-ops-stat-card"><div class="stat-icon">✅</div><div>
     <div class="stat-value">{{ summary.done|fa }}</div><div class="stat-label">انجام‌شده</div></div></div>
-  <div class="stat-card is-danger"><div class="stat-icon">⚠️</div><div>
+  <div class="stat-card is-danger itam-ops-stat-card"><div class="stat-icon">⚠️</div><div>
     <div class="stat-value">{{ summary.missed|fa }}</div><div class="stat-label">انجام‌نشده / خارج از مهلت</div></div></div>
-  <div class="stat-card is-warning"><div class="stat-icon">📈</div><div>
+  <div class="stat-card is-warning itam-ops-stat-card"><div class="stat-icon">📈</div><div>
     <div class="stat-value">
       {% if summary.compliance is not None %}{{ summary.compliance|floatformat:0|fa }}٪{% else %}—{% endif %}
     </div>
     <div class="stat-label">درصد رعایت بازدید</div></div></div>
 </div>
 
-<div class="card mt-2">
-  <div class="card-head"><h2 class="card-title">پالایه گزارش</h2></div>
-  <div class="card-body">
+<div class="card mt-2 kt-card">
+  <div class="card-head kt-card-header"><h2 class="card-title">پالایه گزارش</h2></div>
+  <div class="card-body kt-card-content">
     <form method="get" class="form-grid">
       {% include "partials/form_fields.html" with form=filter_form %}
       <div class="form-actions">
-        <button class="btn btn-primary" type="submit">اعمال</button>
-        <a class="btn btn-ghost" href="{{ request.path }}">پاک‌کردن</a>
+        <button class="btn btn-primary kt-btn kt-btn-primary" type="submit">اعمال</button>
+        <a class="btn btn-ghost kt-btn kt-btn-light" href="{{ request.path }}">پاک‌کردن</a>
       </div>
     </form>
   </div>
 </div>
 
-<div class="card">
-  <div class="card-head"><h2 class="card-title">جزئیات نوبت‌های بازدید</h2></div>
+<div class="card kt-card">
+  <div class="card-head kt-card-header"><h2 class="card-title">جزئیات نوبت‌های بازدید</h2></div>
   <div class="table-wrap">
-    <table class="table compact">
+    <table class="table compact kt-table">
       <thead>
         <tr><th>شماره</th><th>قرارداد</th><th>پیمانکار</th><th>دوره</th><th>تاریخ برنامه</th>
             <th>آخرین مهلت</th><th>کارشناس</th><th>زمان پایان</th><th>تجهیزات</th>

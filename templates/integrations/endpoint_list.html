@@ -2,8 +2,8 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-primary" href="{% url 'integrations:endpoint_create' %}">➕ افزودن مقصد</a>
-  <a class="btn btn-ghost" href="{% url 'integrations:outbox_list' %}">صف رخدادها</a>
+  <a class="btn btn-primary kt-btn kt-btn-primary" href="{% url 'integrations:endpoint_create' %}">➕ افزودن مقصد</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'integrations:outbox_list' %}">صف رخدادها</a>
 {% endblock %}
 
 {% block content %}
@@ -15,9 +15,9 @@
   </span>
 </div>
 
-<div class="card">
+<div class="card kt-card">
   <div class="table-wrap">
-    <table class="table">
+    <table class="table kt-table">
       <thead>
         <tr><th>عنوان</th><th>نشانی</th><th>احراز هویت</th><th>پالایه رخداد</th>
             <th>آخرین ارسال موفق</th><th>خطاهای پی‌درپی</th><th>وضعیت</th><th></th></tr>
@@ -35,7 +35,7 @@
             {% else %}<span class="badge badge-success">۰</span>{% endif %}
           </td>
           <td>{% if item.is_active %}<span class="badge badge-success">فعال</span>{% else %}<span class="badge badge-neutral">غیرفعال</span>{% endif %}</td>
-          <td><a class="btn btn-ghost btn-sm" href="{% url 'integrations:endpoint_update' item.pk %}">ویرایش</a></td>
+          <td><a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'integrations:endpoint_update' item.pk %}">ویرایش</a></td>
         </tr>
       {% empty %}
         <tr><td colspan="8">
