@@ -312,7 +312,8 @@ function render(d) {
 
     </div>`;
 
-  renderMeters("ramChart", d.ram, item => item.slot, item => item.capacityGB, totalRam);\n  renderMeters("diskChart", d.disks, item => item.name, item => item.sizeGB, totalDisk);
+  renderMeters("ramChart", d.ram, item => item.slot, item => item.capacityGB, totalRam);
+  renderMeters("diskChart", d.disks, item => item.name, item => item.sizeGB, totalDisk);
 }
 
 function renderMeters(targetId, items, labelOf, valueOf, total) {
