@@ -1,4 +1,6 @@
 """Regression checks for the Metronic-based Django template shell."""
+from pathlib import Path
+
 from django.contrib.staticfiles import finders
 from django.template.loader import get_template
 from types import SimpleNamespace
@@ -31,6 +33,36 @@ class MetronicTemplateCompilationTests(SimpleTestCase):
         ):
             with self.subTest(asset=asset_path):
                 self.assertIsNotNone(finders.find(asset_path))
+
+
+class MetronicSidebarLayoutContractTests(SimpleTestCase):
+    def test_sidebar_and_content_share_metronic_width_token(self):
+        css_path = finders.find("css/itam-metronic.css")
+        self.assertIsNotNone(css_path)
+        css = Path(css_path).read_text(encoding="utf-8")
+        compact_css = "".join(css.split())
+
+        # The bridge mirrors Metronic's token; it must not invent a second width.
+        self.assertIn(
+            "body.app-body{--itam-sidebar-width:var(--sidebar-width,280px);",
+            compact_css,
+        )
+        self.assertIn(
+            ".itam-wrapper{min-width:0;margin-inline-start:0;",
+            compact_css,
+        )
+        self.assertNotIn("--itam-sidebar-width:258px", compact_css)
+
+    def test_collapsed_sidebar_updates_metronic_and_itam_width_tokens(self):
+        css_path = finders.find("css/itam-metronic.css")
+        self.assertIsNotNone(css_path)
+        css = "".join(Path(css_path).read_text(encoding="utf-8").split())
+
+        self.assertIn(
+            "body.itam-sidebar-collapsed{--sidebar-width:var(--sidebar-width-collapse,80px);"
+            "--itam-sidebar-width:var(--sidebar-width-collapse,80px)}",
+            css,
+        )
 
 
 class ScopedCenterSelectorContextTests(SimpleTestCase):

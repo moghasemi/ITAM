@@ -6,11 +6,11 @@
 :root {
   --itam-bg:#f5f7fb; --itam-surface:#fff; --itam-surface-soft:#f8fafc;
   --itam-border:#e5eaf1; --itam-text:#172334; --itam-muted:#718096;
-  --itam-primary:#2563eb; --itam-sidebar-width:258px; --itam-header-height:70px;
+  --itam-primary:#2563eb; --itam-header-height:70px;
   --itam-radius:14px; --itam-shadow:0 8px 28px rgba(15,23,42,.045);
 }
 html,body{min-height:100%} html[dir=rtl],body[dir=rtl],body.app-body{direction:rtl}
-body.app-body{font-family:"Vazirmatn",Tahoma,sans-serif!important;background:var(--itam-bg);color:var(--itam-text);font-size:14px;line-height:1.75;letter-spacing:0}
+body.app-body{--itam-sidebar-width:var(--sidebar-width, 280px);font-family:"Vazirmatn",Tahoma,sans-serif!important;background:var(--itam-bg);color:var(--itam-text);font-size:14px;line-height:1.75;letter-spacing:0}
 body.app-body *{letter-spacing:0!important}
 body.app-body button,body.app-body input,body.app-body select,body.app-body textarea{font-family:inherit}
 a{text-decoration:none}a:hover{text-decoration:none}
@@ -30,7 +30,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .itam-menu .kt-menu-title{flex:1}.itam-menu .kt-menu-badge{margin-inline-start:auto}
 .itam-sidebar-footer{border-top:1px solid var(--itam-border);background:var(--itam-surface)}
 .itam-status-dot{width:7px;height:7px;display:inline-block;border-radius:50%;background:#16a34a;box-shadow:0 0 0 3px #dcfce7}
-.itam-wrapper{min-width:0;margin-inline-start:var(--itam-sidebar-width);transition:margin .2s ease}
+/* Metronic owns wrapper spacing through --sidebar-width; do not add a second offset here. */
+.itam-wrapper{min-width:0;margin-inline-start:0;transition:margin .2s ease}
 .itam-header{inset-block-start:0;inset-inline-start:var(--itam-sidebar-width);inset-inline-end:0;height:var(--itam-header-height);border-bottom:1px solid var(--itam-border);background:rgba(255,255,255,.94)!important;backdrop-filter:blur(14px);transition:inset .2s ease}
 .itam-header-inner{height:var(--itam-header-height)}
 .itam-header-context{display:flex;flex-direction:column;gap:0}
@@ -170,9 +171,11 @@ input[type=file]{padding:6px!important}
 .dark .itam-page-subtitle,.dark .itam-footer{color:#8798ad}
 
 /* Collapsible sidebar */
-body.itam-sidebar-collapsed .itam-sidebar{width:78px;min-width:78px}
-body.itam-sidebar-collapsed .itam-wrapper{margin-inline-start:78px}
-body.itam-sidebar-collapsed .itam-header{inset-inline-start:78px}
+/* Keep Metronic's wrapper padding, header inset and sidebar width synchronized when collapsed. */
+body.itam-sidebar-collapsed{--sidebar-width:var(--sidebar-width-collapse, 80px);--itam-sidebar-width:var(--sidebar-width-collapse, 80px)}
+body.itam-sidebar-collapsed .itam-sidebar{width:var(--itam-sidebar-width);min-width:var(--itam-sidebar-width)}
+body.itam-sidebar-collapsed .itam-wrapper{margin-inline-start:0}
+body.itam-sidebar-collapsed .itam-header{inset-inline-start:var(--itam-sidebar-width)}
 body.itam-sidebar-collapsed .itam-brand-title,body.itam-sidebar-collapsed .itam-brand-subtitle,
 body.itam-sidebar-collapsed .itam-menu .kt-menu-heading,body.itam-sidebar-collapsed .itam-menu .kt-menu-title,
 body.itam-sidebar-collapsed .itam-menu .kt-menu-badge,body.itam-sidebar-collapsed .itam-sidebar-footer{display:none!important}
