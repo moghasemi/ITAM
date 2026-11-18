@@ -2,15 +2,15 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  {% if user.is_admin_province %}<a class="btn btn-primary" href="{% url 'org:contractor_update' object.pk %}">ویرایش</a>{% endif %}
-  <a class="btn btn-ghost" href="{% url 'org:contract_list' %}?contractor={{ object.pk }}">قراردادها</a>
+  {% if user.is_admin_province %}<a class="btn btn-primary kt-btn kt-btn-primary" href="{% url 'org:contractor_update' object.pk %}">ویرایش</a>{% endif %}
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'org:contract_list' %}?contractor={{ object.pk }}">قراردادها</a>
 {% endblock %}
 
 {% block content %}
 <div class="grid grid-2">
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">اطلاعات پیمانکار</h2></div>
-    <div class="card-body">
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">اطلاعات پیمانکار</h2></div>
+    <div class="card-body kt-card-content">
       <div class="kv">
         <div class="k">نام شرکت</div><div>{{ object.name }}</div>
         <div class="k">کد پیمانکار</div><div>{{ object.code|default:"—" }}</div>
@@ -24,25 +24,25 @@
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">شاخص‌های عملکرد</h2></div>
-    <div class="card-body">
-      <div class="stat-grid">
-        <div class="stat-card"><div class="stat-icon">🛠</div><div>
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">شاخص‌های عملکرد</h2></div>
+    <div class="card-body kt-card-content">
+      <div class="stat-grid itam-ops-stat-grid">
+        <div class="stat-card itam-ops-stat-card"><div class="stat-icon">🛠</div><div>
           <div class="stat-value">{{ tickets_total|fa }}</div><div class="stat-label">کل درخواست‌ها</div></div></div>
-        <div class="stat-card is-warning"><div class="stat-icon">⏳</div><div>
+        <div class="stat-card is-warning itam-ops-stat-card"><div class="stat-icon">⏳</div><div>
           <div class="stat-value">{{ tickets_open|fa }}</div><div class="stat-label">درخواست باز</div></div></div>
-        <div class="stat-card is-info"><div class="stat-icon">🗓</div><div>
+        <div class="stat-card is-info itam-ops-stat-card"><div class="stat-icon">🗓</div><div>
           <div class="stat-value">{{ visits|length|fa }}</div><div class="stat-label">بازدیدهای اخیر</div></div></div>
       </div>
     </div>
   </div>
 </div>
 
-<div class="card">
-  <div class="card-head"><h2 class="card-title">قراردادها</h2></div>
+<div class="card kt-card">
+  <div class="card-head kt-card-header"><h2 class="card-title">قراردادها</h2></div>
   <div class="table-wrap">
-    <table class="table compact">
+    <table class="table compact kt-table">
       <thead><tr><th>شماره</th><th>عنوان</th><th>بازه</th><th>دوره بازدید</th><th>وضعیت</th><th></th></tr></thead>
       <tbody>
       {% for contract in contracts %}
@@ -52,7 +52,7 @@
           <td class="nowrap">{{ contract.jalali_range }}</td>
           <td>{{ contract.visit_interval_days|fa }} روز</td>
           <td><span class="badge badge-{{ contract.status_css }}">{{ contract.get_status_display }}</span></td>
-          <td><a class="btn btn-ghost btn-sm" href="{% url 'org:contract_detail' contract.pk %}">مشاهده</a></td>
+          <td><a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'org:contract_detail' contract.pk %}">مشاهده</a></td>
         </tr>
       {% empty %}
         <tr><td colspan="6">{% include "partials/empty.html" with text="قراردادی ثبت نشده است." %}</td></tr>
@@ -63,10 +63,10 @@
 </div>
 
 <div class="grid grid-2">
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">کارشناسان پیمانکار</h2></div>
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">کارشناسان پیمانکار</h2></div>
     <div class="table-wrap">
-      <table class="table compact">
+      <table class="table compact kt-table">
         <thead><tr><th>نام</th><th>نام کاربری</th><th>تلفن</th><th>وضعیت</th></tr></thead>
         <tbody>
         {% for tech in technicians %}
@@ -84,10 +84,10 @@
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">آخرین بازدیدهای دوره‌ای</h2></div>
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">آخرین بازدیدهای دوره‌ای</h2></div>
     <div class="table-wrap">
-      <table class="table compact">
+      <table class="table compact kt-table">
         <thead><tr><th>شماره</th><th>قرارداد</th><th>تاریخ</th><th>وضعیت</th></tr></thead>
         <tbody>
         {% for visit in visits %}
