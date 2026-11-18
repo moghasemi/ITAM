@@ -354,3 +354,61 @@ body.itam-sidebar-collapsed .itam-sidebar-collapse i{transform:rotate(180deg)}
  .itam-dashboard-panel{break-inside:avoid;box-shadow:none}
  .itam-dashboard-main-grid,.itam-dashboard-content-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+
+/* Operational workspaces — assets, tickets and maintenance */
+.itam-ops-page{display:flex;flex-direction:column;gap:16px;min-width:0}
+.itam-ops-list-page{gap:14px}
+.itam-ops-detail-page{gap:16px}
+.itam-ops-form-page{align-items:stretch}
+.itam-ops-card{min-width:0;overflow:hidden;border-radius:14px}
+.itam-ops-card-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.itam-ops-card-content{min-width:0}
+.itam-ops-card-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.itam-ops-filter{min-width:0}
+.itam-ops-table-wrap{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain}
+.itam-ops-table{width:100%;min-width:760px;border-collapse:separate;border-spacing:0}
+.itam-ops-table th{font-size:10px;font-weight:800;white-space:nowrap}
+.itam-ops-table td{font-size:10px;vertical-align:middle}
+.itam-ops-table td a:not(.btn){font-weight:750}
+.itam-ops-table .badge{white-space:nowrap}
+.itam-ops-table .table-actions{white-space:nowrap}
+.itam-ops-table .table-actions .btn{margin-inline-start:3px}
+.itam-ops-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.itam-ops-stat-card{min-width:0}
+.itam-ops-grid{align-items:start}
+.itam-ops-steps{display:flex;gap:7px;flex-wrap:wrap}
+.itam-ops-tabs{display:flex;gap:7px;overflow-x:auto;overscroll-behavior-inline:contain;padding:4px 2px 10px}
+.itam-ops-tabs .tab{flex:0 0 auto;white-space:nowrap}
+.itam-ops-tab-panel{min-width:0}
+.itam-ops-page .form-grid{min-width:0}
+.itam-ops-page .form-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.itam-ops-form-page>.itam-ops-card{width:100%;max-width:1000px;margin-inline:auto}
+.itam-ops-form-page .itam-ops-card-content{padding:clamp(16px,2.5vw,28px)}
+.itam-ops-page .kv{min-width:0}
+.itam-ops-page .kv>div{overflow-wrap:anywhere}
+.dark .itam-ops-card{background:#111c2d;border-color:#26364c}
+.dark .itam-ops-card-header,.dark .itam-ops-card-footer{border-color:#26364c}
+.dark .itam-ops-table th{background:#17253a;color:#a9bad0}
+.dark .itam-ops-table td{color:#c0cddd}
+@media(max-width:1100px){
+ .itam-ops-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .itam-ops-table{min-width:700px}
+}
+@media(max-width:767px){
+ .itam-ops-page{gap:12px}
+ .itam-ops-card-header{align-items:flex-start}
+ .itam-ops-table{min-width:660px}
+ .itam-ops-card-footer{align-items:flex-start}
+}
+@media(max-width:420px){
+ .itam-ops-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .itam-ops-stat-card{padding:10px!important}
+ .itam-ops-page .form-actions>.btn{flex:1 1 auto}
+}
+@media print{
+ .itam-ops-page{gap:9px}
+ .itam-ops-card{break-inside:avoid;box-shadow:none}
+ .itam-ops-table-wrap{overflow:visible}
+ .itam-ops-table{min-width:0}
+}

@@ -1,19 +1,21 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="card" style="max-width:820px">
-  <div class="card-head"><h2 class="card-title">ثبت / ویرایش نوبت بازدید دوره‌ای</h2></div>
-  <div class="card-body">
+<div class="itam-ops-page itam-ops-form-page">
+<div class="card kt-card itam-ops-card" style="max-width:820px">
+  <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">ثبت / ویرایش نوبت بازدید دوره‌ای</h2></div>
+  <div class="card kt-card itam-ops-card-body">
     <form method="post">
       {% csrf_token %}
       <div class="form-grid">
         {% include "partials/form_fields.html" with form=form %}
       </div>
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">ذخیره بازدید</button>
-        <a class="btn btn-ghost" href="{% url 'maintenance:visit_list' %}">بازگشت</a>
+        <button type="submit" class="btn kt-btn kt-btn-primary btn-primary">ذخیره بازدید</button>
+        <a class="btn kt-btn kt-btn-light btn-ghost" href="{% url 'maintenance:visit_list' %}">بازگشت</a>
       </div>
     </form>
   </div>
+</div>
 </div>
 {% endblock %}

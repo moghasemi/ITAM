@@ -2,16 +2,17 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-primary" href="{% url 'tickets:create' %}">➕ اعلام خرابی</a>
-  <a class="btn btn-ghost" href="{% url 'tickets:list' %}?open_only=on">درخواست‌های باز ({{ open_count|fa }})</a>
+  <a class="btn kt-btn kt-btn-primary btn-primary" href="{% url 'tickets:create' %}">➕ اعلام خرابی</a>
+  <a class="btn kt-btn kt-btn-light btn-ghost" href="{% url 'tickets:list' %}?open_only=on">درخواست‌های باز ({{ open_count|fa }})</a>
 {% endblock %}
 
 {% block content %}
-{% include "partials/filter_bar.html" %}
+<div class="itam-ops-page itam-ops-list-page">
+<div class="itam-ops-filter">{% include "partials/filter_bar.html" %}</div>
 
-<div class="card">
-  <div class="table-wrap">
-    <table class="table">
+<div class="card kt-card itam-ops-card">
+  <div class="table-wrap itam-ops-table-wrap">
+    <table class="table kt-table itam-ops-table">
       <thead>
         <tr>
           <th>شماره</th><th>تجهیز</th><th>عنوان خرابی</th><th>اولویت</th><th>وضعیت</th>
@@ -41,7 +42,7 @@
             {% else %}<span class="badge badge-neutral">رفع —</span>{% endif %}
           </td>
           <td class="table-actions">
-            <a class="btn btn-ghost btn-sm" href="{% url 'tickets:detail' ticket.pk %}">مشاهده</a>
+            <a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'tickets:detail' ticket.pk %}">مشاهده</a>
           </td>
         </tr>
       {% empty %}
@@ -50,6 +51,7 @@
       </tbody>
     </table>
   </div>
-  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+  <div class="card kt-card itam-ops-card-foot">{% include "partials/pagination.html" %}</div>
+</div>
 </div>
 {% endblock %}

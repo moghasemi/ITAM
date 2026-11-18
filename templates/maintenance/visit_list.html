@@ -3,29 +3,30 @@
 
 {% block page_actions %}
   {% if can_create %}
-    <a class="btn btn-primary" href="{% url 'maintenance:visit_create' %}">➕ ثبت نوبت بازدید</a>
+    <a class="btn kt-btn kt-btn-primary btn-primary" href="{% url 'maintenance:visit_create' %}">➕ ثبت نوبت بازدید</a>
   {% endif %}
-  <a class="btn btn-ghost" href="{% url 'reports:visits' %}">گزارش رعایت بازدیدها</a>
+  <a class="btn kt-btn kt-btn-light btn-ghost" href="{% url 'reports:visits' %}">گزارش رعایت بازدیدها</a>
 {% endblock %}
 
 {% block content %}
+<div class="itam-ops-page itam-ops-list-page">
 
-<div class="stat-grid">
-  <div class="stat-card is-info"><div class="stat-icon">🗓</div><div>
+<div class="stat-grid itam-ops-stat-grid">
+  <div class="stat-card itam-ops-stat-card is-info"><div class="stat-icon">🗓</div><div>
     <div class="stat-value">{{ counts.planned|fa }}</div><div class="stat-label">برنامه‌ریزی‌شده</div></div></div>
-  <div class="stat-card is-warning"><div class="stat-icon">⏳</div><div>
+  <div class="stat-card itam-ops-stat-card is-warning"><div class="stat-icon">⏳</div><div>
     <div class="stat-value">{{ counts.in_progress|fa }}</div><div class="stat-label">در حال انجام</div></div></div>
-  <div class="stat-card is-success"><div class="stat-icon">✅</div><div>
+  <div class="stat-card itam-ops-stat-card is-success"><div class="stat-icon">✅</div><div>
     <div class="stat-value">{{ counts.done|fa }}</div><div class="stat-label">انجام‌شده</div></div></div>
-  <div class="stat-card is-danger"><div class="stat-icon">⚠️</div><div>
+  <div class="stat-card itam-ops-stat-card is-danger"><div class="stat-icon">⚠️</div><div>
     <div class="stat-value">{{ counts.missed|fa }}</div><div class="stat-label">انجام‌نشده</div></div></div>
 </div>
 
-<div class="mt-2">{% include "partials/filter_bar.html" %}</div>
+<div class="mt-2"><div class="itam-ops-filter">{% include "partials/filter_bar.html" %}</div></div>
 
-<div class="card">
-  <div class="table-wrap">
-    <table class="table">
+<div class="card kt-card itam-ops-card">
+  <div class="table-wrap itam-ops-table-wrap">
+    <table class="table kt-table itam-ops-table">
       <thead>
         <tr>
           <th>شماره بازدید</th><th>قرارداد</th><th>پیمانکار</th><th>دوره</th>
@@ -54,7 +55,7 @@
           </td>
           <td><span class="badge badge-{{ visit.status|visits_status_css }}">{{ visit.get_status_display }}</span></td>
           <td>{% if visit.it_confirmed_at %}<span class="badge badge-success">تایید شده</span>{% else %}—{% endif %}</td>
-          <td><a class="btn btn-ghost btn-sm" href="{% url 'maintenance:visit_detail' visit.pk %}">برگه بازدید</a></td>
+          <td><a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'maintenance:visit_detail' visit.pk %}">برگه بازدید</a></td>
         </tr>
       {% empty %}
         <tr><td colspan="12">{% include "partials/empty.html" with text="بازدیدی ثبت نشده است." %}</td></tr>
@@ -62,6 +63,7 @@
       </tbody>
     </table>
   </div>
-  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+  <div class="card kt-card itam-ops-card-foot">{% include "partials/pagination.html" %}</div>
+</div>
 </div>
 {% endblock %}

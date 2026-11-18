@@ -2,28 +2,29 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-ghost" href="{% url 'maintenance:visit_print' object.pk %}" target="_blank">🖨 برگه چاپی</a>
-  <a class="btn btn-ghost" href="{% url 'org:contract_detail' object.contract_id %}">پرونده قرارداد</a>
+  <a class="btn kt-btn kt-btn-light btn-ghost" href="{% url 'maintenance:visit_print' object.pk %}" target="_blank">🖨 برگه چاپی</a>
+  <a class="btn kt-btn kt-btn-light btn-ghost" href="{% url 'org:contract_detail' object.contract_id %}">پرونده قرارداد</a>
   {% if can_manage and object.status == 'planned' %}
     <form method="post" action="{% url 'maintenance:visit_start' object.pk %}" class="inline-form">{% csrf_token %}
-      <button class="btn btn-primary" type="submit">▶️ شروع بازدید</button>
+      <button class="btn kt-btn kt-btn-primary btn-primary" type="submit">▶️ شروع بازدید</button>
     </form>
   {% endif %}
   {% if can_manage and object.status != 'done' %}
     <form method="post" action="{% url 'maintenance:visit_bulk_healthy' object.pk %}" class="inline-form"
           data-confirm="برگه‌های بازدیدشده‌نشده با وضعیت «سالم» ثبت شوند؟">{% csrf_token %}
-      <button class="btn btn-secondary" type="submit">⚡ ثبت گروهی وضعیت سالم</button>
+      <button class="btn kt-btn kt-btn-secondary btn-secondary" type="submit">⚡ ثبت گروهی وضعیت سالم</button>
     </form>
   {% endif %}
   {% if can_confirm and object.status == 'done' and not object.it_confirmed_at %}
     <form method="post" action="{% url 'maintenance:visit_confirm' object.pk %}" class="inline-form"
           data-confirm="این بازدید تایید شود؟">{% csrf_token %}
-      <button class="btn btn-success" type="submit">✅ تایید بازدید</button>
+      <button class="btn kt-btn kt-btn-success btn-success" type="submit">✅ تایید بازدید</button>
     </form>
   {% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="itam-ops-page itam-ops-detail-page">
 
 {% if object.is_overdue %}
   <div class="alert alert-danger">
@@ -31,24 +32,24 @@
   </div>
 {% endif %}
 
-<div class="stat-grid">
-  <div class="stat-card">
+<div class="stat-grid itam-ops-stat-grid">
+  <div class="stat-card itam-ops-stat-card">
     <div class="stat-icon">🗓</div>
     <div><div class="stat-value">{{ object.number }}</div><div class="stat-label">{{ object.period_label }}</div></div>
   </div>
-  <div class="stat-card is-info">
+  <div class="stat-card itam-ops-stat-card is-info">
     <div class="stat-icon">📋</div>
     <div><div class="stat-value">{{ stats.done|fa }} / {{ stats.total|fa }}</div><div class="stat-label">تجهیز بازدیدشده</div></div>
   </div>
-  <div class="stat-card {% if stats.faulty %}is-warning{% else %}is-success{% endif %}">
+  <div class="stat-card itam-ops-stat-card {% if stats.faulty %}is-warning{% else %}is-success{% endif %}">
     <div class="stat-icon">🔧</div>
     <div><div class="stat-value">{{ stats.faulty|fa }}</div><div class="stat-label">تجهیز دارای ایراد</div></div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card itam-ops-stat-card">
     <div class="stat-icon">⏱</div>
     <div><div class="stat-value">{{ object.duration_minutes|dur }}</div><div class="stat-label">مدت بازدید</div></div>
   </div>
-  <div class="stat-card {% if object.it_confirmed_at %}is-success{% else %}is-warning{% endif %}">
+  <div class="stat-card itam-ops-stat-card {% if object.it_confirmed_at %}is-success{% else %}is-warning{% endif %}">
     <div class="stat-icon">✍️</div>
     <div>
       <div class="stat-value">{% if object.it_confirmed_at %}تاییدشده{% else %}در انتظار{% endif %}</div>
@@ -57,13 +58,13 @@
   </div>
 </div>
 
-<div class="grid grid-2 mt-2">
-  <div class="card">
-    <div class="card-head">
-      <h2 class="card-title">اطلاعات بازدید</h2>
+<div class="grid grid-2 itam-ops-grid mt-2">
+  <div class="card kt-card itam-ops-card">
+    <div class="card kt-card itam-ops-card-head">
+      <h2 class="card kt-card itam-ops-card-title">اطلاعات بازدید</h2>
       <span class="badge badge-{{ object.status|visits_status_css }}">{{ object.get_status_display }}</span>
     </div>
-    <div class="card-body">
+    <div class="card kt-card itam-ops-card-body">
       <div class="kv">
         <div class="k">قرارداد</div><div><a href="{% url 'org:contract_detail' object.contract_id %}">{{ object.contract.number }}</a></div>
         <div class="k">پیمانکار</div><div>{{ object.contract.contractor.name }}</div>
@@ -89,9 +90,9 @@
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">خلاصه وضعیت تجهیزات</h2></div>
-    <div class="card-body">
+  <div class="card kt-card itam-ops-card">
+    <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">خلاصه وضعیت تجهیزات</h2></div>
+    <div class="card kt-card itam-ops-card-body">
       <div class="kv">
         {% for label, count in stats.conditions.items %}
           <div class="k">{{ label }}</div><div>{{ count|fa }} تجهیز</div>
@@ -105,7 +106,7 @@
         <form method="post" action="{% url 'maintenance:visit_complete' object.pk %}">
           {% csrf_token %}
           {% include "partials/form_fields.html" with form=complete_form %}
-          <button class="btn btn-success" type="submit"
+          <button class="btn kt-btn kt-btn-success btn-success" type="submit"
                   data-confirm="بازدید پایان یابد و برای تایید ارسال شود؟">پایان بازدید</button>
         </form>
       {% endif %}
@@ -115,20 +116,20 @@
         <form method="post" action="{% url 'maintenance:visit_confirm' object.pk %}">
           {% csrf_token %}
           {% include "partials/form_fields.html" with form=confirm_form %}
-          <button class="btn btn-success" type="submit">تایید بازدید</button>
+          <button class="btn kt-btn kt-btn-success btn-success" type="submit">تایید بازدید</button>
         </form>
       {% endif %}
     </div>
   </div>
 </div>
 
-<div class="card">
-  <div class="card-head">
-    <h2 class="card-title">برگه‌های بازدید تجهیزات</h2>
+<div class="card kt-card itam-ops-card">
+  <div class="card kt-card itam-ops-card-head">
+    <h2 class="card kt-card itam-ops-card-title">برگه‌های بازدید تجهیزات</h2>
     <span class="muted small">برای ثبت نتیجه هر تجهیز روی «ثبت برگه» بزنید.</span>
   </div>
-  <div class="table-wrap">
-    <table class="table">
+  <div class="table-wrap itam-ops-table-wrap">
+    <table class="table kt-table itam-ops-table">
       <thead>
         <tr>
           <th>شماره اموال</th><th>تجهیز</th><th>محل</th><th>بازدید</th><th>وضعیت تجهیز</th>
@@ -156,10 +157,10 @@
           <td class="nowrap">{{ check.checked_at|jdatetime|default:"—" }}</td>
           <td class="table-actions">
             {% if can_manage %}
-              <a class="btn btn-ghost btn-sm" href="{% url 'maintenance:check_edit' check.pk %}">ثبت برگه</a>
+              <a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'maintenance:check_edit' check.pk %}">ثبت برگه</a>
             {% endif %}
             {% if check.asset.requires_component_tracking %}
-              <a class="btn btn-ghost btn-sm" href="{% url 'assets:detail' check.asset_id %}?focus=hardware">اقلام</a>
+              <a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'assets:detail' check.asset_id %}?focus=hardware">اقلام</a>
             {% endif %}
           </td>
         </tr>
@@ -169,5 +170,6 @@
       </tbody>
     </table>
   </div>
+</div>
 </div>
 {% endblock %}
