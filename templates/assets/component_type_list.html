@@ -2,8 +2,8 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-primary" href="{% url 'assets:component_type_create' %}">➕ افزودن گونه قطعه</a>
-  <a class="btn btn-ghost" href="{% url 'assets:category_list' %}">گونه‌های دارایی</a>
+  <a class="btn btn-primary kt-btn kt-btn-primary" href="{% url 'assets:component_type_create' %}">➕ افزودن گونه قطعه</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'assets:category_list' %}">گونه‌های دارایی</a>
 {% endblock %}
 
 {% block content %}
@@ -12,9 +12,9 @@
   (پردازنده، حافظه، هارد، کارت گرافیک و پاور).
 </div>
 
-<div class="card">
+<div class="card kt-card">
   <div class="table-wrap">
-    <table class="table">
+    <table class="table kt-table">
       <thead>
         <tr><th>ترتیب</th><th>نام قطعه</th><th>کد</th><th>سریال‌دار</th><th>واحد</th>
             <th>قلم کلیدی</th><th>تعداد ثبت‌شده</th><th>وضعیت</th><th></th></tr>
@@ -30,7 +30,7 @@
           <td>{% if item.is_key_item %}<span class="badge badge-warning">🔑 کلیدی</span>{% else %}—{% endif %}</td>
           <td><span class="badge badge-primary">{{ item.items_total|fa }}</span></td>
           <td>{% if item.is_active %}<span class="badge badge-success">فعال</span>{% else %}<span class="badge badge-neutral">غیرفعال</span>{% endif %}</td>
-          <td><a class="btn btn-ghost btn-sm" href="{% url 'assets:component_type_update' item.pk %}">ویرایش</a></td>
+          <td><a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'assets:component_type_update' item.pk %}">ویرایش</a></td>
         </tr>
       {% empty %}
         <tr><td colspan="9">{% include "partials/empty.html" %}</td></tr>
@@ -38,6 +38,6 @@
       </tbody>
     </table>
   </div>
-  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+  <div class="card-foot kt-card-footer">{% include "partials/pagination.html" %}</div>
 </div>
 {% endblock %}
