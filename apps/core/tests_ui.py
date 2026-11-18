@@ -89,7 +89,10 @@ class MetronicShellAccessibilityContractTests(SimpleTestCase):
 
         self.assertIn('class="itam-skip-link" href="#content"', source)
         self.assertIn('id="content" role="main" tabindex="-1"', source)
-        self.assertIn('id="sidebar" aria-label="ناوبری اصلی" tabindex="-1"', source)
+
+        sidebar_template = get_template("partials/metronic/sidebar.html")
+        sidebar_source = Path(sidebar_template.origin.name).read_text(encoding="utf-8")
+        self.assertIn('id="sidebar" aria-label="ناوبری اصلی" tabindex="-1"', sidebar_source)
 
     def test_mobile_sidebar_script_manages_inert_state_and_keyboard_focus(self):
         script_path = finders.find("js/itam.js")
