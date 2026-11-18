@@ -1,6 +1,6 @@
 # وضعیت و Backlog
 
-**Snapshot:** 2026-11-18
+**Snapshot:** 2026-11-19
 
 ## اکنون
 - PR #15 باز، Draft و merge نشده؛ امنیت و Integration QA.
@@ -54,3 +54,39 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - تغییر کد فقط `static/css/itam.css` را در `@layer base` قرار می‌دهد؛ selectorهای سازگاری حفظ شده‌اند.
 - CI برای head جدید هنوز نتیجه قابل مشاهده ندارد؛ مرورگر محلی و UAT انجام نشده‌اند.
 - **P0 جدید:** پس از همگام‌سازی امن شاخه، بازبینی بصری dashboard، فهرست دارایی، فرم‌ها، login، responsive، dark mode و print؛ ثبت ایرادهای باقی‌مانده به‌صورت مستقل.
+
+
+## وضعیت جدید UI — 2026-11-19
+
+### زنجیره PR
+- PRهای #15، #16، #19، #20، #21، #22، #23، #24 و #25 در آخرین مشاهده باز و Draft هستند؛ هیچ‌کدام Merge نشده‌اند.
+- #15 و #16 پایه مرحله UI؛ #19 تا #25 زنجیره تکمیل Metronic.
+- #17 (handbook) و #18 (private media/contractor assignment scope) شاخه‌های موازی روی پایه #16 هستند و مستقل باید بازبینی شوند.
+- PR #25: branch `ui/metronic-print-hwagent-finalization`، head `94005a451252b501b5667edf3ca87ad8fbbb9f50`, base #24؛ 14 فایل، 355 additions/300 deletions.
+- PR #25 CI قبلی شکست خورد چون `formset.html` فیلتر `field_class` را بدون `{% load itam_tags %}` استفاده کرده بود. import اضافه شده و CI روی head جدید در انتظار نتیجه است.
+
+### P0 — اکنون
+1. صبر برای CI کامل PR #25؛ اگر شکست جدیدی رخ داد، فقط علت واقعی اصلاح شود.
+2. نگه‌داشتن همه PRها به صورت Draft؛ بدون Merge یا Deploy.
+3. تا دسترسی محلی کاربر، فقط بررسی GitHub، اصلاح کد، CI و مستندات انجام شود.
+
+### P1 — پس از دسترسی محلی
+1. دریافت `git branch --show-current`, `git log -1 --oneline`, `git status --short`؛ پیش از sync هیچ checkout/reset/stash/clean انجام نشود.
+2. sync امن با زنجیره PR تأییدشده، بدون از دست‌دادن فایل‌های untracked/backup/CSV.
+3. پذیرش مرورگر: login، dashboard، asset/ticket/maintenance، فرم‌ها، pagination، RTL، dark/light، responsive، keyboard/accessibility و console/network.
+4. پذیرش چاپ و PDF: label 62×42، QR، مقیاس 100%، A4 portrait/landscape، page breaks و امضا.
+5. پذیرش Windows HWAgent: نصب، token، binding به asset/hostname، snapshot، sync و lifecycle credential.
+6. UAT نقش‌محور برای hierarchy/scope، قرارداد و انتساب، ticket/SLA، بازدید، snapshot، تعمیر مستقل، درخواست عمومی/ارجاع، گزارش/export و audit.
+
+### P2 — قبل از پذیرش محصول
+- invariant بین county/province/TreatmentManagement و fail-closed بودن واحدهای غیرفعال.
+- ماتریس دسترسی و آزمون IDOR/form tampering.
+- Admin immutability برای Ticket/Visit/Snapshot/Outbox/Audit.
+- private media در وب‌سرور واقعی و export scope/formula injection.
+- SLA در تقویم شمسی، تعطیلات و توقف‌ها.
+- backup/restore drill در محیط ایزوله.
+
+### P3 — Deferred
+- هاست، PostgreSQL production، TLS/reverse proxy، firewall، service hardening، monitoring، secret rotation و Production UAT.
+- مجوز خریداری‌شده Metronic برای deployment تجاری باید قبل از عرضه بررسی شود.
+- نرمال‌سازی جغرافیای شهر/محله و provenance مراکز.

@@ -46,3 +46,30 @@ run 44161472256 روی head PR #16: 5/5 job موفق؛ 375 تست Python 3.11/3.
 - **PR اصلاح:** https://github.com/moghasemi/ITAM/pull/19 — Draft، branch `fix/metronic-legacy-css-cascade`، head `dccd73e2e11092850a1b5b94e73a7b3da5e54a49`، base= `ui/metronic9-django-rtl`.
 - **وضعیت پذیرش:** تغییر کد ثبت شده؛ آزمون واقعی مرورگر هنوز Open است. این اصلاح به‌تنهایی تضمین نمی‌کند تمام مشکلات layout رفع شوند.
 - **مورد بررسی محلی:** dashboard، فهرست دارایی، فرم ایجاد/ویرایش، صفحه ورود، عرض دسکتاپ و موبایل، dropdownها، حالت dark و print.
+
+
+## وضعیت مهاجرت تکمیلی Metronic — 2026-11-19
+
+### زنجیره تغییرات
+- PR #19: `itam.css` در `@layer base` برای اصلاح cascade؛ selectorهای legacy حذف نشدند.
+- PR #20: یک منبع حقیقت برای عرض Sidebar و محتوا.
+- PR #21: skip link، focus management و mobile sidebar keyboard/inert.
+- PR #22: dashboard با KPI، chart، calendar و workbench.
+- PR #23: صفحات عملیاتی asset/ticket/maintenance.
+- PR #24: مهاجرت templateهای باقیمانده و حذف selectorهای shell قدیمی از CSS legacy.
+- PR #25: برگه‌های چاپ، HWAgent standalone و partialهای مشترک.
+- تمام PRها Draft و Merge نشده‌اند. CI موفق روی headهای #19 تا #24 در اجرای کامل ثبت شده؛ #25 در زمان ثبت منتظر CI مجدد پس از رفع missing template tag است.
+
+### جزئیات PR #25
+- label print: A4 portrait, margin 9mm, label 62×42mm, 3 columns, 3mm gap; heading/footer مخفی.
+- visit/ticket print: A4 landscape.
+- shell, messages و skip link در چاپ پنهان می‌شوند.
+- HWAgent: viewport meta، فونت محلی، dark mode، reduced motion، tablist/tab/tabpanel با ARIA و keyboard، meterهای داخلی RAM/disk؛ Chart.js CDN حذف شده است.
+- shared partials: form_fields, filter_bar, pagination, formset, empty, messages, action_button به hookهای Metronic مجهز شده‌اند؛ data hooks/classes قدیمی حفظ شده‌اند.
+- شکست CI اولیه: missing `{% load itam_tags %}` در formset partial؛ commit اصلاحی در head جاری ثبت شده؛ CI مجدد باید نتیجه دهد.
+
+### موارد باز
+- browser visual acceptance، print/PDF physical acceptance و Windows HWAgent end-to-end.
+- حذف کامل legacy compatibility CSS عمداً deferred است تا هر کلاس/رفتار/JS consumer جداگانه مهاجرت و تست شود.
+- Metronic commercial license verification.
+- هیچ PR Merge/Deploy نشده است.

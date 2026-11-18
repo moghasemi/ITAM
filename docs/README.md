@@ -3,7 +3,8 @@
 این پوشه مرجع مستندات محصول، معماری، امنیت، عملیات و توسعه ITAM است.
 
 ## نقطه شروع
-- [سند جامع پروژه — نسخه 1.4](project/PROJECT_MASTER_CONTEXT_v1.4_2026-11-18.md)
+- [سند جامع پروژه — نسخه 1.5](project/PROJECT_MASTER_CONTEXT_v1.5_2026-11-19.md)
+- [سند جامع پروژه — نسخه 1.4 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.4_2026-11-18.md)
 - [سند جامع پروژه — نسخه 1.3 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.3_2026-11-17.md)
 - [ورود سریع توسعه‌دهنده جدید](project/00_ONBOARDING.md)
 - [محصول و قواعد کسب‌وکار](project/01_PRODUCT_AND_DOMAIN.md)
