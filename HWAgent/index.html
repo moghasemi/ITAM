@@ -2,55 +2,41 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>اسنپ‌شات سخت‌افزاری</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
 <style>
-  *{box-sizing:border-box;font-family:Tahoma,sans-serif}
-  body{background:#f0f2f5;margin:0;padding:20px;color:#333}
-  .header{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:20px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
-  .header h1{margin:0;font-size:20px}
-  .header small{opacity:.85;display:block;margin-top:4px;font-size:12px}
-  .btns{display:flex;gap:8px;flex-wrap:wrap}
-  .btn{background:#fff;color:#764ba2;border:none;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:13px;transition:.2s}
-  .btn:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.15)}
-  .btn:disabled{opacity:.5;cursor:wait}
-  .btn.alt{background:#fbbf24;color:#78350f}
-  .btn.dark{background:#1e293b;color:#fff}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:20px}
-  .card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
-  .card h2{margin:0 0 12px;font-size:15px;border-bottom:2px solid #f0f2f5;padding-bottom:8px;display:flex;align-items:center;gap:8px}
-  .row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px dashed #f0f0f0;gap:10px}
-  .row:last-child{border-bottom:none}
-  .label{color:#666;flex-shrink:0}
-  .value{font-weight:bold;direction:ltr;text-align:left;word-break:break-all;font-size:12px}
-  .mono{font-family:Consolas,monospace;font-size:11px;color:#475569;cursor:help}
-  .chip{background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:6px;font-size:11px;margin-right:4px}
-  .chip.green{background:#dcfce7;color:#166534}
-  .chip.red{background:#fee2e2;color:#991b1b}
-  .chip.amber{background:#fef3c7;color:#92400e}
-  .status{text-align:center;padding:50px;color:#888}
-  .spinner{border:4px solid #eee;border-top:4px solid #764ba2;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto 16px}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .error{background:#fee;color:#c00;padding:16px;border-radius:8px;margin-top:16px}
-  .toast{position:fixed;bottom:20px;left:20px;background:#10b981;color:#fff;padding:12px 20px;border-radius:8px;opacity:0;transition:.3s;z-index:99;font-size:13px}
-  .toast.show{opacity:1}
-  .toast.err{background:#ef4444}
-  .chart-container{position:relative;height:180px;margin:10px 0}
-  .banner{padding:14px 18px;border-radius:10px;margin-top:20px;font-weight:bold;display:flex;align-items:center;gap:10px;font-size:14px}
-  .banner.ok{background:#dcfce7;color:#166534;border:1px solid #86efac}
-  .banner.warn{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
-  .banner.crit{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
-  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
-  th{background:#f8fafc;padding:8px;text-align:right;color:#475569;font-size:11px;border-bottom:2px solid #e2e8f0}
-  td{padding:8px;border-bottom:1px solid #f1f5f9;direction:ltr;text-align:left}
-  td.fa{direction:rtl;text-align:right}
-  .old-val{color:#991b1b;text-decoration:line-through;opacity:.7}
-  .new-val{color:#166534;font-weight:bold}
-  .tabs{display:flex;gap:6px;margin-top:20px;flex-wrap:wrap}
-  .tab{padding:8px 16px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#64748b;transition:.2s}
-  .tab.active{background:#764ba2;color:#fff;border-color:#764ba2}
-  .pane{display:none}
-  .pane.active{display:block}
+@font-face{font-family:Vazirmatn;src:url("../static/vendor/vazirmatn/Vazirmatn-wght.woff2") format("woff2");font-style:normal;font-weight:100 900;font-display:swap}
+:root{color-scheme:light;--agent-bg:#f4f7fb;--agent-surface:#fff;--agent-soft:#f8fafc;--agent-border:#e5eaf1;--agent-text:#172334;--agent-muted:#718096;--agent-primary:#2563eb;--agent-shadow:0 8px 28px rgba(15,23,42,.055)}
+*{box-sizing:border-box}body{margin:0;padding:clamp(12px,2.4vw,28px);background:var(--agent-bg);color:var(--agent-text);font-family:Vazirmatn,Tahoma,sans-serif;font-size:14px;line-height:1.75}
+button,input{font:inherit}button:focus-visible,input:focus-visible{outline:3px solid rgba(37,99,235,.25);outline-offset:2px}
+.header{max-width:1500px;margin:0 auto;background:linear-gradient(115deg,#173b73,#2563eb 62%,#4f83ed);color:#fff;padding:clamp(18px,2.5vw,28px);border-radius:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:18px;box-shadow:0 12px 32px rgba(37,99,235,.16)}
+.header h1{margin:0;font-size:clamp(19px,2vw,25px);font-weight:850}.header small{opacity:.86;display:block;margin-top:5px;font-size:12px;overflow-wrap:anywhere}
+.btns{display:flex;gap:8px;flex-wrap:wrap}.btn{background:#fff;color:#1d4ed8;border:1px solid rgba(255,255,255,.45);padding:9px 14px;border-radius:10px;font-weight:750;cursor:pointer;font-size:12px;transition:transform .16s ease,box-shadow .16s ease}
+.btn:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(15,23,42,.16)}.btn:disabled{opacity:.55;cursor:wait;transform:none;box-shadow:none}.btn.alt{background:#fef3c7;color:#92400e;border-color:#fde68a}.btn.dark{background:#172334;color:#fff;border-color:#334155}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:15px;margin-top:18px}
+.card{min-width:0;background:var(--agent-surface);border:1px solid var(--agent-border);border-radius:15px;padding:17px;box-shadow:var(--agent-shadow)}
+.card h2{margin:0 0 12px;font-size:14px;font-weight:850;border-bottom:1px solid var(--agent-border);padding-bottom:10px;display:flex;align-items:center;gap:8px}
+.row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;font-size:12px;border-bottom:1px dashed var(--agent-border);gap:12px}.row:last-child{border-bottom:none}
+.label{color:var(--agent-muted);flex-shrink:0}.value{font-weight:750;direction:ltr;text-align:left;word-break:break-all;font-size:12px}.mono{font-family:Consolas,monospace;font-size:11px;color:#475569;cursor:help}
+.chip{display:inline-block;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:7px;font-size:10px;margin-inline-start:4px;font-weight:750}.chip.green{background:#dcfce7;color:#166534}.chip.red{background:#fee2e2;color:#991b1b}.chip.amber{background:#fef3c7;color:#92400e}
+.status{text-align:center;padding:38px 18px;color:var(--agent-muted);background:var(--agent-soft);border:1px dashed var(--agent-border);border-radius:12px}
+.spinner{border:3px solid #e2e8f0;border-top-color:var(--agent-primary);border-radius:50%;width:36px;height:36px;animation:spin .8s linear infinite;margin:0 auto 14px}@keyframes spin{to{transform:rotate(360deg)}}
+.error{background:#fff1f2;color:#be123c;border:1px solid #fecdd3;padding:15px;border-radius:11px;margin-top:16px}
+.toast{position:fixed;bottom:18px;inset-inline-start:18px;max-width:min(520px,calc(100vw - 36px));background:#15803d;color:#fff;padding:11px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:99;font-size:12px;box-shadow:0 8px 24px rgba(15,23,42,.18)}.toast.show{opacity:1}.toast.err{background:#b91c1c}
+.chart-container{position:relative;min-height:90px;margin:10px 0}.meter-list{display:grid;gap:9px;padding:4px 0}
+.meter-row{display:grid;grid-template-columns:minmax(80px,1fr) minmax(80px,2fr) auto;align-items:center;gap:9px;font-size:11px}.meter-name{min-width:0;overflow-wrap:anywhere;color:var(--agent-muted)}
+.meter-track{height:8px;background:#eaf0f8;border-radius:999px;overflow:hidden}.meter-fill{height:100%;background:linear-gradient(90deg,#60a5fa,#2563eb);border-radius:999px;min-width:2px}.meter-value{font-weight:800;direction:ltr;white-space:nowrap}
+.banner{padding:13px 16px;border-radius:11px;margin-top:18px;font-weight:750;display:flex;align-items:center;gap:10px;font-size:13px}.banner.ok{background:#ecfdf5;color:#166534;border:1px solid #bbf7d0}.banner.warn{background:#fffbeb;color:#92400e;border:1px solid #fde68a}.banner.crit{background:#fff1f2;color:#9f1239;border:1px solid #fecdd3}
+table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px;background:var(--agent-surface)}th{background:#f1f5f9;padding:9px;text-align:right;color:#475569;font-size:10px;border-bottom:1px solid var(--agent-border);font-weight:850}
+td{padding:9px;border-bottom:1px solid #edf1f6;direction:ltr;text-align:left;overflow-wrap:anywhere}td.fa{direction:rtl;text-align:right}.old-val{color:#991b1b;text-decoration:line-through;opacity:.7}.new-val{color:#166534;font-weight:bold}
+.tabs{max-width:1500px;margin:18px auto 0;display:flex;gap:7px;flex-wrap:wrap;border-bottom:1px solid var(--agent-border);padding-bottom:10px}
+.tab{appearance:none;padding:9px 15px;background:var(--agent-surface);border:1px solid var(--agent-border);border-radius:10px;cursor:pointer;font-size:12px;font-weight:750;color:#64748b;transition:.16s}.tab:hover{color:#1d4ed8;border-color:#bfdbfe}.tab.active{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;box-shadow:inset 0 -2px #2563eb}
+.pane{display:none;max-width:1500px;margin:0 auto}.pane.active{display:block}#itamSync .card{max-width:760px;margin:18px auto}#itamSync label{display:block;font-size:12px;font-weight:800;margin-bottom:6px}
+#itamSync input{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#172334;direction:ltr;text-align:left}#itamSync input:focus{border-color:#60a5fa}
+@media(max-width:700px){body{padding:10px}.header{border-radius:14px}.btns{width:100%}.btns .btn{flex:1 1 145px}.tabs{gap:6px}.tab{flex:1 1 auto}.card{padding:14px}.row{gap:8px}.meter-row{grid-template-columns:minmax(65px,1fr) minmax(60px,1.5fr) auto}}
+@media(prefers-color-scheme:dark){:root{color-scheme:dark;--agent-bg:#0b1220;--agent-surface:#111c2d;--agent-soft:#17253a;--agent-border:#26364c;--agent-text:#e5edf7;--agent-muted:#a9bad0;--agent-shadow:0 8px 28px rgba(0,0,0,.18)}.card{color:var(--agent-text)}.row{border-color:#26364c}.mono{color:#b8c7da}.tab{background:#111c2d;color:#a9bad0;border-color:#26364c}.tab.active{background:#172f52;color:#bfdbfe;border-color:#315c91}.status{color:#a9bad0}.meter-track{background:#26364c}table{color:#dbe5f2}th{background:#17253a;color:#c3d2e4;border-color:#26364c}td{border-color:#26364c}#itamSync input{background:#0b1220;color:#e5edf7;border-color:#3a4b63}.banner.ok{background:#123322;color:#bbf7d0;border-color:#166534}.banner.warn{background:#3b2d12;color:#fde68a;border-color:#854d0e}.banner.crit{background:#3b1720;color:#fecdd3;border-color:#9f1239}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
@@ -69,28 +55,28 @@
   </div>
 </div>
 
-<div class="tabs">
-  <div class="tab active" onclick="showTab('current',this)">📊 اسنپ‌شات فعلی</div>
-  <div class="tab" onclick="showTab('diff',this)">🔍 تغییرات</div>
-  <div class="tab" onclick="showTab('history',this)">📁 تاریخچه</div>
-  <div class="tab" onclick="showTab('itamSync',this)">🌐 تنظیمات و اتصال به سامانه ITAM</div>
+<div class="tabs" role="tablist" aria-label="بخش‌های اسنپ‌شات سخت‌افزاری">
+  <button type="button" class="tab active" role="tab" id="tab-current" aria-controls="current" aria-selected="true" onclick="showTab('current',this)">📊 اسنپ‌شات فعلی</button>
+  <button type="button" class="tab" role="tab" id="tab-diff" aria-controls="diff" aria-selected="false" tabindex="-1" onclick="showTab('diff',this)">🔍 تغییرات</button>
+  <button type="button" class="tab" role="tab" id="tab-history" aria-controls="history" aria-selected="false" tabindex="-1" onclick="showTab('history',this)">📁 تاریخچه</button>
+  <button type="button" class="tab" role="tab" id="tab-itamSync" aria-controls="itamSync" aria-selected="false" tabindex="-1" onclick="showTab('itamSync',this)">🌐 تنظیمات و اتصال به سامانه ITAM</button>
 </div>
 
-<div id="current" class="pane active">
+<div id="current" class="pane active" role="tabpanel" aria-labelledby="tab-current">
   <div id="content">
     <div class="status"><p>برای شروع، دکمه «اسکن جدید» یا «آخرین اسنپ‌شات» را بزنید.</p></div>
   </div>
 </div>
 
-<div id="diff" class="pane">
+<div id="diff" class="pane" role="tabpanel" aria-labelledby="tab-diff" hidden>
   <div id="diffContent" class="status"><p>برای مشاهده تغییرات، دکمه «مقایسه با قبلی» را بزنید.</p></div>
 </div>
 
-<div id="history" class="pane">
+<div id="history" class="pane" role="tabpanel" aria-labelledby="tab-history" hidden>
   <div id="historyContent" class="status"><p>در حال بارگذاری...</p></div>
 </div>
 
-<div id="itamSync" class="pane">
+<div id="itamSync" class="pane" role="tabpanel" aria-labelledby="tab-itamSync" hidden>
   <div class="card" style="max-width:700px; margin:0 auto;">
     <h2>🌐 تنظیمات ارسال مستقیم به سامانه مدیریت دارایی (ITAM)</h2>
     <p style="font-size:13px; color:#64748b; line-height:1.7;">
@@ -130,12 +116,33 @@ const API = "http://localhost:8765";
 
 /* ---------- تب‌ها ---------- */
 function showTab(id, el) {
-  document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  el.classList.add('active');
+  document.querySelectorAll('.pane').forEach(panel => {
+    const active = panel.id === id;
+    panel.classList.toggle('active', active);
+    panel.hidden = !active;
+  });
+  document.querySelectorAll('.tab').forEach(tab => {
+    const active = tab === el;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+  });
   if (id === 'history') loadHistory();
 }
+
+document.querySelectorAll('.tab[role="tab"]').forEach((tab, index, tabs) => {
+  tab.addEventListener('keydown', event => {
+    let next = index;
+    if (event.key === 'ArrowLeft') next = (index + 1) % tabs.length;
+    else if (event.key === 'ArrowRight') next = (index - 1 + tabs.length) % tabs.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = tabs.length - 1;
+    else return;
+    event.preventDefault();
+    tabs[next].focus();
+    tabs[next].click();
+  });
+});
 
 /* ---------- اسکن جدید ---------- */
 async function readSnapshot() {
@@ -239,7 +246,7 @@ function render(d) {
       <div class="card">
         <h2>🧠 حافظه (RAM)</h2>
         <div class="row"><span class="label">حجم کل</span><span class="value">${totalRam} GB</span></div>
-        <div class="chart-container"><canvas id="ramChart"></canvas></div>
+        <div class="chart-container"><div class="meter-list" id="ramChart" aria-label="ظرفیت ماژول‌های حافظه"></div></div>
         ${d.ram.map(r => `<div class="row">
           <span class="label">${escapeHtml(r.slot)}</span>
           <span class="value">${escapeHtml(r.capacityGB)}GB <span class="chip">${escapeHtml(r.speedMHz)}MHz</span></span>
@@ -249,7 +256,7 @@ function render(d) {
       <div class="card">
         <h2>💾 دیسک‌ها</h2>
         <div class="row"><span class="label">حجم کل</span><span class="value">${totalDisk} GB</span></div>
-        <div class="chart-container"><canvas id="diskChart"></canvas></div>
+        <div class="chart-container"><div class="meter-list" id="diskChart" aria-label="ظرفیت دیسک‌ها"></div></div>
         ${d.disks.map(x => `<div class="row">
           <span class="label">${escapeHtml(x.name)} <span class="chip">${escapeHtml(x.mediaType)}</span></span>
           <span class="value">${escapeHtml(x.sizeGB)} GB</span>
@@ -306,26 +313,22 @@ function render(d) {
 
     </div>`;
 
-  new Chart(document.getElementById("ramChart"), {
-    type: "doughnut",
-    data: {
-      labels: d.ram.map(r => r.slot),
-      datasets: [{ data: d.ram.map(r => r.capacityGB),
-        backgroundColor: ["#667eea","#764ba2","#f093fb","#4facfe"] }]
-    },
-    options: { plugins:{ legend:{ position:"bottom", labels:{ font:{ size:10 } } } } }
-  });
+  renderMeters("ramChart", d.ram, item => item.slot, item => item.capacityGB, totalRam);
+  renderMeters("diskChart", d.disks, item => item.name, item => item.sizeGB, totalDisk);
+}
 
-  new Chart(document.getElementById("diskChart"), {
-    type: "bar",
-    data: {
-      labels: d.disks.map(x => x.name.substring(0,20)),
-      datasets: [{ label:"GB", data:d.disks.map(x => x.sizeGB),
-        backgroundColor:"#667eea", borderRadius:6 }]
-    },
-    options: { plugins:{ legend:{ display:false } },
-      scales:{ y:{ beginAtZero:true } } }
-  });
+function renderMeters(targetId, items, labelOf, valueOf, total) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  const safeTotal = Number(total) || 0;
+  target.innerHTML = items.map(item => {
+    const value = Number(valueOf(item)) || 0;
+    const percent = safeTotal > 0 ? Math.max(2, Math.min(100, value / safeTotal * 100)) : 0;
+    return '<div class="meter-row"><span class="meter-name">' + escapeHtml(labelOf(item)) +
+      '</span><span class="meter-track"><span class="meter-fill" style="display:block;width:' +
+      percent.toFixed(1) + '%"></span></span><strong class="meter-value">' +
+      escapeHtml(value) + ' GB</strong></div>';
+  }).join("") || '<p class="status">اطلاعاتی برای نمایش وجود ندارد.</p>';
 }
 
 /* ---------- نمایش دیف ---------- */

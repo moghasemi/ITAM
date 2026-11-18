@@ -307,3 +307,69 @@ class MetronicMigrationCoverageTests(SimpleTestCase):
                          ".user-menu", ".page-actions", ".page-head"):
             with self.subTest(selector=selector):
                 self.assertNotRegex(css, re.escape(selector) + r"(?![\\w-])")
+
+
+class MetronicSharedPartialMigrationTests(SimpleTestCase):
+    def test_shared_partials_use_metronic_hooks_and_keep_compatibility_hooks(self):
+        expected = {
+            "partials/form_fields.html": ("kt-form-item", "kt-form-label", "kt-form-control", "kt-form-message", "form-row"),
+            "partials/filter_bar.html": ("kt-form-item", "kt-form-label", "kt-btn-primary", "filter-bar"),
+            "partials/pagination.html": ("kt-pagination", "kt-pagination-item", "kt-btn-outline", "pagination"),
+            "partials/formset.html": ("kt-form-item", "kt-form-control", "kt-form-message", "data-formset-add"),
+            "partials/empty.html": ("kt-alert", "empty-state", 'role="status"'),
+            "partials/messages.html": ("kt-alert", "kt-alert-destructive", "alert-danger", "kt-alert-close", "aria-live", "data-dismiss"),
+            "partials/action_button.html": ("kt-btn", "data-confirm", "csrf_token"),
+        }
+        for template_name, tokens in expected.items():
+            with self.subTest(template=template_name):
+                source = Path(get_template(template_name).origin.name).read_text(encoding="utf-8")
+                for token in tokens:
+                    self.assertIn(token, source)
+
+
+class MetronicPrintAndAgentFinalizationTests(SimpleTestCase):
+    def test_dedicated_print_templates_use_metronic_print_components(self):
+        for template_name in ("assets/label_print.html", "maintenance/visit_print.html", "tickets/ticket_print.html"):
+            with self.subTest(template=template_name):
+                template = get_template(template_name)
+                source = Path(template.origin.name).read_text(encoding="utf-8")
+                self.assertIn("itam-print-page", source)
+                if template_name == "assets/label_print.html":
+                    # Label sheets use a dedicated physical label grid, not dashboard cards.
+                    self.assertIn("itam-label-card", source)
+                else:
+                    self.assertIn("kt-card", source)
+                self.assertIn("no-print", source)
+
+        for template_name in ("maintenance/visit_print.html", "tickets/ticket_print.html"):
+            source = Path(get_template(template_name).origin.name).read_text(encoding="utf-8")
+            self.assertIn("kt-table", source)
+            self.assertIn("itam-print-signatures", source)
+
+    def test_print_styles_cover_shell_suppression_and_label_dimensions(self):
+        css_path = finders.find("css/itam-metronic.css")
+        self.assertIsNotNone(css_path)
+        css = Path(css_path).read_text(encoding="utf-8")
+        for token in ("@media print", ".itam-sidebar", ".itam-header", ".itam-page-content", ".itam-skip-link", ".messages", "@page itam-landscape", "@page itam-label", "page:itam-label", ".itam-label-print .itam-print-heading", ".itam-label-card", "62mm", "gap:3mm", ".itam-print-signatures"):
+            with self.subTest(token=token):
+                self.assertIn(token, css)
+        self.assertNotIn(r"\n  @page", css)
+
+    def test_standalone_hwagent_has_no_chart_cdn_and_uses_accessible_tabs(self):
+        agent_path = Path(__file__).resolve().parents[2] / "HWAgent" / "index.html"
+        source = agent_path.read_text(encoding="utf-8")
+        self.assertNotIn("cdn.jsdelivr.net", source)
+        self.assertNotIn("new Chart(", source)
+        self.assertIn('role="tablist"', source)
+        self.assertIn('role="tab"', source)
+        self.assertIn('role="tabpanel"', source)
+        self.assertIn('aria-controls=', source)
+        self.assertIn('aria-labelledby=', source)
+        self.assertIn('aria-selected=', source)
+        self.assertIn('hidden>', source)
+        self.assertIn('ArrowLeft', source)
+        self.assertIn('ArrowRight', source)
+        self.assertIn('tabIndex', source)
+        self.assertIn('name="viewport"', source)
+        self.assertIn("renderMeters(", source)
+        self.assertIn("prefers-reduced-motion", source)

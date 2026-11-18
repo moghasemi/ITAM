@@ -1,9 +1,9 @@
 {% if messages %}
-<div class="messages">
+<div class="messages" aria-live="polite">
   {% for message in messages %}
-    <div class="alert alert-{{ message.tags|default:'info' }}">
-      <span>{{ message }}</span>
-      <button type="button" class="alert-close" data-dismiss="alert">×</button>
+    <div class="kt-alert {% if 'error' in message.tags %}kt-alert-destructive alert alert-danger{% elif 'warning' in message.tags %}kt-alert-warning alert alert-warning{% elif 'success' in message.tags %}kt-alert-success alert alert-success{% else %}kt-alert-info alert alert-info{% endif %}" role="{% if 'error' in message.tags %}alert{% else %}status{% endif %}">
+      <div class="kt-alert-content"><span>{{ message }}</span></div>
+      <button type="button" class="kt-alert-close alert-close" data-dismiss="alert" aria-label="بستن پیام">×</button>
     </div>
   {% endfor %}
 </div>

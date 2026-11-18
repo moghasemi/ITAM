@@ -1,67 +1,18 @@
 {% extends "base.html" %}
 {% load itam_tags %}
-
+{% block page_actions %}<button class="kt-btn kt-btn-primary no-print" type="button" data-print>🖨 چاپ برگه بازدید</button>{% endblock %}
 {% block content %}
-<div class="card">
-  <div class="card-head">
-    <h2 class="card-title">برگه بازدید دوره‌ای {{ visit.number }}</h2>
-    <button class="btn btn-primary no-print" type="button" data-print>🖨 چاپ</button>
-  </div>
-  <div class="card-body">
-    <div class="kv">
-      <div class="k">قرارداد</div><div>{{ visit.contract.number }} — {{ visit.contract.title }}</div>
-      <div class="k">پیمانکار</div><div>{{ visit.contract.contractor.name }}</div>
-      <div class="k">دوره</div><div>{{ visit.period_label }} (نوبت {{ visit.sequence_number|fa }})</div>
-      <div class="k">تاریخ برنامه‌ریزی‌شده</div><div>{{ visit.scheduled_date|jdate_full }}</div>
-      <div class="k">آخرین مهلت</div><div>{{ visit.scheduled_end_date|jdate_full }}</div>
-      <div class="k">کارشناس بازدیدکننده</div><div>{{ visit.technician.display_name|default:"—" }}</div>
-      <div class="k">زمان شروع / پایان</div>
-      <div>{{ visit.started_at|jdatetime|default:"—" }} — {{ visit.finished_at|jdatetime|default:"—" }}</div>
-      <div class="k">وضعیت</div><div>{{ visit.get_status_display }}</div>
-    </div>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-head"><h2 class="card-title">فهرست تجهیزات بررسی‌شده</h2></div>
-  <div class="table-wrap">
-    <table class="table">
-      <thead>
-        <tr><th>#</th><th>شماره اموال</th><th>تجهیز</th><th>محل</th><th>وضعیت</th>
-            <th>خدمات انجام‌شده</th><th>قطعات تعویضی</th><th>بازدید بعدی</th></tr>
-      </thead>
-      <tbody>
-      {% for check in checks %}
-        <tr>
-          <td>{{ forloop.counter|fa }}</td>
-          <td>{{ check.asset.asset_tag }}</td>
-          <td>{{ check.asset.display_name }}</td>
-          <td>{{ check.asset.location.full_label|default:"—" }}</td>
-          <td>{{ check.get_condition_display }}</td>
-          <td>{{ check.actions_taken|default:"—" }}</td>
-          <td>{{ check.parts_replaced|default:"—" }}</td>
-          <td>{{ check.next_due_date|jdate|default:"—" }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-head"><h2 class="card-title">گزارش و امضاها</h2></div>
-  <div class="card-body">
-    <p><strong>گزارش بازدید:</strong> {{ visit.report_text|default:"—"|linebreaksbr }}</p>
-    <p><strong>پیشنهادها:</strong> {{ visit.recommendation|default:"—"|linebreaksbr }}</p>
-    <div class="grid grid-3 mt-2">
-      <div>کارشناس پیمانکار:
-        {% if visit.technician_signature_name %}{{ visit.technician_signature_name }}
-        {% elif visit.technician %}{{ visit.technician.display_name }}
-        {% else %}—{% endif %}
-        <br><span class="muted small">امضا:</span></div>
-      <div>کارشناس فناوری اطلاعات مرکز: {{ visit.it_confirmed_by.display_name|default:"—" }}<br><span class="muted small">امضا:</span></div>
-      <div>مدیر واحد: ....................<br><span class="muted small">امضا:</span></div>
-    </div>
-  </div>
-</div>
+<section class="itam-print-page itam-print-landscape" dir="rtl">
+<header class="itam-print-heading"><div><p class="itam-print-eyebrow">گزارش رسمی نگهداری و تعمیرات</p><h1>برگه بازدید دوره‌ای {{ visit.number }}</h1><p class="itam-print-subtitle">{{ visit.contract.title }}</p></div><div class="itam-print-document-id">{{ visit.number }}</div></header>
+<section class="kt-card itam-print-card"><div class="kt-card-header itam-print-card-heading"><h2>مشخصات بازدید</h2></div><div class="kt-card-content"><dl class="itam-print-details">
+<div><dt>قرارداد</dt><dd>{{ visit.contract.number }} — {{ visit.contract.title }}</dd></div><div><dt>پیمانکار</dt><dd>{{ visit.contract.contractor.name }}</dd></div><div><dt>دوره</dt><dd>{{ visit.period_label }} (نوبت {{ visit.sequence_number|fa }})</dd></div><div><dt>تاریخ برنامه‌ریزی‌شده</dt><dd>{{ visit.scheduled_date|jdate_full }}</dd></div><div><dt>آخرین مهلت</dt><dd>{{ visit.scheduled_end_date|jdate_full }}</dd></div><div><dt>کارشناس بازدیدکننده</dt><dd>{{ visit.technician.display_name|default:"—" }}</dd></div><div><dt>زمان شروع / پایان</dt><dd>{{ visit.started_at|jdatetime|default:"—" }} — {{ visit.finished_at|jdatetime|default:"—" }}</dd></div><div><dt>وضعیت</dt><dd>{{ visit.get_status_display }}</dd></div>
+</dl></div></section>
+<section class="kt-card itam-print-card"><div class="kt-card-header itam-print-card-heading"><h2>فهرست تجهیزات بررسی‌شده</h2></div><div class="kt-card-content itam-print-table-wrap"><table class="kt-table itam-print-table"><thead><tr><th>#</th><th>شماره اموال</th><th>تجهیز</th><th>محل</th><th>وضعیت</th><th>خدمات انجام‌شده</th><th>قطعات تعویضی</th><th>بازدید بعدی</th></tr></thead><tbody>
+{% for check in checks %}<tr><td>{{ forloop.counter|fa }}</td><td>{{ check.asset.asset_tag }}</td><td>{{ check.asset.display_name }}</td><td>{{ check.asset.location.full_label|default:"—" }}</td><td>{{ check.get_condition_display }}</td><td>{{ check.actions_taken|default:"—" }}</td><td>{{ check.parts_replaced|default:"—" }}</td><td>{{ check.next_due_date|jdate|default:"—" }}</td></tr>{% empty %}<tr><td colspan="8" class="itam-print-empty">موردی برای نمایش ثبت نشده است.</td></tr>{% endfor %}
+</tbody></table></div></section>
+<section class="kt-card itam-print-card"><div class="kt-card-header itam-print-card-heading"><h2>گزارش و امضاها</h2></div><div class="kt-card-content"><div class="itam-print-narrative"><strong>گزارش بازدید</strong><p>{{ visit.report_text|default:"—"|linebreaksbr }}</p></div><div class="itam-print-narrative"><strong>پیشنهادها</strong><p>{{ visit.recommendation|default:"—"|linebreaksbr }}</p></div><div class="itam-print-signatures">
+<div><strong>کارشناس پیمانکار</strong><span>{% if visit.technician_signature_name %}{{ visit.technician_signature_name }}{% elif visit.technician %}{{ visit.technician.display_name }}{% else %}—{% endif %}</span><small>امضا و تاریخ</small></div>
+<div><strong>کارشناس فناوری اطلاعات مرکز</strong><span>{{ visit.it_confirmed_by.display_name|default:"—" }}</span><small>امضا و تاریخ</small></div><div><strong>مدیر واحد</strong><span>................................</span><small>امضا و تاریخ</small></div></div></div></section>
+<footer class="itam-print-footer"><span>سامانه مدیریت دارایی و نگهداری فناوری اطلاعات</span><span>برگه بازدید — {{ visit.number }}</span></footer>
+</section>
 {% endblock %}
