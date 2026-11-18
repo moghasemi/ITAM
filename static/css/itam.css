@@ -1,3 +1,10 @@
+/*
+ * Legacy Django compatibility styles are intentionally placed in Tailwind's
+ * base layer. Metronic component/utility layers and the unlayered ITAM bridge
+ * can then take precedence without removing legacy selectors still used by
+ * server-rendered templates.
+ */
+@layer base {
 /* ==========================================================================
    سامانه مدیریت دارایی و نگهداری فناوری اطلاعات — پوسته راست‌به‌چپ
    بدون وابستگی بیرونی؛ مناسب اجرا در شبکه محلی
@@ -431,4 +438,5 @@ input[type="email"], input[type="search"], input[type="url"], input[type="time"]
   .topbar-search { max-width: none; }
   .kv { grid-template-columns: 1fr; }
   .kv .k { padding-bottom: 0; border-bottom: 0; }
+}
 }
