@@ -57,11 +57,11 @@
 
 <div class="grid grid-2 itam-ops-grid">
   <div class="card kt-card itam-ops-card">
-    <div class="card kt-card itam-ops-card-head">
-      <h2 class="card kt-card itam-ops-card-title">اطلاعات درخواست</h2>
+    <div class="card-head kt-card-header itam-ops-card-header">
+      <h2 class="card-title">اطلاعات درخواست</h2>
       <span class="badge badge-{{ ticket.status_css }}">{{ ticket.get_status_display }}</span>
     </div>
-    <div class="card kt-card itam-ops-card-body">
+    <div class="card-body kt-card-content itam-ops-card-content">
       <div class="kv">
         <div class="k">تجهیز</div>
         <div><a href="{% url 'assets:detail' ticket.asset_id %}">{{ ticket.asset.asset_tag }}</a> — {{ ticket.asset.display_name }}</div>
@@ -79,11 +79,11 @@
   </div>
 
   <div class="card kt-card itam-ops-card">
-    <div class="card kt-card itam-ops-card-head">
-      <h2 class="card kt-card itam-ops-card-title">خط زمان SLA</h2>
+    <div class="card-head kt-card-header itam-ops-card-header">
+      <h2 class="card-title">خط زمان SLA</h2>
       {% if sla.is_paused %}<span class="badge badge-warning">ساعت متوقف است</span>{% endif %}
     </div>
-    <div class="card kt-card itam-ops-card-body">
+    <div class="card-body kt-card-content itam-ops-card-content">
       <ul class="timeline">
         {% for point in timeline %}
           <li class="{% if point.done %}is-done{% endif %}">
@@ -112,14 +112,14 @@
 
 {% if is_manager_side or can_user_confirm or is_it %}
 <div class="card kt-card itam-ops-card">
-  <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">اقدام‌های گردش کار</h2></div>
-  <div class="card kt-card itam-ops-card-body">
+  <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">اقدام‌های گردش کار</h2></div>
+  <div class="card-body kt-card-content itam-ops-card-content">
     <div class="grid grid-2 itam-ops-grid">
 
       {% if is_manager_side and ticket.status == 'reported' %}
         <form method="post" action="{% url 'tickets:acknowledge' ticket.pk %}" class="card kt-card itam-ops-card">
           {% csrf_token %}
-          <div class="card kt-card itam-ops-card-body">
+          <div class="card-body kt-card-content itam-ops-card-content">
             <h3 class="section-title">پذیرش درخواست (پیمانکار)</h3>
             <textarea class="textarea" name="note" rows="2" placeholder="یادداشت پذیرش (اختیاری)"></textarea>
             <div class="form-actions"><button class="btn kt-btn kt-btn-primary btn-primary" type="submit">پذیرش درخواست</button></div>
@@ -130,7 +130,7 @@
       {% if is_manager_side and not ticket.arrived_at and ticket.status != 'resolved' %}
         <form method="post" action="{% url 'tickets:arrive' ticket.pk %}" class="card kt-card itam-ops-card">
           {% csrf_token %}
-          <div class="card kt-card itam-ops-card-body">
+          <div class="card-body kt-card-content itam-ops-card-content">
             <h3 class="section-title">ثبت حضور در محل</h3>
             <p class="small muted">با ثبت این مورد، «زمان پاسخ» پیمانکار محاسبه و با تعهد SLA مقایسه می‌شود.</p>
             <textarea class="textarea" name="note" rows="2" placeholder="توضیح حضور"></textarea>
@@ -145,7 +145,7 @@
       {% if is_manager_side and ticket.status == 'acknowledged' or is_manager_side and ticket.status == 'waiting_parts' %}
         <form method="post" action="{% url 'tickets:start' ticket.pk %}" class="card kt-card itam-ops-card">
           {% csrf_token %}
-          <div class="card kt-card itam-ops-card-body">
+          <div class="card-body kt-card-content itam-ops-card-content">
             <h3 class="section-title">شروع تعمیر</h3>
             <textarea class="textarea" name="note" rows="2" placeholder="توضیح شروع کار"></textarea>
             <div class="form-actions"><button class="btn kt-btn kt-btn-secondary btn-secondary" type="submit">شروع تعمیر</button></div>
@@ -156,7 +156,7 @@
       {% if is_manager_side and not sla.is_paused and ticket.is_open %}
         <form method="post" action="{% url 'tickets:pause' ticket.pk %}" class="card kt-card itam-ops-card">
           {% csrf_token %}
-          <div class="card kt-card itam-ops-card-body">
+          <div class="card-body kt-card-content itam-ops-card-content">
             <h3 class="section-title">توقف ساعت SLA</h3>
             <select class="select" name="reason">
               <option value="awaiting_parts">انتظار تامین قطعه</option>
@@ -174,7 +174,7 @@
       {% if is_manager_side and sla.is_paused %}
         <form method="post" action="{% url 'tickets:resume' ticket.pk %}" class="card kt-card itam-ops-card">
           {% csrf_token %}
-          <div class="card kt-card itam-ops-card-body">
+          <div class="card-body kt-card-content itam-ops-card-content">
             <h3 class="section-title">ادامه شمارش ساعت SLA</h3>
             <textarea class="textarea" name="note" rows="2" placeholder="توضیح"></textarea>
             <div class="form-actions"><button class="btn kt-btn kt-btn-secondary btn-secondary" type="submit">ادامه شمارش</button></div>
@@ -185,7 +185,7 @@
       {% if is_manager_side and ticket.status == 'acknowledged' or is_manager_side and ticket.status == 'in_progress' or is_manager_side and ticket.status == 'waiting_parts' %}
         <form method="post" action="{% url 'tickets:resolve' ticket.pk %}" class="card kt-card itam-ops-card">
           {% csrf_token %}
-          <div class="card kt-card itam-ops-card-body">
+          <div class="card-body kt-card-content itam-ops-card-content">
             <h3 class="section-title">اعلام رفع خرابی (پیمانکار)</h3>
             <label class="form-label">علت خرابی <span class="req">*</span></label>
             <textarea class="textarea" name="root_cause" rows="2" required></textarea>
@@ -208,7 +208,7 @@
       {% if ticket.status == 'resolved' and can_user_confirm %}
         <form method="post" action="{% url 'tickets:user_confirm' ticket.pk %}" class="card kt-card itam-ops-card">
           {% csrf_token %}
-          <div class="card kt-card itam-ops-card-body">
+          <div class="card-body kt-card-content itam-ops-card-content">
             <h3 class="section-title">تایید رفع خرابی توسط کاربر</h3>
             <p class="small muted">اگر مشکل برطرف شده است، تایید کنید؛ در غیر این صورت «مشکل برطرف نشده» را ثبت کنید.</p>
             <textarea class="textarea" name="note" rows="2" placeholder="یادداشت (اختیاری)"></textarea>
@@ -227,7 +227,7 @@
 
         <form method="post" action="{% url 'tickets:user_reject' ticket.pk %}" class="card kt-card itam-ops-card">
           {% csrf_token %}
-          <div class="card kt-card itam-ops-card-body">
+          <div class="card-body kt-card-content itam-ops-card-content">
             <h3 class="section-title">مشکل برطرف نشده است</h3>
             <textarea class="textarea" name="reason" rows="3" placeholder="توضیح دهید کدام مشکل باقی است" required></textarea>
             <div class="form-actions">
@@ -240,7 +240,7 @@
       {% if is_it and ticket.status == 'resolved' or is_it and ticket.status == 'user_confirmed' %}
         <form method="post" action="{% url 'tickets:it_confirm' ticket.pk %}" class="card kt-card itam-ops-card">
           {% csrf_token %}
-          <div class="card kt-card itam-ops-card-body">
+          <div class="card-body kt-card-content itam-ops-card-content">
             <h3 class="section-title">تایید نهایی کارشناس فناوری اطلاعات</h3>
             <textarea class="textarea" name="note" rows="2" placeholder="یادداشت کارشناس"></textarea>
             <div class="form-actions">
@@ -253,7 +253,7 @@
       {% if ticket.is_open and is_it or ticket.is_open and is_manager_side %}
         <form method="post" action="{% url 'tickets:cancel' ticket.pk %}" class="card kt-card itam-ops-card">
           {% csrf_token %}
-          <div class="card kt-card itam-ops-card-body">
+          <div class="card-body kt-card-content itam-ops-card-content">
             <h3 class="section-title">لغو / رد درخواست</h3>
             <textarea class="textarea" name="reason" rows="2" placeholder="دلیل لغو" required></textarea>
             <div class="form-actions">
@@ -269,8 +269,8 @@
 
 <div class="grid grid-2 itam-ops-grid">
   <div class="card kt-card itam-ops-card">
-    <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">رخدادهای درخواست (منبع محاسبه SLA)</h2></div>
-    <div class="card kt-card itam-ops-card-body">
+    <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">رخدادهای درخواست (منبع محاسبه SLA)</h2></div>
+    <div class="card-body kt-card-content itam-ops-card-content">
       <ul class="timeline">
         {% for event in events %}
           <li class="{% if forloop.last %}is-current{% else %}is-done{% endif %}">
@@ -292,7 +292,7 @@
 
   <div>
     <div class="card kt-card itam-ops-card">
-      <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">توقف‌های ساعت SLA</h2></div>
+      <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">توقف‌های ساعت SLA</h2></div>
       <div class="table-wrap itam-ops-table-wrap">
         <table class="table compact kt-table itam-ops-table">
           <thead><tr><th>دلیل</th><th>شروع</th><th>پایان</th><th>مدت</th><th>ثبت‌کننده</th></tr></thead>
@@ -314,7 +314,7 @@
     </div>
 
     <div class="card kt-card itam-ops-card">
-      <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">قطعات مصرف/تعویض‌شده</h2></div>
+      <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">قطعات مصرف/تعویض‌شده</h2></div>
       <div class="table-wrap itam-ops-table-wrap">
         <table class="table compact kt-table itam-ops-table">
           <thead><tr><th>قطعه</th><th>اقدام</th><th>سریال قبلی</th><th>سریال جدید</th><th>تعداد</th></tr></thead>
@@ -334,7 +334,7 @@
         </table>
       </div>
       {% if is_manager_side %}
-        <div class="card kt-card itam-ops-card-foot">
+        <div class="card-foot kt-card-footer itam-ops-card-footer">
           <form method="post" action="{% url 'tickets:add_part' ticket.pk %}" class="form-grid">
             {% csrf_token %}
             {% for field in part_form %}<div class="form-row">{{ field.label_tag }}{{ field }}</div>{% endfor %}
@@ -345,7 +345,7 @@
     </div>
 
     <div class="card kt-card itam-ops-card">
-      <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">پیوست‌ها</h2></div>
+      <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">پیوست‌ها</h2></div>
       <div class="table-wrap itam-ops-table-wrap">
         <table class="table compact kt-table itam-ops-table">
           <thead><tr><th>نوع</th><th>عنوان</th><th>فایل</th><th>زمان</th></tr></thead>
@@ -364,7 +364,7 @@
         </table>
       </div>
       {% if is_manager_side %}
-        <div class="card kt-card itam-ops-card-foot">
+        <div class="card-foot kt-card-footer itam-ops-card-footer">
           <form method="post" action="{% url 'tickets:add_attachment' ticket.pk %}" enctype="multipart/form-data">
             {% csrf_token %}
             {% include "partials/form_fields.html" with form=attachment_form %}
@@ -375,8 +375,8 @@
     </div>
 
     <div class="card kt-card itam-ops-card">
-      <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">ثبت یادداشت در گردش کار</h2></div>
-      <div class="card kt-card itam-ops-card-body">
+      <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">ثبت یادداشت در گردش کار</h2></div>
+      <div class="card-body kt-card-content itam-ops-card-content">
         <form method="post" action="{% url 'tickets:add_note' ticket.pk %}">
           {% csrf_token %}
           {% include "partials/form_fields.html" with form=note_form %}
@@ -389,8 +389,8 @@
 
 {% if ticket.root_cause or ticket.action_taken %}
 <div class="card kt-card itam-ops-card">
-  <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">نتیجه رسیدگی</h2></div>
-  <div class="card kt-card itam-ops-card-body">
+  <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">نتیجه رسیدگی</h2></div>
+  <div class="card-body kt-card-content itam-ops-card-content">
     <div class="kv">
       <div class="k">علت خرابی</div><div>{{ ticket.root_cause|linebreaksbr|default:"—" }}</div>
       <div class="k">اقدام انجام‌شده</div><div>{{ ticket.action_taken|linebreaksbr|default:"—" }}</div>

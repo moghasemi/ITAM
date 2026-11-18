@@ -40,11 +40,11 @@
 
 <div class="grid grid-2 itam-ops-grid">
   <div class="card kt-card itam-ops-card">
-    <div class="card kt-card itam-ops-card-head">
-      <h2 class="card kt-card itam-ops-card-title">{{ object.category.icon }} {{ object.display_name }}</h2>
+    <div class="card-head kt-card-header itam-ops-card-header">
+      <h2 class="card-title">{{ object.category.icon }} {{ object.display_name }}</h2>
       <span class="badge badge-{{ object.status_css }}">{{ object.get_status_display }}</span>
     </div>
-    <div class="card kt-card itam-ops-card-body">
+    <div class="card-body kt-card-content itam-ops-card-content">
       <div class="kv">
         {% for key, value in spec_rows %}
           <div class="k">{{ key }}</div><div>{{ value|default:"—" }}</div>
@@ -68,8 +68,8 @@
   </div>
 
   <div class="card kt-card itam-ops-card">
-    <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">برچسب QR تجهیز</h2></div>
-    <div class="card kt-card itam-ops-card-body qr-box">
+    <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">برچسب QR تجهیز</h2></div>
+    <div class="card-body kt-card-content itam-ops-card-content qr-box">
       {% qr_svg object.public_url 5 %}
       <p class="small muted mt-1">
         این برچسب را روی کیس نصب کنید؛ کارشناس پیمانکار با اسکن QR مستقیماً وارد صفحه همین تجهیز می‌شود.
@@ -81,7 +81,7 @@
 
 {% if asset_relationships %}
 <div class="card kt-card itam-ops-card mt-2">
-  <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">ارتباطات این دارایی</h2></div>
+  <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">ارتباطات این دارایی</h2></div>
   <div class="table-wrap itam-ops-table-wrap">
     <table class="table compact kt-table itam-ops-table">
       <thead><tr><th>دارایی مرتبط</th><th>نوع ارتباط</th><th>روش اتصال</th><th>مرکز</th></tr></thead>
@@ -115,8 +115,8 @@
 
   <div class="tab-panel itam-ops-tab-panel active" data-tab-panel="hardware">
     <div class="card kt-card itam-ops-card">
-      <div class="card kt-card itam-ops-card-head">
-        <h2 class="card kt-card itam-ops-card-title">اقلام داخل کیس (وضعیت جاری)</h2>
+      <div class="card-head kt-card-header itam-ops-card-header">
+        <h2 class="card-title">اقلام داخل کیس (وضعیت جاری)</h2>
         {% if object.current_snapshot %}
           <span class="muted small">
             بر پایه اسنپ‌شات {{ object.current_snapshot.version|fa }}
@@ -155,7 +155,7 @@
         </table>
       </div>
       {% if object.current_snapshot %}
-        <div class="card kt-card itam-ops-card-foot">
+        <div class="card-foot kt-card-footer itam-ops-card-footer">
           <a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'assets:snapshot_detail' object.current_snapshot.pk %}">مشاهده اسنپ‌شات جاری</a>
           {% if object.current_snapshot.case_photo %}
             <a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'assets:snapshot_file' object.current_snapshot.pk 'case_photo' %}" target="_blank">عکس کیس باز شده</a>
@@ -170,8 +170,8 @@
 
   <div class="tab-panel itam-ops-tab-panel" data-tab-panel="snapshots">
     <div class="card kt-card itam-ops-card">
-      <div class="card kt-card itam-ops-card-head">
-        <h2 class="card kt-card itam-ops-card-title">تاریخچه اسنپ‌شات‌های سخت‌افزاری</h2>
+      <div class="card-head kt-card-header itam-ops-card-header">
+        <h2 class="card-title">تاریخچه اسنپ‌شات‌های سخت‌افزاری</h2>
         <span class="muted small">هر ردیف نشان‌دهنده یک بازبینی و تغییرات آن نسبت به وضعیت قبلی است.</span>
       </div>
       <div class="table-wrap itam-ops-table-wrap">
@@ -211,8 +211,8 @@
 
   <div class="tab-panel itam-ops-tab-panel" data-tab-panel="tickets">
     <div class="card kt-card itam-ops-card">
-      <div class="card kt-card itam-ops-card-head">
-        <h2 class="card kt-card itam-ops-card-title">درخواست‌های خرابی این تجهیز</h2>
+      <div class="card-head kt-card-header itam-ops-card-header">
+        <h2 class="card-title">درخواست‌های خرابی این تجهیز</h2>
         <a class="btn kt-btn kt-btn-primary btn-primary btn-sm" href="{% url 'tickets:create' %}?asset={{ object.pk }}">اعلام خرابی جدید</a>
       </div>
       <div class="table-wrap itam-ops-table-wrap">
@@ -249,7 +249,7 @@
 
   <div class="tab-panel itam-ops-tab-panel" data-tab-panel="visits">
     <div class="card kt-card itam-ops-card">
-      <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">سابقه بازدیدهای دوره‌ای</h2></div>
+      <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">سابقه بازدیدهای دوره‌ای</h2></div>
       <div class="table-wrap itam-ops-table-wrap">
         <table class="table compact kt-table itam-ops-table">
           <thead><tr><th>بازدید</th><th>قرارداد</th><th>تاریخ بازدید</th><th>بازدیدکننده</th><th>وضعیت تجهیز</th><th>خدمات انجام‌شده</th><th></th></tr></thead>
@@ -275,8 +275,8 @@
 
   <div class="tab-panel itam-ops-tab-panel" data-tab-panel="files">
     <div class="card kt-card itam-ops-card">
-      <div class="card kt-card itam-ops-card-head">
-        <h2 class="card kt-card itam-ops-card-title">پیوست‌های دارایی</h2>
+      <div class="card-head kt-card-header itam-ops-card-header">
+        <h2 class="card-title">پیوست‌های دارایی</h2>
         {% if can_edit or user.is_technician %}
           <a class="btn kt-btn kt-btn-primary btn-primary btn-sm" href="{% url 'assets:attachment_create' object.pk %}">➕ افزودن پیوست</a>
         {% endif %}
@@ -313,8 +313,8 @@
 
 {% if object.notes %}
 <div class="card kt-card itam-ops-card">
-  <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">یادداشت‌ها</h2></div>
-  <div class="card kt-card itam-ops-card-body">{{ object.notes|linebreaksbr }}</div>
+  <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">یادداشت‌ها</h2></div>
+  <div class="card-body kt-card-content itam-ops-card-content">{{ object.notes|linebreaksbr }}</div>
 </div>
 {% endif %}
 

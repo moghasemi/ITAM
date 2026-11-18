@@ -60,11 +60,11 @@
 
 <div class="grid grid-2 itam-ops-grid mt-2">
   <div class="card kt-card itam-ops-card">
-    <div class="card kt-card itam-ops-card-head">
-      <h2 class="card kt-card itam-ops-card-title">اطلاعات بازدید</h2>
+    <div class="card-head kt-card-header itam-ops-card-header">
+      <h2 class="card-title">اطلاعات بازدید</h2>
       <span class="badge badge-{{ object.status|visits_status_css }}">{{ object.get_status_display }}</span>
     </div>
-    <div class="card kt-card itam-ops-card-body">
+    <div class="card-body kt-card-content itam-ops-card-content">
       <div class="kv">
         <div class="k">قرارداد</div><div><a href="{% url 'org:contract_detail' object.contract_id %}">{{ object.contract.number }}</a></div>
         <div class="k">پیمانکار</div><div>{{ object.contract.contractor.name }}</div>
@@ -91,8 +91,8 @@
   </div>
 
   <div class="card kt-card itam-ops-card">
-    <div class="card kt-card itam-ops-card-head"><h2 class="card kt-card itam-ops-card-title">خلاصه وضعیت تجهیزات</h2></div>
-    <div class="card kt-card itam-ops-card-body">
+    <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">خلاصه وضعیت تجهیزات</h2></div>
+    <div class="card-body kt-card-content itam-ops-card-content">
       <div class="kv">
         {% for label, count in stats.conditions.items %}
           <div class="k">{{ label }}</div><div>{{ count|fa }} تجهیز</div>
@@ -124,8 +124,8 @@
 </div>
 
 <div class="card kt-card itam-ops-card">
-  <div class="card kt-card itam-ops-card-head">
-    <h2 class="card kt-card itam-ops-card-title">برگه‌های بازدید تجهیزات</h2>
+  <div class="card-head kt-card-header itam-ops-card-header">
+    <h2 class="card-title">برگه‌های بازدید تجهیزات</h2>
     <span class="muted small">برای ثبت نتیجه هر تجهیز روی «ثبت برگه» بزنید.</span>
   </div>
   <div class="table-wrap itam-ops-table-wrap">
