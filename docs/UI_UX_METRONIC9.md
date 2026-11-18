@@ -185,5 +185,6 @@
 - `formset.html`: فرم‌ست‌های پویا با form item/control/label و دکمه افزودن Metronic؛ شناسه‌ها و `data-formset-*` برای JavaScript حفظ شده‌اند.
 - `messages.html`: نگاشت سطح‌های Django به variantهای alert در Metronic و role/aria-live مناسب؛ کلاس‌های dismiss موجود حفظ شده‌اند.
 - `empty.html`: empty state با alert اطلاع‌رسانی Metronic و role=status.
+- `action_button.html`: دکمه POST مشترک از پایه `kt-btn` استفاده می‌کند؛ CSRF، کلاس variant قبلی و data-confirm حفظ شده‌اند.
 
 این مرحله کلاس‌های سازگاری قدیمی را حذف نمی‌کند؛ آن‌ها همچنان برای JavaScript و صفحات قدیمی لازم‌اند. آزمون قراردادی برای حضور hookهای Metronic و حفظ hookهای سازگاری partialها اضافه شده است. پذیرش ظاهری و تعاملی این اجزا در مرورگر همچنان لازم است.
