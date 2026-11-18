@@ -48,3 +48,37 @@ Windows HWAgent، private media پشت reverse proxy، TLS/network، backup/rest
 
 ## گزارش تست
 branch/SHA، محیط، نسخه Python/DB، فرمان، pass/fail/skip، CI یا local بودن، تست‌های اجرا نشده و اثر DB/file را ثبت کنید.
+
+
+## به‌روزرسانی UI/Metronic و CI — 2026-11-19
+
+### CI نهایی PR #25
+- PR: https://github.com/moghasemi/ITAM/pull/25
+- head: `94005a451252b501b5667edf3ca87ad8fbbb9f50`
+- run: https://github.com/moghasemi/ITAM/actions/runs/44403052061
+- نتیجه: completed/success، 5/5 job.
+- Python 3.11: 393 تست؛ Python 3.12: 393 تست.
+- PostgreSQL 16: 393 تست، 3 skipped.
+- production settings و deploy-script validation موفق.
+- این نتایج CI هستند و اجرای محلی یا پذیرش دستی را اثبات نمی‌کنند.
+
+### پذیرش چاپ
+- برچسب دارایی: A4 عمودی، حاشیه 9mm، سه ستون، برچسب 62×42mm، فاصله 3mm.
+- بررسی مقیاس چاپ 100%، ابعاد فیزیکی، حاشیه غیرقابل چاپ پرینتر، کیفیت QR و وضوح متن.
+- بررسی تعداد ردیف در هر صفحه، برش بین صفحات و نبود عنوان/پابرگ نمایشی در خروجی برچسب.
+- برگه بازدید و تیکت: A4 افقی؛ جدول‌ها، جزئیات SLA، امضاها و شکست صفحات بررسی شوند.
+- PDF خروجی با مرورگر و چاپگر واقعی بازبینی شود.
+
+### پذیرش HWAgent
+- بازکردن صفحه standalone در محیط هدف Windows و بررسی font/asset load.
+- تست keyboard tabs: ArrowLeft/ArrowRight/Home/End، focus، aria-selected و پنل‌های مخفی.
+- اجرای agent.ps1 و تست اسکن جدید، آخرین snapshot، diff و history.
+- اتصال به سرور آزمایشی ITAM، token binding به asset/hostname، initial sync و snapshot upload.
+- rotate/suspend/revoke و error recovery.
+- اطمینان از عدم ذخیره token در localStorage و عدم افشای آن در log/terminal/screenshot.
+- تست syntax با node --check در CI، اجرای مرورگر و سرویس محلی را جایگزین نمی‌کند.
+
+### پذیرش responsive و accessibility
+- viewportهای 1365، 1024، 768 و 390 پیکسل؛ RTL و dark/light.
+- keyboard-only، focus order، sidebar drawer، reduced motion، dropdownها، form validation، filter و pagination.
+- console بدون خطای JavaScript و Network بدون 404 برای assetها.
