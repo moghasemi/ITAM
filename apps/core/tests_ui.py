@@ -309,6 +309,23 @@ class MetronicMigrationCoverageTests(SimpleTestCase):
                 self.assertNotRegex(css, re.escape(selector) + r"(?![\\w-])")
 
 
+class MetronicSharedPartialMigrationTests(SimpleTestCase):
+    def test_shared_partials_use_metronic_hooks_and_keep_compatibility_hooks(self):
+        expected = {
+            "partials/form_fields.html": ("kt-form-item", "kt-form-label", "kt-form-control", "kt-form-message", "form-row"),
+            "partials/filter_bar.html": ("kt-form-item", "kt-form-label", "kt-btn-primary", "filter-bar"),
+            "partials/pagination.html": ("kt-pagination", "kt-pagination-item", "kt-btn-outline", "pagination"),
+            "partials/formset.html": ("kt-form-item", "kt-form-control", "kt-form-message", "data-formset-add"),
+            "partials/empty.html": ("kt-alert", "empty-state", 'role="status"'),
+            "partials/messages.html": ("kt-alert", "kt-alert-close", "data-dismiss"),
+        }
+        for template_name, tokens in expected.items():
+            with self.subTest(template=template_name):
+                source = Path(get_template(template_name).origin.name).read_text(encoding="utf-8")
+                for token in tokens:
+                    self.assertIn(token, source)
+
+
 class MetronicPrintAndAgentFinalizationTests(SimpleTestCase):
     def test_dedicated_print_templates_use_metronic_print_components(self):
         for template_name in ("assets/label_print.html", "maintenance/visit_print.html", "tickets/ticket_print.html"):
