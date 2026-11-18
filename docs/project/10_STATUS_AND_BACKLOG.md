@@ -47,3 +47,10 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 
 ## قانون جدید مستندسازی
 از 2026-11-18 مستندسازی هم‌زمان و بدون درخواست اجازه جداگانه بخشی از Done است. Decision Log، سند جامع و backlog پس از تصمیم‌ها/کارها/تست‌های معنادار به‌روز می‌شوند. این قاعده مجوز Merge، Deploy، Migration، Seed یا عملیات مخرب نیست. جزئیات: DECISION_LOG.md.
+
+## به‌روزرسانی UI — 2026-11-18
+- PR #19 باز و Draft: اصلاح اولویت cascade بین CSS قدیمی و Metronic.
+- head: `dccd73e2e11092850a1b5b94e73a7b3da5e54a49`؛ branch: `fix/metronic-legacy-css-cascade`؛ base: `ui/metronic9-django-rtl`.
+- تغییر کد فقط `static/css/itam.css` را در `@layer base` قرار می‌دهد؛ selectorهای سازگاری حفظ شده‌اند.
+- CI برای head جدید هنوز نتیجه قابل مشاهده ندارد؛ مرورگر محلی و UAT انجام نشده‌اند.
+- **P0 جدید:** پس از همگام‌سازی امن شاخه، بازبینی بصری dashboard، فهرست دارایی، فرم‌ها، login، responsive، dark mode و print؛ ثبت ایرادهای باقی‌مانده به‌صورت مستقل.
