@@ -65,6 +65,28 @@ class MetronicSidebarLayoutContractTests(SimpleTestCase):
         )
 
 
+class MetronicShellAccessibilityContractTests(SimpleTestCase):
+    def test_authenticated_shell_has_skip_link_and_focusable_main_target(self):
+        template = get_template("base.html")
+        source = Path(template.origin.name).read_text(encoding="utf-8")
+
+        self.assertIn('class="itam-skip-link" href="#content"', source)
+        self.assertIn('id="content" role="main" tabindex="-1"', source)
+        self.assertIn('id="sidebar" aria-label="ناوبری اصلی" tabindex="-1"', source)
+
+    def test_mobile_sidebar_script_manages_inert_state_and_keyboard_focus(self):
+        script_path = finders.find("js/itam.js")
+        self.assertIsNotNone(script_path)
+        script = Path(script_path).read_text(encoding="utf-8")
+
+        self.assertIn('sidebar.setAttribute("aria-hidden"', script)
+        self.assertIn('sidebar.setAttribute("inert"', script)
+        self.assertIn('if(event.key==="Escape")', script)
+        self.assertIn('if(event.key!=="Tab")return;', script)
+        self.assertNotIn(".user-chip", script)
+        self.assertNotIn(".user-menu", script)
+
+
 class ScopedCenterSelectorContextTests(SimpleTestCase):
     def test_province_admin_center_selector_uses_active_scoped_centers(self):
         scoped_centers = Mock()
