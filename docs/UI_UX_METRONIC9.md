@@ -173,3 +173,17 @@
 - آزمون قراردادی بررسی می‌کند که CSS دارای page ruleهای مورد انتظار، حاشیه/فاصله شبکه برچسب و selectorهای حذف پوسته باشد و newlineهای escape‌شده ناخواسته وارد CSS نشده باشند.
 - workflow موجود CI بلوک JavaScript داخل `HWAgent/index.html` را استخراج و با `node --check` از نظر syntax بررسی می‌کند؛ این بررسی اجرای مرورگر، ارتباط با سرویس محلی Windows یا صحت داده اسکن را ثابت نمی‌کند.
 - آزمون‌های قراردادی و CI، چاپگر واقعی، مقیاس چاپ 100%، برش کاغذ، کیفیت QR، چندصفحه‌ای شدن برگه‌ها یا سازگاری مرورگر را تأیید نمی‌کنند. این موارد در پذیرش فیزیکی/مرورگری باقی می‌مانند.
+
+
+## تکمیل partialهای مشترک در اولویت پنجم
+
+برای اینکه صفحات قدیمی و جدید از یک زبان کامپوننتی مشترک استفاده کنند، partialهای پرتکرار نیز hookهای بومی Metronic را دریافت کرده‌اند:
+
+- `form_fields.html`: ساختار `kt-form-item`، `kt-form-label`، `kt-form-control`، پیام خطا و توضیح فیلد؛ کلاس‌های قدیمی و فیلتر `field_class` برای حفظ رفتار Django باقی مانده‌اند.
+- `filter_bar.html`: فیلترها با form item و label/controlهای Metronic و دکمه‌های primary/outline.
+- `pagination.html`: ناوبری با `kt-pagination`، گروه آیتم‌ها و دکمه‌های کوچک outline؛ پارامترهای query حفظ شده‌اند.
+- `formset.html`: فرم‌ست‌های پویا با form item/control/label و دکمه افزودن Metronic؛ شناسه‌ها و `data-formset-*` برای JavaScript حفظ شده‌اند.
+- `messages.html`: نگاشت سطح‌های Django به variantهای alert در Metronic و role/aria-live مناسب؛ کلاس‌های dismiss موجود حفظ شده‌اند.
+- `empty.html`: empty state با alert اطلاع‌رسانی Metronic و role=status.
+
+این مرحله کلاس‌های سازگاری قدیمی را حذف نمی‌کند؛ آن‌ها همچنان برای JavaScript و صفحات قدیمی لازم‌اند. آزمون قراردادی برای حضور hookهای Metronic و حفظ hookهای سازگاری partialها اضافه شده است. پذیرش ظاهری و تعاملی این اجزا در مرورگر همچنان لازم است.
