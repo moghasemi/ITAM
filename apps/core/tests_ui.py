@@ -328,7 +328,7 @@ class MetronicPrintAndAgentFinalizationTests(SimpleTestCase):
         css_path = finders.find("css/itam-metronic.css")
         self.assertIsNotNone(css_path)
         css = Path(css_path).read_text(encoding="utf-8")
-        for token in ("@media print", ".itam-sidebar", ".itam-header", ".itam-label-card", "62mm", ".itam-print-signatures"):
+        for token in ("@media print", ".itam-sidebar", ".itam-header", ".itam-page-content", "@page itam-landscape", ".itam-label-card", "62mm", ".itam-print-signatures"):
             with self.subTest(token=token):
                 self.assertIn(token, css)
 
