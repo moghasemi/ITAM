@@ -4,14 +4,14 @@
 {% block page_actions %}
   {% if can_manage %}
     <form method="post" action="{% url 'integrations:dispatch_now' %}" class="inline-form">{% csrf_token %}
-      <button class="btn btn-primary" type="submit">🚀 ارسال رخدادهای در انتظار</button>
+      <button class="btn btn-primary kt-btn kt-btn-primary" type="submit">🚀 ارسال رخدادهای در انتظار</button>
     </form>
     <form method="post" action="{% url 'integrations:requeue_all' %}" class="inline-form"
           data-confirm="همه رخدادهای متوقف‌شده به صف بازگردند؟">{% csrf_token %}
-      <button class="btn btn-ghost" type="submit">♻️ بازگردانی رخدادهای متوقف</button>
+      <button class="btn btn-ghost kt-btn kt-btn-light" type="submit">♻️ بازگردانی رخدادهای متوقف</button>
     </form>
-    <a class="btn btn-ghost" href="{% url 'integrations:endpoint_list' %}">مقصدهای ارسال</a>
-    <a class="btn btn-ghost" href="{% url 'integrations:api_call_list' %}">لاگ ارسال</a>
+    <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'integrations:endpoint_list' %}">مقصدهای ارسال</a>
+    <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'integrations:api_call_list' %}">لاگ ارسال</a>
   {% endif %}
 {% endblock %}
 
@@ -24,24 +24,24 @@
   </span>
 </div>
 
-<div class="stat-grid">
-  <div class="stat-card is-warning"><div class="stat-icon">⏳</div><div>
+<div class="stat-grid itam-ops-stat-grid">
+  <div class="stat-card is-warning itam-ops-stat-card"><div class="stat-icon">⏳</div><div>
     <div class="stat-value">{{ stats.pending|fa }}</div><div class="stat-label">در انتظار ارسال</div></div></div>
-  <div class="stat-card is-success"><div class="stat-icon">✅</div><div>
+  <div class="stat-card is-success itam-ops-stat-card"><div class="stat-icon">✅</div><div>
     <div class="stat-value">{{ stats.sent|fa }}</div><div class="stat-label">ارسال‌شده</div></div></div>
-  <div class="stat-card is-danger"><div class="stat-icon">⚠️</div><div>
+  <div class="stat-card is-danger itam-ops-stat-card"><div class="stat-icon">⚠️</div><div>
     <div class="stat-value">{{ stats.failed|add:stats.dead|fa }}</div><div class="stat-label">خطا / متوقف</div></div></div>
-  <div class="stat-card"><div class="stat-icon">🔗</div><div>
+  <div class="stat-card itam-ops-stat-card"><div class="stat-icon">🔗</div><div>
     <div class="stat-value">{{ endpoints|length|fa }}</div><div class="stat-label">مقصد تعریف‌شده</div></div></div>
-  <div class="stat-card"><div class="stat-icon">📦</div><div>
+  <div class="stat-card itam-ops-stat-card"><div class="stat-icon">📦</div><div>
     <div class="stat-value">{{ stats.total|fa }}</div><div class="stat-label">کل رخدادها</div></div></div>
 </div>
 
 <div class="mt-2">{% include "partials/filter_bar.html" %}</div>
 
-<div class="card">
+<div class="card kt-card">
   <div class="table-wrap">
-    <table class="table compact">
+    <table class="table compact kt-table">
       <thead>
         <tr><th>زمان</th><th>نوع رخداد</th><th>موجودیت</th><th>کاربر عامل</th><th>وضعیت</th>
             <th>تلاش</th><th>آخرین خطا</th><th></th></tr>
@@ -67,7 +67,7 @@
           <td>{{ event.attempts|fa }}</td>
           <td class="small">{{ event.last_error|default:"—"|truncatechars:60 }}</td>
           <td class="table-actions">
-            <a class="btn btn-ghost btn-sm" href="{% url 'integrations:outbox_detail' event.pk %}">جزئیات</a>
+            <a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'integrations:outbox_detail' event.pk %}">جزئیات</a>
           </td>
         </tr>
       {% empty %}
@@ -76,6 +76,6 @@
       </tbody>
     </table>
   </div>
-  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+  <div class="card-foot kt-card-footer">{% include "partials/pagination.html" %}</div>
 </div>
 {% endblock %}

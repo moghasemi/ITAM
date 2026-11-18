@@ -2,18 +2,18 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-ghost" href="{% url 'maintenance:visit_detail' visit.pk %}">بازگشت به برگه بازدید</a>
-  <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">شناسنامه تجهیز</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'maintenance:visit_detail' visit.pk %}">بازگشت به برگه بازدید</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'assets:detail' asset.pk %}">شناسنامه تجهیز</a>
   {% if asset.requires_component_tracking %}
-    <a class="btn btn-secondary" href="{% url 'assets:detail' asset.pk %}?focus=hardware">🔧 بازبینی اقلام سخت‌افزاری</a>
+    <a class="btn btn-secondary kt-btn kt-btn-secondary" href="{% url 'assets:detail' asset.pk %}?focus=hardware">🔧 بازبینی اقلام سخت‌افزاری</a>
   {% endif %}
 {% endblock %}
 
 {% block content %}
 <div class="grid grid-2">
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">مشخصات تجهیز</h2></div>
-    <div class="card-body">
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">مشخصات تجهیز</h2></div>
+    <div class="card-body kt-card-content">
       <div class="kv">
         <div class="k">شماره اموال</div><div>{{ asset.asset_tag }}</div>
         <div class="k">عنوان</div><div>{{ asset.display_name }}</div>
@@ -27,17 +27,17 @@
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-head">
+  <div class="card kt-card">
+    <div class="card-head kt-card-header">
       <h2 class="card-title">ثبت نتیجه بازدید</h2>
       <span class="muted small">بازدید {{ visit.number }}</span>
     </div>
-    <div class="card-body">
+    <div class="card-body kt-card-content">
       <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         {% include "partials/form_fields.html" with form=form %}
         <div class="form-actions">
-          <button type="submit" class="btn btn-primary btn-lg">ذخیره برگه بازدید</button>
+          <button type="submit" class="btn btn-primary btn-lg kt-btn kt-btn-primary">ذخیره برگه بازدید</button>
         </div>
       </form>
     </div>

@@ -2,15 +2,15 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-primary" href="{% url 'accounts:user_update' object.pk %}">ویرایش</a>
-  <a class="btn btn-ghost" href="{% url 'accounts:user_password' object.pk %}">تعیین گذرواژه</a>
+  <a class="btn btn-primary kt-btn kt-btn-primary" href="{% url 'accounts:user_update' object.pk %}">ویرایش</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'accounts:user_password' object.pk %}">تعیین گذرواژه</a>
 {% endblock %}
 
 {% block content %}
 <div class="grid grid-2">
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">اطلاعات کاربر</h2></div>
-    <div class="card-body">
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">اطلاعات کاربر</h2></div>
+    <div class="card-body kt-card-content">
       <div class="kv">
         <div class="k">نام</div><div>{{ object.display_name }}</div>
         <div class="k">نام کاربری</div><div class="ltr">{{ object.username }}</div>
@@ -23,9 +23,9 @@
       </div>
     </div>
   </div>
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">فعالیت‌های اخیر این کاربر</h2></div>
-    <div class="card-body">
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">فعالیت‌های اخیر این کاربر</h2></div>
+    <div class="card-body kt-card-content">
       <ul class="timeline">
         {% for log in object.audit_logs.all|slice:":15" %}
           <li class="is-done">
@@ -41,10 +41,10 @@
 </div>
 
 <div class="grid grid-2">
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">درخواست‌های اعلام‌شده</h2></div>
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">درخواست‌های اعلام‌شده</h2></div>
     <div class="table-wrap">
-      <table class="table compact">
+      <table class="table compact kt-table">
         <thead><tr><th>شماره</th><th>عنوان</th><th>وضعیت</th><th>اعلام</th></tr></thead>
         <tbody>
         {% for ticket in object.reported_tickets.all|slice:":10" %}
@@ -61,10 +61,10 @@
       </table>
     </div>
   </div>
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">دارایی‌های تحت امانت</h2></div>
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">دارایی‌های تحت امانت</h2></div>
     <div class="table-wrap">
-      <table class="table compact">
+      <table class="table compact kt-table">
         <thead><tr><th>شماره اموال</th><th>عنوان</th><th>وضعیت</th></tr></thead>
         <tbody>
         {% for asset in object.custodied_assets.all|slice:":10" %}

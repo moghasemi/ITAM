@@ -9,10 +9,10 @@
   </span>
 </div>
 
-<div class="card">
-  <div class="card-head"><h2 class="card-title">کارتابل تایید اسنپ‌شات سخت‌افزاری</h2></div>
+<div class="card kt-card">
+  <div class="card-head kt-card-header"><h2 class="card-title">کارتابل تایید اسنپ‌شات سخت‌افزاری</h2></div>
   <div class="table-wrap">
-    <table class="table">
+    <table class="table kt-table">
       <thead>
         <tr><th>تجهیز</th><th>نسخه</th><th>نوع</th><th>ثبت‌کننده</th><th>زمان ثبت</th>
             <th>تغییرات</th><th>هشدار</th><th></th></tr>
@@ -41,14 +41,14 @@
             {% else %}—{% endif %}
           </td>
           <td class="table-actions">
-            <a class="btn btn-ghost btn-sm" href="{% url 'assets:snapshot_detail' snapshot.pk %}">بررسی</a>
+            <a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'assets:snapshot_detail' snapshot.pk %}">بررسی</a>
             <form method="post" action="{% url 'assets:snapshot_approve' snapshot.pk %}" class="inline-form"
                   data-confirm="تایید و قفل این اسنپ‌شات؟">{% csrf_token %}
-              <button class="btn btn-success btn-sm" type="submit">تایید</button>
+              <button class="btn btn-success btn-sm kt-btn kt-btn-success" type="submit">تایید</button>
             </form>
             <form method="post" action="{% url 'assets:snapshot_reject' snapshot.pk %}" class="inline-form">{% csrf_token %}
               <input type="hidden" name="note" value="نیازمند اصلاح اقلام">
-              <button class="btn btn-danger btn-sm" type="submit">برگشت</button>
+              <button class="btn btn-danger btn-sm kt-btn kt-btn-danger" type="submit">برگشت</button>
             </form>
           </td>
         </tr>

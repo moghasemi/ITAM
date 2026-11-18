@@ -3,16 +3,16 @@
 
 {% block page_actions %}
   {% if user.is_admin_province %}
-    <a class="btn btn-primary" href="{% url 'org:contract_create' %}">➕ ثبت قرارداد</a>
+    <a class="btn btn-primary kt-btn kt-btn-primary" href="{% url 'org:contract_create' %}">➕ ثبت قرارداد</a>
   {% endif %}
 {% endblock %}
 
 {% block content %}
 {% include "partials/filter_bar.html" %}
 
-<div class="card">
+<div class="card kt-card">
   <div class="table-wrap">
-    <table class="table">
+    <table class="table kt-table">
       <thead>
         <tr>
           <th>شماره قرارداد</th><th>پیمانکار</th><th>استان</th><th>عنوان</th><th>بازه قرارداد</th>
@@ -39,9 +39,9 @@
           </td>
           <td><span class="badge badge-{{ contract.status_css }}">{{ contract.get_status_display }}</span></td>
           <td class="table-actions">
-            <a class="btn btn-ghost btn-sm" href="{% url 'org:contract_detail' contract.pk %}">پرونده</a>
+            <a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'org:contract_detail' contract.pk %}">پرونده</a>
             {% if user.is_admin_province %}
-              <a class="btn btn-ghost btn-sm" href="{% url 'org:contract_update' contract.pk %}">ویرایش</a>
+              <a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'org:contract_update' contract.pk %}">ویرایش</a>
             {% endif %}
           </td>
         </tr>
@@ -51,6 +51,6 @@
       </tbody>
     </table>
   </div>
-  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+  <div class="card-foot kt-card-footer">{% include "partials/pagination.html" %}</div>
 </div>
 {% endblock %}

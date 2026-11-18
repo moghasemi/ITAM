@@ -2,14 +2,14 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-ghost" href="{% url 'integrations:outbox_list' %}">صف رخدادها</a>
-  <a class="btn btn-ghost" href="{% url 'integrations:endpoint_list' %}">مقصدها</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'integrations:outbox_list' %}">صف رخدادها</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'integrations:endpoint_list' %}">مقصدها</a>
 {% endblock %}
 
 {% block content %}
-<div class="card">
+<div class="card kt-card">
   <div class="table-wrap">
-    <table class="table compact">
+    <table class="table compact kt-table">
       <thead>
         <tr><th>زمان</th><th>مقصد</th><th>رخداد</th><th>روش</th><th>نشانی</th>
             <th>کد پاسخ</th><th>مدت (ms)</th><th>نتیجه</th></tr>
@@ -32,6 +32,6 @@
       </tbody>
     </table>
   </div>
-  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+  <div class="card-foot kt-card-footer">{% include "partials/pagination.html" %}</div>
 </div>
 {% endblock %}

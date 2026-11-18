@@ -2,7 +2,7 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-ghost" href="?{% if request.GET.date_from %}date_from={{ request.GET.date_from|urlencode }}&{% endif %}{% if request.GET.date_to %}date_to={{ request.GET.date_to|urlencode }}&{% endif %}export=1">⬇️ خروجی Excel</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="?{% if request.GET.date_from %}date_from={{ request.GET.date_from|urlencode }}&{% endif %}{% if request.GET.date_to %}date_to={{ request.GET.date_to|urlencode }}&{% endif %}export=1">⬇️ خروجی Excel</a>
 {% endblock %}
 
 {% block content %}
@@ -10,8 +10,8 @@
   <span>گزارش فقط داده‌های قابل مشاهده در حوزه سازمانی کاربر را محاسبه می‌کند. هزینه‌ها به ریال هستند و امتیازها از ۱ تا ۵ ثبت می‌شوند.</span>
 </div>
 
-<div class="card">
-  <div class="card-body">
+<div class="card kt-card">
+  <div class="card-body kt-card-content">
     <form method="get" class="filter-form">
       <div class="form-grid">
         <div class="form-group">
@@ -24,34 +24,34 @@
         </div>
       </div>
       <div class="form-actions">
-        <button class="btn btn-primary" type="submit">اعمال فیلتر</button>
-        <a class="btn btn-ghost" href="{% url 'reports:repairs' %}">پاک کردن</a>
+        <button class="btn btn-primary kt-btn kt-btn-primary" type="submit">اعمال فیلتر</button>
+        <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'reports:repairs' %}">پاک کردن</a>
       </div>
     </form>
   </div>
 </div>
 
-<div class="stat-grid">
-  <div class="stat-card"><div class="stat-icon">🧰</div><div>
+<div class="stat-grid itam-ops-stat-grid">
+  <div class="stat-card itam-ops-stat-card"><div class="stat-icon">🧰</div><div>
     <div class="stat-value">{{ summary.total|fa }}</div><div class="stat-label">کل درخواست‌های تعمیر</div></div></div>
-  <div class="stat-card is-warning"><div class="stat-icon">⏳</div><div>
+  <div class="stat-card is-warning itam-ops-stat-card"><div class="stat-icon">⏳</div><div>
     <div class="stat-value">{{ summary.pending|fa }}</div><div class="stat-label">در انتظار تایید استان</div></div></div>
-  <div class="stat-card is-danger"><div class="stat-icon">⚠️</div><div>
+  <div class="stat-card is-danger itam-ops-stat-card"><div class="stat-icon">⚠️</div><div>
     <div class="stat-value">{{ summary.disputed|fa }}</div><div class="stat-label">اختلاف هزینه</div></div></div>
-  <div class="stat-card"><div class="stat-icon">💰</div><div>
+  <div class="stat-card itam-ops-stat-card"><div class="stat-icon">💰</div><div>
     <div class="stat-value">{{ summary.estimated|default:0|floatformat:0|fa }}</div><div class="stat-label">برآورد کل (ریال)</div></div></div>
-  <div class="stat-card"><div class="stat-icon">🧾</div><div>
+  <div class="stat-card itam-ops-stat-card"><div class="stat-icon">🧾</div><div>
     <div class="stat-value">{{ summary.final|default:0|floatformat:0|fa }}</div><div class="stat-label">هزینه نهایی ثبت‌شده (ریال)</div></div></div>
-  <div class="stat-card"><div class="stat-icon">📨</div><div>
+  <div class="stat-card itam-ops-stat-card"><div class="stat-icon">📨</div><div>
     <div class="stat-value">{{ summary.general_requests|fa }}</div><div class="stat-label">درخواست‌های عمومی IT</div></div></div>
-  <div class="stat-card"><div class="stat-icon">📬</div><div>
+  <div class="stat-card itam-ops-stat-card"><div class="stat-icon">📬</div><div>
     <div class="stat-value">{{ summary.general_requests_open|fa }}</div><div class="stat-label">درخواست عمومی باز</div></div></div>
 </div>
 
-<div class="card">
-  <div class="card-head"><h2 class="card-title">کارنامه تعمیرکاران مستقل</h2></div>
+<div class="card kt-card">
+  <div class="card-head kt-card-header"><h2 class="card-title">کارنامه تعمیرکاران مستقل</h2></div>
   <div class="table-wrap">
-    <table class="table compact">
+    <table class="table compact kt-table">
       <thead>
         <tr>
           <th>تعمیرکار</th><th>درخواست</th><th>مراکز</th><th>دارایی‌ها</th>

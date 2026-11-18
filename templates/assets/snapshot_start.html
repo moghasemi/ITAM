@@ -2,9 +2,9 @@
 {% load itam_tags %}
 
 {% block content %}
-<div class="card" style="max-width:820px">
-  <div class="card-head"><h2 class="card-title">شروع ثبت اقلام سخت‌افزاری</h2></div>
-  <div class="card-body">
+<div class="card kt-card" style="max-width:820px">
+  <div class="card-head kt-card-header"><h2 class="card-title">شروع ثبت اقلام سخت‌افزاری</h2></div>
+  <div class="card-body kt-card-content">
     <div class="kv">
       <div class="k">تجهیز</div><div>{{ asset.asset_tag }} — {{ asset.display_name }}</div>
       <div class="k">نوع ثبت</div>
@@ -36,8 +36,8 @@
     <form method="post">
       {% csrf_token %}
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary btn-lg">شروع ثبت</button>
-        <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">بازگشت به شناسنامه</a>
+        <button type="submit" class="btn btn-primary btn-lg kt-btn kt-btn-primary">شروع ثبت</button>
+        <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'assets:detail' asset.pk %}">بازگشت به شناسنامه</a>
       </div>
     </form>
   </div>

@@ -3,47 +3,47 @@
 
 {% block page_actions %}
   {% if user.is_admin_province %}
-    <a class="btn btn-primary" href="{% url 'org:contract_update' object.pk %}">ویرایش قرارداد</a>
+    <a class="btn btn-primary kt-btn kt-btn-primary" href="{% url 'org:contract_update' object.pk %}">ویرایش قرارداد</a>
     <form method="post" action="{% url 'org:contract_generate_visits' object.pk %}" class="inline-form"
           data-confirm="بازدیدهای دوره‌ای این قرارداد بر اساس دوره {{ object.visit_interval_days }} روز ساخته شود؟">
       {% csrf_token %}
-      <button class="btn btn-secondary" type="submit">🗓 برنامه‌ریزی بازدیدهای دوره‌ای</button>
+      <button class="btn btn-secondary kt-btn kt-btn-secondary" type="submit">🗓 برنامه‌ریزی بازدیدهای دوره‌ای</button>
     </form>
   {% endif %}
-  <a class="btn btn-ghost" href="{% url 'org:contract_list' %}">فهرست قراردادها</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'org:contract_list' %}">فهرست قراردادها</a>
 {% endblock %}
 
 {% block content %}
-<div class="stat-grid">
-  <div class="stat-card">
+<div class="stat-grid itam-ops-stat-grid">
+  <div class="stat-card itam-ops-stat-card">
     <div class="stat-icon">📄</div>
     <div><div class="stat-value">{{ object.visit_interval_days|fa }}</div><div class="stat-label">دوره بازدید (روز)</div></div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card itam-ops-stat-card">
     <div class="stat-icon">🖥</div>
     <div><div class="stat-value">{{ assets_total|fa }}</div><div class="stat-label">دارایی زیر پوشش</div></div>
   </div>
-  <div class="stat-card is-warning">
+  <div class="stat-card is-warning itam-ops-stat-card">
     <div class="stat-icon">🛠</div>
     <div><div class="stat-value">{{ tickets_open|fa }}</div><div class="stat-label">درخواست باز</div></div>
   </div>
-  <div class="stat-card is-danger">
+  <div class="stat-card is-danger itam-ops-stat-card">
     <div class="stat-icon">⚠️</div>
     <div><div class="stat-value">{{ breached_count|fa }}</div><div class="stat-label">نقض SLA</div></div>
   </div>
-  <div class="stat-card is-info">
+  <div class="stat-card is-info itam-ops-stat-card">
     <div class="stat-icon">⏳</div>
     <div><div class="stat-value">{{ object.days_remaining|fa }}</div><div class="stat-label">روز باقی‌مانده قرارداد</div></div>
   </div>
 </div>
 
 <div class="grid grid-2 mt-2">
-  <div class="card">
-    <div class="card-head">
+  <div class="card kt-card">
+    <div class="card-head kt-card-header">
       <h2 class="card-title">اطلاعات قرارداد</h2>
       <span class="badge badge-{{ object.status_css }}">{{ object.get_status_display }}</span>
     </div>
-    <div class="card-body">
+    <div class="card-body kt-card-content">
       <div class="kv">
         <div class="k">شماره قرارداد</div><div>{{ object.number }}</div>
         <div class="k">عنوان</div><div>{{ object.title }}</div>
@@ -60,10 +60,10 @@
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">تعهدات زمانی (SLA)</h2></div>
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">تعهدات زمانی (SLA)</h2></div>
     <div class="table-wrap">
-      <table class="table compact">
+      <table class="table compact kt-table">
         <thead><tr><th>اولویت</th><th>زمان پاسخ</th><th>زمان رفع</th><th>توقف در انتظار قطعه</th><th>توضیح</th></tr></thead>
         <tbody>
         {% for policy in sla_policies %}
@@ -85,13 +85,13 @@
   </div>
 </div>
 
-<div class="card">
-  <div class="card-head">
+<div class="card kt-card">
+  <div class="card-head kt-card-header">
     <h2 class="card-title">بازدیدهای دوره‌ای قرارداد</h2>
-    <a class="btn btn-ghost btn-sm" href="{% url 'maintenance:visit_list' %}?contract={{ object.pk }}">فهرست کامل</a>
+    <a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'maintenance:visit_list' %}?contract={{ object.pk }}">فهرست کامل</a>
   </div>
   <div class="table-wrap">
-    <table class="table compact">
+    <table class="table compact kt-table">
       <thead>
         <tr><th>شماره</th><th>دوره</th><th>تاریخ برنامه</th><th>آخرین مهلت</th><th>کارشناس</th>
             <th>پیشرفت</th><th>وضعیت</th><th>تایید IT</th><th></th></tr>
@@ -110,7 +110,7 @@
           </td>
           <td><span class="badge badge-{{ visit.status|visits_status_css }}">{{ visit.get_status_display }}</span></td>
           <td>{% if visit.it_confirmed_at %}<span class="badge badge-success">{{ visit.it_confirmed_at|jdate }}</span>{% else %}—{% endif %}</td>
-          <td><a class="btn btn-ghost btn-sm" href="{% url 'maintenance:visit_detail' visit.pk %}">برگه</a></td>
+          <td><a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'maintenance:visit_detail' visit.pk %}">برگه</a></td>
         </tr>
       {% empty %}
         <tr><td colspan="9">
@@ -122,13 +122,13 @@
   </div>
 </div>
 
-<div class="card">
-  <div class="card-head">
+<div class="card kt-card">
+  <div class="card-head kt-card-header">
     <h2 class="card-title">دارایی‌های زیر پوشش قرارداد</h2>
-    <a class="btn btn-ghost btn-sm" href="{% url 'assets:list' %}?contract={{ object.pk }}">فهرست کامل</a>
+    <a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'assets:list' %}?contract={{ object.pk }}">فهرست کامل</a>
   </div>
   <div class="table-wrap">
-    <table class="table compact">
+    <table class="table compact kt-table">
       <thead><tr><th>شماره اموال</th><th>گونه</th><th>عنوان</th><th>محل</th><th>وضعیت</th><th>اقلام ثبت‌شده</th></tr></thead>
       <tbody>
       {% for asset in assets %}

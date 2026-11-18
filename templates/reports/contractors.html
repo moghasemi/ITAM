@@ -2,31 +2,31 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-primary" href="?{{ request.GET.urlencode }}&export=1&format=xlsx">📊 خروجی Excel</a>
-  <a class="btn btn-ghost" href="{% url 'reports:home' %}">همه گزارش‌ها</a>
+  <a class="btn btn-primary kt-btn kt-btn-primary" href="?{{ request.GET.urlencode }}&export=1&format=xlsx">📊 خروجی Excel</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'reports:home' %}">همه گزارش‌ها</a>
 {% endblock %}
 
 {% block content %}
-<div class="card">
-  <div class="card-head"><h2 class="card-title">پالایه گزارش</h2></div>
-  <div class="card-body">
+<div class="card kt-card">
+  <div class="card-head kt-card-header"><h2 class="card-title">پالایه گزارش</h2></div>
+  <div class="card-body kt-card-content">
     <form method="get" class="form-grid">
       {% include "partials/form_fields.html" with form=filter_form %}
       <div class="form-actions">
-        <button class="btn btn-primary" type="submit">اعمال</button>
-        <a class="btn btn-ghost" href="{{ request.path }}">پاک‌کردن</a>
+        <button class="btn btn-primary kt-btn kt-btn-primary" type="submit">اعمال</button>
+        <a class="btn btn-ghost kt-btn kt-btn-light" href="{{ request.path }}">پاک‌کردن</a>
       </div>
     </form>
   </div>
 </div>
 
-<div class="card">
-  <div class="card-head">
+<div class="card kt-card">
+  <div class="card-head kt-card-header">
     <h2 class="card-title">کارنامه عملکرد پیمانکاران</h2>
     <span class="muted small">معیارهای SLA و رعایت بازدیدهای دوره‌ای برای ارزیابی قراردادی</span>
   </div>
   <div class="table-wrap">
-    <table class="table">
+    <table class="table kt-table">
       <thead>
         <tr>
           <th>پیمانکار</th><th>کل درخواست</th><th>باز</th><th>بسته‌شده</th>

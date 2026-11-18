@@ -2,17 +2,17 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">بازگشت به شناسنامه دارایی</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'assets:detail' asset.pk %}">بازگشت به شناسنامه دارایی</a>
 {% endblock %}
 
 {% block content %}
-<div class="card" style="max-width: 800px; margin: 0 auto;">
-  <div class="card-head">
+<div class="card kt-card" style="max-width: 800px; margin: 0 auto;">
+  <div class="card-head kt-card-header">
     <h2 class="card-title">📥 بارگذاری فایل JSON خروجی HWAgent</h2>
     <p class="muted">اطلاعات سخت‌افزاری، قطعات داخل کیس و اثر انگشت دیجیتال سیستم مستقیماً از فایل استخراج و ثبت می‌شود.</p>
   </div>
 
-  <div class="card-body">
+  <div class="card-body kt-card-content">
     <div class="info-banner" style="background:#eef2ff; border:1px solid #c7d2fe; padding:14px; border-radius:8px; margin-bottom:20px;">
       <strong>تجهیز هدف:</strong> {{ asset.asset_tag }} — {{ asset.title|default:asset.category.name }}
       {% if asset.center %}<span class="badge badge-info" style="margin-right:8px;">مرکز: {{ asset.center.name }}</span>{% endif %}
@@ -44,8 +44,8 @@
       </div>
 
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">🚀 پردازش و ثبت اسنپ‌شات سخت‌افزاری</button>
-        <a class="btn btn-ghost" href="{% url 'assets:detail' asset.pk %}">انصراف</a>
+        <button type="submit" class="btn btn-primary kt-btn kt-btn-primary">🚀 پردازش و ثبت اسنپ‌شات سخت‌افزاری</button>
+        <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'assets:detail' asset.pk %}">انصراف</a>
       </div>
     </form>
   </div>

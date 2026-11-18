@@ -2,7 +2,7 @@
 {% load itam_tags %}
 
 {% block content %}
-<form method="get" class="filter-bar">
+<form method="get" class="filter-bar itam-ops-filter">
   <div class="filter-field">
     <label class="filter-label">جستجو</label>
     <input class="input" type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="عنوان رکورد، کاربر یا توضیح">
@@ -26,18 +26,18 @@
     </select>
   </div>
   <div class="filter-actions">
-    <button class="btn btn-primary" type="submit">اعمال</button>
-    <a class="btn btn-ghost" href="{{ request.path }}">پاک‌کردن</a>
+    <button class="btn btn-primary kt-btn kt-btn-primary" type="submit">اعمال</button>
+    <a class="btn btn-ghost kt-btn kt-btn-light" href="{{ request.path }}">پاک‌کردن</a>
   </div>
 </form>
 
-<div class="card">
-  <div class="card-head">
+<div class="card kt-card">
+  <div class="card-head kt-card-header">
     <h2 class="card-title">لاگ ممیزی سامانه</h2>
     <span class="muted small">این لاگ فقط-افزودنی است و قابل ویرایش یا حذف نیست.</span>
   </div>
   <div class="table-wrap">
-    <table class="table compact">
+    <table class="table compact kt-table">
       <thead>
         <tr><th>زمان</th><th>کاربر</th><th>عملیات</th><th>موجودیت</th><th>رکورد</th><th>توضیح</th><th>نشانی IP</th></tr>
       </thead>
@@ -58,6 +58,6 @@
       </tbody>
     </table>
   </div>
-  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+  <div class="card-foot kt-card-footer">{% include "partials/pagination.html" %}</div>
 </div>
 {% endblock %}

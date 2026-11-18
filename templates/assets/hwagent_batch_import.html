@@ -2,20 +2,20 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-ghost" href="{% url 'assets:list' %}">بازگشت به فهرست دارایی‌ها</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'assets:list' %}">بازگشت به فهرست دارایی‌ها</a>
 {% endblock %}
 
 {% block content %}
 <div class="grid-2" style="display:grid; grid-template-columns: 1fr; gap: 24px;">
-  <div class="card">
-    <div class="card-head">
+  <div class="card kt-card">
+    <div class="card-head kt-card-header">
       <h2 class="card-title">📂 بارگذاری گروهی فایل‌های JSON ایجنت سخت‌افزاری (HWAgent)</h2>
       <p class="muted">
         این بخش برای مواردی است که کارشناس فناوری اطلاعات با فلش‌مموری فایل‌های JSON استخراج‌شده از چندین کلاینت را جمع‌آوری کرده و می‌خواهد همه را یکجا وارد سامانه کند.
       </p>
     </div>
 
-    <div class="card-body">
+    <div class="card-body kt-card-content">
       <form method="post" enctype="multipart/form-data" class="form">
         {% csrf_token %}
 
@@ -45,15 +45,15 @@
         </div>
 
         <div class="form-actions" style="margin-top:20px;">
-          <button type="submit" class="btn btn-primary">🚀 شروع پردازش گروهی فایل‌ها</button>
+          <button type="submit" class="btn btn-primary kt-btn kt-btn-primary">🚀 شروع پردازش گروهی فایل‌ها</button>
         </div>
       </form>
     </div>
   </div>
 
   {% if results %}
-    <div class="card">
-      <div class="card-head">
+    <div class="card kt-card">
+      <div class="card-head kt-card-header">
         <h3 class="card-title">📊 گزارش نتایج بارگذاری دسته‌ای</h3>
         <div style="display:flex; gap:12px; margin-top:8px;">
           <span class="badge badge-primary">کل فایل‌ها: {{ results.total_files|fa }}</span>
@@ -64,7 +64,7 @@
       </div>
 
       <div class="table-wrap">
-        <table class="table">
+        <table class="table kt-table">
           <thead>
             <tr>
               <th>نام فایل</th>

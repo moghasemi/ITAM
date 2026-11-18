@@ -2,15 +2,15 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  {% if user.is_admin_province %}<a class="btn btn-primary" href="{% url 'org:contractor_create' %}">➕ افزودن پیمانکار</a>{% endif %}
+  {% if user.is_admin_province %}<a class="btn btn-primary kt-btn kt-btn-primary" href="{% url 'org:contractor_create' %}">➕ افزودن پیمانکار</a>{% endif %}
 {% endblock %}
 
 {% block content %}
 {% include "partials/filter_bar.html" %}
 
-<div class="card">
+<div class="card kt-card">
   <div class="table-wrap">
-    <table class="table">
+    <table class="table kt-table">
       <thead><tr><th>نام شرکت</th><th>کد</th><th>رابط</th><th>تلفن</th><th>قراردادها</th><th>کارشناسان</th><th>وضعیت</th><th></th></tr></thead>
       <tbody>
       {% for item in object_list %}
@@ -27,8 +27,8 @@
           <td><span class="badge badge-info">{{ item.technicians_total|fa }}</span></td>
           <td>{% if item.is_active %}<span class="badge badge-success">فعال</span>{% else %}<span class="badge badge-neutral">غیرفعال</span>{% endif %}</td>
           <td class="table-actions">
-            <a class="btn btn-ghost btn-sm" href="{% url 'org:contractor_detail' item.pk %}">پرونده</a>
-            {% if user.is_admin_province %}<a class="btn btn-ghost btn-sm" href="{% url 'org:contractor_update' item.pk %}">ویرایش</a>{% endif %}
+            <a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'org:contractor_detail' item.pk %}">پرونده</a>
+            {% if user.is_admin_province %}<a class="btn btn-ghost btn-sm kt-btn kt-btn-light" href="{% url 'org:contractor_update' item.pk %}">ویرایش</a>{% endif %}
           </td>
         </tr>
       {% empty %}
@@ -37,6 +37,6 @@
       </tbody>
     </table>
   </div>
-  <div class="card-foot">{% include "partials/pagination.html" %}</div>
+  <div class="card-foot kt-card-footer">{% include "partials/pagination.html" %}</div>
 </div>
 {% endblock %}
