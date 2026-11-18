@@ -40,5 +40,12 @@ fetch و fast-forward عادی فقط پس از بررسی status و ancestry.
 ## حل مسئله
 reproduce → root cause → کم‌دامنه change → regression test → اجرای تست → بررسی diff → به‌روزرسانی docs → گزارش.
 
+## مستندسازی به‌عنوان بخشی از Done
+پس از هر تصمیم یا تغییر معنادار، بدون انتظار برای درخواست کاربر:
+- Decision Log و سند دامنه‌ای مرتبط را به‌روز کن.
+- وضعیت جامع، Backlog، PR/CI و نتایج تست را در صورت اثر اصلاح کن.
+- تغییرات مستنداتی را در همان branch کاری یا یک docs branch امن commit کن.
+- مستندات را به‌روز نگه دار، اما Merge/Deploy/Migration/Seed یا اقدام مخرب انجام نده.
+
 ## Dependency و معماری
 dependency جدید باید ضرورت، مجوز، نگهداری و اثر امنیتی داشته باشد. frontend framework یا runtime CDN بدون تصمیم معماری اضافه نشود.

@@ -1,6 +1,6 @@
 # وضعیت و Backlog
 
-**Snapshot:** 2026-11-17
+**Snapshot:** 2026-11-18
 
 ## اکنون
 - PR #15 باز، Draft و merge نشده؛ امنیت و Integration QA.
@@ -43,3 +43,7 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 
 ## معیار بستن
 رفتار روشن، commit قابل ردیابی، regression test، CI موفق، پذیرش محلی در صورت نیاز، مستند به‌روز و ریسک باقیمانده ثبت‌شده.
+
+
+## قانون جدید مستندسازی
+از 2026-11-18 مستندسازی هم‌زمان و بدون درخواست اجازه جداگانه بخشی از Done است. Decision Log، سند جامع و backlog پس از تصمیم‌ها/کارها/تست‌های معنادار به‌روز می‌شوند. این قاعده مجوز Merge، Deploy، Migration، Seed یا عملیات مخرب نیست. جزئیات: DECISION_LOG.md.

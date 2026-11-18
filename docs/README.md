@@ -14,6 +14,7 @@
 - [UI و Metronic](project/07_UI_UX_AND_METRONIC.md)
 - [HWAgent و یکپارچه‌سازی](project/08_INTEGRATIONS_AND_HWAGENT.md)
 - [قواعد مستندسازی و تصمیم‌ها](project/09_DOCUMENTATION_AND_DECISION_RULES.md)
+- [دفتر ثبت تصمیم‌ها](project/DECISION_LOG.md)
 - [وضعیت و Backlog](project/10_STATUS_AND_BACKLOG.md)
 - [راهنمای عامل هوش مصنوعی](project/11_AI_AGENT_RULES.md)
 - [استاندارد مشارکت و کدنویسی](project/12_CONTRIBUTING_AND_CODING_STANDARDS.md)
