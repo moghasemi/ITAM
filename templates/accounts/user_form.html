@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="card">
-  <div class="card-body">
+<div class="card kt-card">
+  <div class="card-body kt-card-content">
     <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
       <div class="form-grid">
         {% include "partials/form_fields.html" with form=form %}
       </div>
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">ذخیره</button>
-        <a class="btn btn-ghost" href="{% url 'accounts:user_list' %}">بازگشت به فهرست</a>
+        <button type="submit" class="btn btn-primary kt-btn kt-btn-primary">ذخیره</button>
+        <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'accounts:user_list' %}">بازگشت به فهرست</a>
       </div>
     </form>
   </div>
