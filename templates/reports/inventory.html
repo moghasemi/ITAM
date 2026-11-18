@@ -2,21 +2,21 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-primary" href="?{{ request.GET.urlencode }}&export=1&format=xlsx">📊 خروجی Excel</a>
-  <a class="btn btn-ghost" href="{% url 'reports:home' %}">همه گزارش‌ها</a>
+  <a class="btn btn-primary kt-btn kt-btn-primary" href="?{{ request.GET.urlencode }}&export=1&format=xlsx">📊 خروجی Excel</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'reports:home' %}">همه گزارش‌ها</a>
 {% endblock %}
 
 {% block content %}
-<div class="stat-grid">
-  <div class="stat-card"><div class="stat-icon">🖥</div><div>
+<div class="stat-grid itam-ops-stat-grid">
+  <div class="stat-card itam-ops-stat-card"><div class="stat-icon">🖥</div><div>
     <div class="stat-value">{{ totals.total|fa }}</div><div class="stat-label">کل دارایی‌ها</div></div></div>
-  <div class="stat-card is-info"><div class="stat-icon">🔒</div><div>
+  <div class="stat-card is-info itam-ops-stat-card"><div class="stat-icon">🔒</div><div>
     <div class="stat-value">{{ totals.tracked|fa }}</div><div class="stat-label">دارای اقلام ثبت‌شده</div></div></div>
-  <div class="stat-card is-success"><div class="stat-icon">💰</div><div>
+  <div class="stat-card is-success itam-ops-stat-card"><div class="stat-icon">💰</div><div>
     <div class="stat-value">{{ totals.value|fa_num }}</div><div class="stat-label">ارزش کل (ریال)</div></div></div>
 </div>
 
-<form method="get" class="filter-bar mt-2">
+<form method="get" class="filter-bar mt-2 itam-ops-filter">
   <div class="filter-field">
     <label class="filter-label">گونه دارایی</label>
     <select class="select" name="category">
@@ -36,16 +36,16 @@
     </select>
   </div>
   <div class="filter-actions">
-    <button class="btn btn-primary" type="submit">اعمال</button>
-    <a class="btn btn-ghost" href="{{ request.path }}">پاک‌کردن</a>
+    <button class="btn btn-primary kt-btn kt-btn-primary" type="submit">اعمال</button>
+    <a class="btn btn-ghost kt-btn kt-btn-light" href="{{ request.path }}">پاک‌کردن</a>
   </div>
 </form>
 
 <div class="grid grid-2">
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">توزیع بر اساس گونه</h2></div>
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">توزیع بر اساس گونه</h2></div>
     <div class="table-wrap">
-      <table class="table compact">
+      <table class="table compact kt-table">
         <thead><tr><th>گونه</th><th>تعداد</th><th>ارزش (ریال)</th></tr></thead>
         <tbody>
         {% for row in by_category %}
@@ -56,10 +56,10 @@
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">توزیع بر اساس واحد سازمانی</h2></div>
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">توزیع بر اساس واحد سازمانی</h2></div>
     <div class="table-wrap">
-      <table class="table compact">
+      <table class="table compact kt-table">
         <thead><tr><th>واحد</th><th>تعداد</th><th>ارزش (ریال)</th></tr></thead>
         <tbody>
         {% for row in by_department %}
@@ -70,10 +70,10 @@
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">توزیع بر اساس وضعیت</h2></div>
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">توزیع بر اساس وضعیت</h2></div>
     <div class="table-wrap">
-      <table class="table compact">
+      <table class="table compact kt-table">
         <thead><tr><th>وضعیت</th><th>تعداد</th></tr></thead>
         <tbody>
         {% for row in by_status %}
@@ -87,10 +87,10 @@
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">پرتراکم‌ترین محل‌ها</h2></div>
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">پرتراکم‌ترین محل‌ها</h2></div>
     <div class="table-wrap">
-      <table class="table compact">
+      <table class="table compact kt-table">
         <thead><tr><th>محل</th><th>ساختمان</th><th>تعداد</th></tr></thead>
         <tbody>
         {% for row in by_location %}
@@ -102,10 +102,10 @@
   </div>
 </div>
 
-<div class="card">
-  <div class="card-head"><h2 class="card-title">فهرست دارایی‌ها (۲۰۰ رکورد نخست)</h2></div>
+<div class="card kt-card">
+  <div class="card-head kt-card-header"><h2 class="card-title">فهرست دارایی‌ها (۲۰۰ رکورد نخست)</h2></div>
   <div class="table-wrap">
-    <table class="table compact">
+    <table class="table compact kt-table">
       <thead>
         <tr><th>شماره اموال</th><th>گونه</th><th>عنوان</th><th>برند / مدل</th><th>سریال</th>
             <th>واحد</th><th>محل</th><th>امانت‌دار</th><th>وضعیت</th><th>اقلام</th></tr>

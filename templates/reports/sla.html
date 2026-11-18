@@ -2,32 +2,32 @@
 {% load itam_tags %}
 
 {% block page_actions %}
-  <a class="btn btn-primary" href="?{{ request.GET.urlencode }}&export=1&format=xlsx">📊 خروجی Excel</a>
-  <a class="btn btn-ghost" href="?{{ request.GET.urlencode }}&export=1&format=csv">خروجی CSV</a>
-  <a class="btn btn-ghost" href="{% url 'reports:home' %}">همه گزارش‌ها</a>
+  <a class="btn btn-primary kt-btn kt-btn-primary" href="?{{ request.GET.urlencode }}&export=1&format=xlsx">📊 خروجی Excel</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="?{{ request.GET.urlencode }}&export=1&format=csv">خروجی CSV</a>
+  <a class="btn btn-ghost kt-btn kt-btn-light" href="{% url 'reports:home' %}">همه گزارش‌ها</a>
 {% endblock %}
 
 {% block content %}
 
-<div class="stat-grid">
-  <div class="stat-card"><div class="stat-icon">📋</div><div>
+<div class="stat-grid itam-ops-stat-grid">
+  <div class="stat-card itam-ops-stat-card"><div class="stat-icon">📋</div><div>
     <div class="stat-value">{{ summary.total|fa }}</div><div class="stat-label">کل درخواست‌ها</div></div></div>
-  <div class="stat-card is-danger"><div class="stat-icon">⚠️</div><div>
+  <div class="stat-card is-danger itam-ops-stat-card"><div class="stat-icon">⚠️</div><div>
     <div class="stat-value">{{ summary.breached|fa }}</div><div class="stat-label">نقض SLA</div></div></div>
-  <div class="stat-card is-info"><div class="stat-icon">⏱</div><div>
+  <div class="stat-card is-info itam-ops-stat-card"><div class="stat-icon">⏱</div><div>
     <div class="stat-value">{{ summary.avg_response }}</div><div class="stat-label">میانگین زمان تا حضور</div></div></div>
-  <div class="stat-card is-info"><div class="stat-icon">🔧</div><div>
+  <div class="stat-card is-info itam-ops-stat-card"><div class="stat-icon">🔧</div><div>
     <div class="stat-value">{{ summary.avg_resolve }}</div><div class="stat-label">میانگین زمان تا رفع</div></div></div>
-  <div class="stat-card"><div class="stat-icon">🔄</div><div>
+  <div class="stat-card itam-ops-stat-card"><div class="stat-icon">🔄</div><div>
     <div class="stat-value">{{ summary.avg_total }}</div><div class="stat-label">میانگین چرخه کامل</div></div></div>
-  <div class="stat-card is-warning"><div class="stat-icon">⏸</div><div>
+  <div class="stat-card is-warning itam-ops-stat-card"><div class="stat-icon">⏸</div><div>
     <div class="stat-value">{{ summary.paused_total }}</div><div class="stat-label">مجموع توقف ساعت</div></div></div>
 </div>
 
 <div class="grid grid-2 mt-2">
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">درصد رعایت تعهدات</h2></div>
-    <div class="card-body">
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">درصد رعایت تعهدات</h2></div>
+    <div class="card-body kt-card-content">
       <div class="kv">
         <div class="k">رعایت زمان پاسخ (حضور در محل)</div>
         <div>
@@ -56,24 +56,24 @@
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-head"><h2 class="card-title">پالایه گزارش</h2></div>
-    <div class="card-body">
+  <div class="card kt-card">
+    <div class="card-head kt-card-header"><h2 class="card-title">پالایه گزارش</h2></div>
+    <div class="card-body kt-card-content">
       <form method="get" class="form-grid">
         {% include "partials/form_fields.html" with form=filter_form %}
         <div class="form-actions">
-          <button class="btn btn-primary" type="submit">اعمال</button>
-          <a class="btn btn-ghost" href="{{ request.path }}">پاک‌کردن</a>
+          <button class="btn btn-primary kt-btn kt-btn-primary" type="submit">اعمال</button>
+          <a class="btn btn-ghost kt-btn kt-btn-light" href="{{ request.path }}">پاک‌کردن</a>
         </div>
       </form>
     </div>
   </div>
 </div>
 
-<div class="card">
-  <div class="card-head"><h2 class="card-title">جزئیات درخواست‌ها و زمان‌های SLA</h2></div>
+<div class="card kt-card">
+  <div class="card-head kt-card-header"><h2 class="card-title">جزئیات درخواست‌ها و زمان‌های SLA</h2></div>
   <div class="table-wrap">
-    <table class="table compact">
+    <table class="table compact kt-table">
       <thead>
         <tr>
           <th>شماره</th><th>تجهیز</th><th>اولویت</th><th>اعلام</th><th>حضور</th><th>اعلام رفع</th>
