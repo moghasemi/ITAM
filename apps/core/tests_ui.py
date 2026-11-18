@@ -170,5 +170,5 @@ class MetronicDashboardCompositionTests(SimpleTestCase):
 
         self.assertIn("{% if user.is_technician and my_visits %}", source)
         self.assertIn('id="itam-monthly-chart"', source)
-        self.assertIn('id="itam-monthly-series"', source)
+        self.assertIn('json_script:"itam-monthly-series"', source)
         self.assertIn("window.ApexCharts", source)
