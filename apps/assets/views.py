@@ -94,8 +94,11 @@ class AssetListView(AnyRoleRequiredMixin, BaseListView):
         return self.filter_form_class(self.request.GET or None, user=self.request.user)
 
     def get_queryset(self):
-        queryset = visible_assets(self.request.user).annotate(
-            tickets_total=Count("tickets", distinct=True)
+        queryset = (
+            visible_assets(self.request.user)
+            .select_related("current_snapshot")
+            .prefetch_related("current_snapshot__items")
+            .annotate(tickets_total=Count("tickets", distinct=True))
         )
         ordering = "asset_tag"
         form = self.get_filter_form()

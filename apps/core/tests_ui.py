@@ -409,3 +409,28 @@ class MetronicDashboardChartAccessibilityTests(SimpleTestCase):
     def test_action_columns_have_accessible_names(self):
         source = Path(get_template("core/dashboard.html").origin.name).read_text(encoding="utf-8")
         self.assertEqual(source.count('<th scope="col" aria-label="عملیات"></th>'), 2)
+
+
+class MetronicAssetListUXTests(SimpleTestCase):
+    def test_asset_list_columns_are_aligned_and_accessible(self):
+        source = Path(get_template("assets/asset_list.html").origin.name).read_text(encoding="utf-8")
+        self.assertEqual(source.count('<th scope="col"'), 12)
+        row = re.search(r"{% for asset in object_list %}(.*?)</tr>", source, re.S)
+        self.assertIsNotNone(row)
+        self.assertEqual(row.group(1).count("<td"), 12)
+        self.assertIn('{{ asset.center.name|default:"—" }}', source)
+        self.assertIn('{{ asset.department.name|default:"—" }}', source)
+        self.assertIn('colspan="12"', source)
+        self.assertIn('aria-label="عملیات"', source)
+        self.assertIn('role="region" tabindex="0" aria-label="جدول دارایی‌ها', source)
+
+    def test_asset_list_uses_native_metronic_status_badges(self):
+        source = Path(get_template("assets/asset_list.html").origin.name).read_text(encoding="utf-8")
+        self.assertIn('kt-badge kt-badge-sm', source)
+        self.assertNotIn('class="badge', source)
+
+    def test_asset_list_prefetches_snapshot_items_for_component_counts(self):
+        source = Path(get_template("assets/asset_list.html").origin.name).read_text(encoding="utf-8")
+        view_source = Path(__file__).resolve().parents[1].joinpath("assets", "views.py").read_text(encoding="utf-8")
+        self.assertIn("asset.components_count", source)
+        self.assertIn('.prefetch_related("current_snapshot__items")', view_source)
