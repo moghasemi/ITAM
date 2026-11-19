@@ -109,6 +109,19 @@ def filter_visit_status_css(value):
     return VISIT_STATUS_CSS.get(value, "neutral")
 
 
+@register.filter(name="metronic_badge_variant")
+def filter_metronic_badge_variant(value):
+    """Map ITAM semantic status colors to Metronic 9 badge variants."""
+    return {
+        "danger": "destructive",
+        "neutral": "secondary",
+        "primary": "primary",
+        "success": "success",
+        "warning": "warning",
+        "info": "info",
+    }.get(str(value or "").strip().lower(), "secondary")
+
+
 @register.filter(name="check_css")
 def filter_check_css(value):
     from ..constants import CHECK_CONDITION_CSS

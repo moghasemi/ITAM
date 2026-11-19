@@ -10,6 +10,7 @@ from unittest.mock import Mock
 from django.test import SimpleTestCase
 
 from apps.core.context_processors import site_context
+from apps.core.templatetags.itam_tags import filter_metronic_badge_variant
 
 
 class MetronicTemplateCompilationTests(SimpleTestCase):
@@ -373,3 +374,26 @@ class MetronicPrintAndAgentFinalizationTests(SimpleTestCase):
         self.assertIn('name="viewport"', source)
         self.assertIn("renderMeters(", source)
         self.assertIn("prefers-reduced-motion", source)
+
+
+class MetronicDashboardAccessibilityAndRoleTests(SimpleTestCase):
+    def test_approval_only_snapshot_widgets_are_role_gated(self):
+        source = Path(get_template("core/dashboard.html").origin.name).read_text(encoding="utf-8")
+        self.assertGreaterEqual(source.count("{% if user.is_admin_it %}"), 3)
+        self.assertIn('aria-labelledby="pending-snapshots-title"', source)
+        self.assertIn('pending_snapshots_count', source)
+
+    def test_dashboard_tables_are_keyboard_accessible_regions(self):
+        source = Path(get_template("core/dashboard.html").origin.name).read_text(encoding="utf-8")
+        self.assertEqual(source.count('role="region" tabindex="0" aria-label="جدول'), 5)
+        self.assertGreaterEqual(source.count('<th scope="col">'), 20)
+
+    def test_itam_status_colors_map_to_metronic_badge_variants(self):
+        expected = {
+            "danger": "destructive", "neutral": "secondary", "primary": "primary",
+            "success": "success", "warning": "warning", "info": "info",
+        }
+        for source, target in expected.items():
+            with self.subTest(source=source):
+                self.assertEqual(filter_metronic_badge_variant(source), target)
+        self.assertEqual(filter_metronic_badge_variant(None), "secondary")

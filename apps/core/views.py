@@ -117,6 +117,15 @@ class DashboardView(PageContextMixin, ListView):
         setting = SystemSetting.load()
 
         open_tickets = tickets.filter(status__in=TICKET_OPEN_STATUSES)
+        pending_snapshots = HardwareSnapshot.objects.none()
+        pending_snapshots_count = 0
+        if user.has_role("admin_it"):
+            pending_snapshots_qs = HardwareSnapshot.objects.filter(
+                asset__in=assets, status="pending"
+            )
+            pending_snapshots = pending_snapshots_qs.select_related("asset", "recorded_by")[:6]
+            pending_snapshots_count = pending_snapshots_qs.count()
+
         context.update(
             {
                 "assets_total": assets.count(),
@@ -150,12 +159,8 @@ class DashboardView(PageContextMixin, ListView):
                     .annotate(total=Count("id"))
                     .order_by("-total")[:5]
                 ),
-                "pending_snapshots": HardwareSnapshot.objects.filter(
-                    asset__in=assets, status="pending"
-                ).select_related("asset", "recorded_by")[:6],
-                "pending_snapshots_count": HardwareSnapshot.objects.filter(
-                    asset__in=assets, status="pending"
-                ).count(),
+                "pending_snapshots": pending_snapshots,
+                "pending_snapshots_count": pending_snapshots_count,
                 "calendar": get_calendar(),
                 "setting": setting,
                 "sla_paused_count": open_tickets.filter(pauses__ended_at__isnull=True).distinct().count(),

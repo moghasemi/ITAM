@@ -75,6 +75,7 @@
         <span class="itam-dashboard-stat-foot">{% if visits_overdue %}{{ visits_overdue|fa }} مورد با مهلت گذشته{% else %}بازدیدهای برنامه‌ریزی‌شده{% endif %}</span>
       </div>
     </article>
+    {% if user.is_admin_it %}
     <article class="kt-card itam-dashboard-stat">
       <div class="itam-dashboard-stat-icon {% if pending_snapshots_count %}is-warning{% else %}is-success{% endif %}"><i class="ki-filled ki-shield-tick" aria-hidden="true"></i></div>
       <div class="itam-dashboard-stat-copy">
@@ -83,6 +84,7 @@
         <span class="itam-dashboard-stat-foot">کنترل تغییرات سخت‌افزاری</span>
       </div>
     </article>
+    {% endif %}
   </div>
 
   {% if user.is_technician and my_visits %}
@@ -94,9 +96,9 @@
       </div>
       <a class="kt-btn kt-btn-sm kt-btn-outline" href="{% url 'maintenance:my_visits' %}">کارتابل کامل <i class="ki-filled ki-arrow-left" aria-hidden="true"></i></a>
     </div>
-    <div class="itam-dashboard-table-wrap">
+    <div class="itam-dashboard-table-wrap" role="region" tabindex="0" aria-label="جدول تجهیزات با بیشترین خرابی؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید" role="region" tabindex="0" aria-label="جدول بازدیدهای دوره‌ای پیش‌رو؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید" role="region" tabindex="0" aria-label="جدول اسنپ‌شات‌های در انتظار تأیید؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید" role="region" tabindex="0" aria-label="جدول آخرین درخواست‌های خرابی؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید" role="region" tabindex="0" aria-label="جدول بازدیدهای در انتظار من؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید">
       <table class="table itam-dashboard-table">
-        <thead><tr><th>شماره</th><th>قرارداد</th><th>دوره</th><th>تاریخ</th><th>مهلت</th><th>وضعیت</th><th></th></tr></thead>
+        <thead><tr><th scope="col">شماره</th><th scope="col">قرارداد</th><th scope="col">دوره</th><th scope="col">تاریخ</th><th scope="col">مهلت</th><th scope="col">وضعیت</th><th scope="col"></th></tr></thead>
         <tbody>
         {% for visit in my_visits %}
           <tr class="{% if visit.is_overdue %}is-danger{% endif %}">
@@ -105,7 +107,7 @@
             <td>{{ visit.period_label }}</td>
             <td>{{ visit.scheduled_date|jdate }}</td>
             <td>{{ visit.scheduled_end_date|jdate }}</td>
-            <td><span class="badge badge-{{ visit.status|visits_status_css }}">{{ visit.get_status_display }}</span></td>
+            <td><span class="kt-badge kt-badge-sm kt-badge-{{ visit.status|visits_status_css|metronic_badge_variant }}">{{ visit.get_status_display }}</span></td>
             <td><a class="kt-btn kt-btn-sm kt-btn-ghost" href="{% url 'maintenance:visit_detail' visit.pk %}">مشاهده</a></td>
           </tr>
         {% endfor %}
@@ -143,7 +145,7 @@
           <span class="itam-dashboard-panel-icon is-warning"><i class="ki-filled ki-timer" aria-hidden="true"></i></span>
           <div><h2 id="sla-panel-title">تنظیمات تقویم SLA</h2><p>مبنای محاسبه زمان پاسخ و رفع خرابی</p></div>
         </div>
-        <span class="badge badge-neutral">{% if calendar.is_24_7 %}شبانه‌روزی{% else %}ساعت کاری{% endif %}</span>
+        <span class="kt-badge kt-badge-sm kt-badge-secondary">{% if calendar.is_24_7 %}شبانه‌روزی{% else %}ساعت کاری{% endif %}</span>
       </div>
       <div class="kt-card-content itam-dashboard-panel-content">
         <dl class="itam-dashboard-kv">
@@ -151,8 +153,8 @@
           <div><dt>روزهای کاری</dt><dd>{{ setting.work_day_labels }}</dd></div>
           <div><dt>تعطیلات فعال</dt><dd>{{ calendar.holiday_dates|length|fa }} روز <span class="itam-dashboard-muted">(به‌همراه تعطیلات سالانه)</span></dd></div>
           <div><dt>درخواست‌های با ساعت متوقف</dt><dd>{{ sla_paused_count|fa }}</dd></div>
-          <div><dt>تأیید کاربر</dt><dd><span class="badge {% if setting.require_user_confirmation %}badge-success{% else %}badge-neutral{% endif %}">{{ setting.require_user_confirmation|yesno_fa }}</span></dd></div>
-          <div><dt>تأیید کارشناس IT</dt><dd><span class="badge {% if setting.require_it_confirmation %}badge-success{% else %}badge-neutral{% endif %}">{{ setting.require_it_confirmation|yesno_fa }}</span></dd></div>
+          <div><dt>تأیید کاربر</dt><dd><span class="kt-badge kt-badge-sm {% if setting.require_user_confirmation %}kt-badge-success{% else %}kt-badge-secondary{% endif %}">{{ setting.require_user_confirmation|yesno_fa }}</span></dd></div>
+          <div><dt>تأیید کارشناس IT</dt><dd><span class="kt-badge kt-badge-sm {% if setting.require_it_confirmation %}kt-badge-success{% else %}kt-badge-secondary{% endif %}">{{ setting.require_it_confirmation|yesno_fa }}</span></dd></div>
         </dl>
       </div>
     </section>
@@ -169,14 +171,14 @@
       </div>
       <div class="itam-dashboard-table-wrap">
         <table class="table compact itam-dashboard-table">
-          <thead><tr><th>شماره</th><th>تجهیز</th><th>اولویت</th><th>وضعیت</th><th>زمان اعلام</th></tr></thead>
+          <thead><tr><th scope="col">شماره</th><th scope="col">تجهیز</th><th scope="col">اولویت</th><th scope="col">وضعیت</th><th scope="col">زمان اعلام</th></tr></thead>
           <tbody>
           {% for ticket in recent_tickets %}
             <tr>
               <td><a class="itam-dashboard-link itam-dashboard-mono" href="{% url 'tickets:detail' ticket.pk %}">{{ ticket.number }}</a></td>
               <td>{{ ticket.asset.asset_tag }}</td>
-              <td><span class="badge badge-{{ ticket.priority_css }}">{{ ticket.priority_label }}</span></td>
-              <td><span class="badge badge-{{ ticket.status_css }}">{{ ticket.get_status_display }}</span></td>
+              <td><span class="kt-badge kt-badge-sm kt-badge-{{ ticket.priority_css|metronic_badge_variant }}">{{ ticket.priority_label }}</span></td>
+              <td><span class="kt-badge kt-badge-sm kt-badge-{{ ticket.status_css|metronic_badge_variant }}">{{ ticket.get_status_display }}</span></td>
               <td class="nowrap">{{ ticket.reported_at|rel }}</td>
             </tr>
           {% empty %}
@@ -187,6 +189,7 @@
       </div>
     </section>
 
+    {% if user.is_admin_it %}
     <section class="kt-card itam-dashboard-panel" aria-labelledby="pending-snapshots-title">
       <div class="kt-card-header itam-dashboard-panel-header">
         <div class="itam-dashboard-panel-heading">
@@ -197,7 +200,7 @@
       </div>
       <div class="itam-dashboard-table-wrap">
         <table class="table compact itam-dashboard-table">
-          <thead><tr><th>تجهیز</th><th>نسخه</th><th>تغییرات</th><th>ثبت‌کننده</th><th>وضعیت</th></tr></thead>
+          <thead><tr><th scope="col">تجهیز</th><th scope="col">نسخه</th><th scope="col">تغییرات</th><th scope="col">ثبت‌کننده</th><th scope="col">وضعیت</th></tr></thead>
           <tbody>
           {% for snapshot in pending_snapshots %}
             <tr class="{% if snapshot.has_changes %}is-warning{% endif %}">
@@ -205,13 +208,13 @@
               <td>{% if snapshot.is_baseline %}پایه{% else %}{{ snapshot.version|fa }}{% endif %}</td>
               <td>
                 {% if snapshot.has_changes %}
-                  <span class="badge badge-danger">{{ snapshot.diff_count|fa }} تغییر</span>
+                  <span class="kt-badge kt-badge-sm kt-badge-destructive">{{ snapshot.diff_count|fa }} تغییر</span>
                 {% else %}
-                  <span class="badge badge-success">بدون تغییر</span>
+                  <span class="kt-badge kt-badge-sm kt-badge-success">بدون تغییر</span>
                 {% endif %}
               </td>
               <td>{{ snapshot.recorded_by.display_name|default:"—" }}</td>
-              <td><span class="badge badge-{{ snapshot.status_css }}">{{ snapshot.get_status_display }}</span></td>
+              <td><span class="kt-badge kt-badge-sm kt-badge-{{ snapshot.status_css|metronic_badge_variant }}">{{ snapshot.get_status_display }}</span></td>
             </tr>
           {% empty %}
             <tr><td colspan="5">{% include "partials/empty.html" with text="موردی در انتظار تأیید نیست." %}</td></tr>
@@ -220,6 +223,7 @@
         </table>
       </div>
     </section>
+    {% endif %}
   </div>
 
   <div class="itam-dashboard-content-grid">
@@ -232,7 +236,7 @@
       </div>
       <div class="itam-dashboard-table-wrap">
         <table class="table compact itam-dashboard-table">
-          <thead><tr><th>شماره</th><th>پیمانکار</th><th>تاریخ برنامه</th><th>مهلت</th><th>وضعیت</th></tr></thead>
+          <thead><tr><th scope="col">شماره</th><th scope="col">پیمانکار</th><th scope="col">تاریخ برنامه</th><th scope="col">مهلت</th><th scope="col">وضعیت</th></tr></thead>
           <tbody>
           {% for visit in upcoming_visits %}
             <tr class="{% if visit.is_overdue %}is-danger{% endif %}">
@@ -240,7 +244,7 @@
               <td>{{ visit.contract.contractor.name }}</td>
               <td>{{ visit.scheduled_date|jdate }}</td>
               <td>{{ visit.scheduled_end_date|jdate }}</td>
-              <td><span class="badge badge-{{ visit.status|visits_status_css }}">{{ visit.get_status_display }}</span></td>
+              <td><span class="kt-badge kt-badge-sm kt-badge-{{ visit.status|visits_status_css|metronic_badge_variant }}">{{ visit.get_status_display }}</span></td>
             </tr>
           {% empty %}
             <tr><td colspan="5">{% include "partials/empty.html" with text="بازدیدی برنامه‌ریزی نشده است." %}</td></tr>
@@ -285,13 +289,13 @@
     </div>
     <div class="itam-dashboard-table-wrap">
       <table class="table compact itam-dashboard-table">
-        <thead><tr><th>شماره اموال</th><th>عنوان</th><th>تعداد خرابی</th><th></th></tr></thead>
+        <thead><tr><th scope="col">شماره اموال</th><th scope="col">عنوان</th><th scope="col">تعداد خرابی</th><th scope="col"></th></tr></thead>
         <tbody>
         {% for row in top_assets %}
           <tr>
             <td class="itam-dashboard-mono">{{ row.asset__asset_tag }}</td>
             <td>{{ row.asset__title|default:"—" }}</td>
-            <td><span class="badge badge-warning">{{ row.total|fa }}</span></td>
+            <td><span class="kt-badge kt-badge-sm kt-badge-warning">{{ row.total|fa }}</span></td>
             <td><a class="kt-btn kt-btn-sm kt-btn-ghost" href="{% url 'assets:detail' row.asset_id %}">شناسنامه تجهیز</a></td>
           </tr>
         {% empty %}
