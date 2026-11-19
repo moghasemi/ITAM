@@ -189,3 +189,19 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - شاخه main از GitHub API با protected=false و protection.enabled=false گزارش شده است.
 - required_status_checks در وضعیت enforcement_level=off و بدون check/context ثبت شده؛ repository rulesets نیز خالی برگشته است.
 - این وضعیت یک ریسک governance است: CI سبز به‌صورت اجباری gate ادغام main نشده است. پیش از شروع Mergeهای زنجیره‌ای، فعال‌سازی branch protection و required checks توصیه می‌شود.
+
+
+## ممیزی امنیتی تکمیلی — 2026-11-19
+
+- [x] CI آخرین commit مستندات PR #17، `0f38834f467776c69b8baf6109b369fa6be20d9f`: دو run `44494487453` (push) و `44494500448` (pull_request)، هر کدام 5/5 job موفق.
+- [x] CI head PR #18، `130bb091caf7c751f0ca6d406d93afa83528259a`: run `44174205183`، هر 5 job موفق.
+- [x] بررسی نمونه‌ای اختلاف مجوز فایل ارجاع با فهرست ارجاع انجام شد.
+- **یافته P2 باز:** در `apps/core/views.py::private_media` مسیر `referrals/`، scope مرکز/استان برای دانلود کافی شمرده می‌شود؛ در `apps/maintenance/repair_views.py::referral_list` نقش‌های غیرمجازِ ایجاد/مدیریت ارجاع فقط ارجاع‌های گیرنده خود را می‌بینند. بنابراین manager/requester غیرگیرنده در همان scope می‌تواند با داشتن مسیر فایل به پیوست دسترسی پیدا کند.
+- **شواهد پوشش ناقص:** تست‌های `apps/core/tests_private_media.py` دسترسی user_a با نقش admin_it و منع user_b در مرکز دیگر را می‌سنجند؛ تست منفی برای manager/requester هم‌مرکزِ غیرگیرنده مشاهده نشد.
+- [ ] اصلاح: ایجاد یک سیاست/queryset واحد برای visibility ارجاع و استفاده مشترک در فهرست، resolve و private media.
+- [ ] افزودن regression tests برای manager/requester غیرگیرنده (مرکزدار و referral استانی بدون مرکز)، و حفظ دسترسی گیرنده/نقش‌های مجاز.
+- [ ] اجرای CI کامل پس از اصلاح.
+- این مورد در این دور فقط audit و مستندسازی شد؛ هیچ کد برنامه‌ای تغییر نکرد.
+
+### محدودیت‌ها
+این یافته به معنی تکمیل ممیزی امنیتی نیست. سایر IDORها، همه exportها، Admin endpoints، signature/visit/hardware media و UAT وب‌سرور واقعی همچنان باید جداگانه بررسی شوند.

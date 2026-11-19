@@ -107,3 +107,15 @@
 - **شواهد:** endpoint شاخه main مقدار protected=false و protection.enabled=false برگرداند؛ required checks خاموش و بدون context بود؛ endpoint repository rulesets آرایه خالی برگرداند.
 - **ریسک:** هیچ gate اجباری repository-level برای موفقیت CI پیش از تغییر main در snapshot مشاهده نشد.
 - **تصمیم:** پیش از Mergeهای نهایی، فعال‌سازی branch protection و required CI checks به‌عنوان اقدام پیشنهادی ثبت شود. در این مرحله تنظیمات GitHub تغییر داده نشد.
+
+
+## D-2026-11-19-009 — ناهماهنگی مجوز دانلود پیوست ارجاع با فهرست ارجاع
+- **تاریخ:** 2026-11-19
+- **وضعیت:** یافته ممیزی تأییدشده؛ اصلاح کد Open
+- **دامنه شواهد:** head PR #18، commit `130bb091caf7c751f0ca6d406d93afa83528259a`؛ فایل‌های `apps/core/views.py`، `apps/maintenance/repair_views.py`، `apps/accounts/models.py` و `apps/core/tests_private_media.py`.
+- **یافته:** در `private_media` برای فایل‌های `referrals/`، شرط `user.get_scoped_centers()` دسترسی را برای هر کاربر هم‌مرکز/هم‌استان برقرار می‌کند. اما `referral_list` برای کاربرانی که مدیر کشوری، مدیر استانی یا کارشناس IT نیستند، فهرست را به `recipient_user=request.user` محدود می‌کند. `get_scoped_centers()` برای نقش‌های manager و requester مرکز فعال را برمی‌گرداند؛ بنابراین این نقش‌ها در صورت دانستن مسیر فایل می‌توانند به پیوستی دسترسی پیدا کنند که در فهرست مجاز به دیدنش نیستند.
+- **پوشش تست:** تست فعلی same-center برای کاربر admin_it است؛ تست منفی manager/requester غیرگیرنده هم‌مرکز یا هم‌استان در این مسیر مشاهده نشد.
+- **شدت اولیه:** P2؛ اثر اصلی محرمانگی پیوست است و شدت نهایی به حساسیت واقعی اسناد و سیاست محصول وابسته است.
+- **تصمیم اصلاحی پیشنهادی:** تعریف queryset/service واحد برای visibility ارجاع و استفاده مجدد از آن در list/resolve/private_media؛ افزودن تست‌های مثبت/منفی برای manager، requester، گیرنده، IT و مدیر استان، شامل referral مرکزدار و استانی بدون مرکز.
+- **محدودیت:** این یافته فقط ناهماهنگی policy را ثابت می‌کند؛ اثبات دسترسی در محیط عملیاتی و ممیزی همه مسیرهای فایل هنوز انجام نشده است.
+- **ایمنی:** در این دور هیچ کد برنامه‌ای تغییر نکرد؛ Merge، Deploy، Migration، Seed، DB mutation، reconciliation apply و Outbox dispatch انجام نشد.

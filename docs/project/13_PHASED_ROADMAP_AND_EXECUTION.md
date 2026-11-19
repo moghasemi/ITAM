@@ -405,3 +405,20 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 - نتیجه: main با protected=false گزارش شده؛ protection.enabled=false و required_status_checks با enforcement_level=off و بدون context/check است. فهرست repository rulesets نیز خالی است.
 - پیامد: در snapshot فعلی GitHub، gate اجباری سمت مخزن برای جلوگیری از push/merge بدون CI مشاهده نمی‌شود. تا زمان تعیین سیاست، ادغام مرحله‌ای باید با کنترل دستی انجام شود؛ پیشنهاد می‌شود بعداً حفاظت main و required checks فعال شوند.
 - محدودیت: این بررسی وضعیت جاری GitHub است و ممکن است با تغییر تنظیمات عوض شود.
+
+
+### دور سوم ممیزی امنیتی: هم‌ترازی مجوز پیوست ارجاع‌ها — 2026-11-19
+
+- [x] بررسی endpoint مرکزی `private_media` در head شاخه PR #18.
+- [x] مقایسه سیاست دسترسی فایل ارجاع با queryset فهرست ارجاع‌ها در `apps/maintenance/repair_views.py`.
+- [x] بررسی نقش‌های `requester` و `manager` در `User.get_scoped_centers()` و آزمون‌های موجود private media.
+- [x] بررسی CI head PR #18: run `44174205183`، هر 5 job موفق.
+- [x] ثبت یافته در Decision Log و backlog؛ بدون تغییر کد.
+
+**یافته:** `private_media` در مسیر `referrals/` به هر کاربر دارای مرکز در scope اجازه دانلود فایل ارجاع مرکز/استان را می‌دهد؛ اما `referral_list` برای نقش‌هایی غیر از مدیر کشوری، مدیر استانی و کارشناس IT عموماً فقط ارجاع‌های `recipient_user=request.user` را نمایش می‌دهد. چون `get_scoped_centers()` برای نقش‌های `manager` و `requester` مرکز فعال خودشان را برمی‌گرداند، این دو نقش می‌توانند در صورت دانستن مسیر فایل از محدودیت فهرست عبور کنند. آزمون‌های فعلی private media دسترسی مدیر IT هم‌مرکز و منع مرکز دیگر را پوشش می‌دهند، اما سناریوی manager/requester غیرگیرنده را ندارند.
+
+**اقدام اصلاحی باز برای فاز یک:** سیاست visibility ارجاع را به queryset/service واحد منتقل کنید و همان منبع را هم در فهرست/resolve و هم در private media به‌کار ببرید. regression tests باید manager و requester هم‌مرکز ولی غیرگیرنده را برای ارجاع مرکزدار و ارجاع استانیِ بدون مرکز رد کنند؛ نقش‌های مجاز و گیرنده همچنان باید دسترسی درست داشته باشند. پس از اصلاح، CI کامل اجرا شود.
+
+**شدت اولیه:** P2 (افشای محرمانگی پیوست با دانستن URL/مسیر فایل؛ شدت نهایی با حساسیت واقعی مستندات و سیاست محصول بازبینی شود).
+
+**مرز نتیجه:** این بررسی فقط mismatch سیاست ارجاع/فایل را تأیید می‌کند؛ ممیزی کامل IDOR، export، Admin و همه مسیرهای media همچنان باز است. هیچ کد برنامه، migration، seed، DB، reconciliation، Outbox، Merge یا Deploy تغییر/اجرا نشد.
