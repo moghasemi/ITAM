@@ -152,3 +152,9 @@ run 44161472256 روی head PR #16: 5/5 job موفق؛ 375 تست Python 3.11/3.
 - active_menuهای ناسازگار/مشترک برای ticket create، asset create، repairers، feedback، centers، assignments، contractors، departments، locations، asset categories، component types، HWAgent و holidays اصلاح شدند.
 - role predicates فعلی حفظ شده‌اند؛ مجوزهای backend و URLها تغییر نکرده‌اند.
 - **وضعیت:** پیاده‌سازی اولیه؛ CI کد در حال اجرا؛ browser acceptance باز.
+
+
+### CI بازطراحی منو — نتیجه 2026-11-19
+- PR #26 head `4abb2a2d86ea2c90a14663f8c204e22fb0059e16`، run push `44507835886` و run pull_request `44507866034` هر دو success.
+- run pull_request: 5/5 job موفق، شامل Python 3.11، Python 3.12، PostgreSQL، production settings و deploy-script validation.
+- وضعیت پذیرش: CI verified؛ browser/visual/role-based acceptance هنوز Open.

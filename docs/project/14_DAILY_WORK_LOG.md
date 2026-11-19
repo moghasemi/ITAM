@@ -84,3 +84,10 @@
 - CI کد PR #26 در run `44507835886` هنگام ثبت این تکمله: production-settings-check: success; deploy-script-validation: success; test (3.11): in_progress; test (3.12): in_progress; postgres-test: in_progress.
 - browser/visual/mobile/keyboard/role-based acceptance هنوز انجام نشده است.
 - پیاده‌سازی منو تا پایان CI و بازبینی نهایی، پذیرفته‌شده محسوب نمی‌شود.
+
+
+### نتیجه نهایی CI منوی اصلی — 2026-11-19
+- PR #26 head `4abb2a2d86ea2c90a14663f8c204e22fb0059e16`؛ run push `44507835886` و run pull_request `44507866034` هر دو completed/success شدند.
+- run pull_request هر 5/5 job را با موفقیت گذراند: test Python 3.11، test Python 3.12، PostgreSQL test، production-settings-check و deploy-script-validation.
+- PR #26 در آخرین بررسی باز، Draft و mergeable=true است؛ Merge نشده.
+- CI موفق به معنی browser acceptance یا UAT نقش‌محور نیست؛ این موارد همچنان بازند.

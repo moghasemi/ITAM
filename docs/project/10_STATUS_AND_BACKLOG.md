@@ -278,3 +278,10 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - [ ] بررسی لینک‌های جدید در نقش‌های مجاز و فقط همان نقش‌ها.
 - **Commit کد:** `4abb2a2d86ea2c90a14663f8c204e22fb0059e16`؛ branch `ui/primary-navigation-ux-audit`.
 - **CI در آخرین snapshot:** `production-settings-check: success; deploy-script-validation: success; test (3.11): in_progress; test (3.12): in_progress; postgres-test: in_progress`.
+
+
+### نتیجه CI PR #26 — 2026-11-19
+- [x] CI push run `44507835886`: success.
+- [x] CI pull_request run `44507866034`: 5/5 job success.
+- [x] PR #26 در آخرین مشاهده mergeable=true و همچنان Draft است.
+- [ ] browser acceptance و UAT نقش‌محور هنوز انجام نشده‌اند.
