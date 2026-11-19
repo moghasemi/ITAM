@@ -6,7 +6,7 @@ import math
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -207,6 +207,7 @@ class Center(TimeStampedModel):
             if self.treatment_management_id and self.treatment_management.province_id != province.pk:
                 raise ValidationError({"treatment_management": "استان مدیریت درمان باید با استان جغرافیایی مرکز یکسان باشد."})
 
+    @transaction.atomic
     def save(self, *args, **kwargs):
         is_new = self._state.adding or not self.pk
         if is_new and not self.parent_unit:
