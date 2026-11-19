@@ -82,6 +82,46 @@ from .services import (
 # ---------------------------------------------------------------------------
 # فهرست و شناسنامه دارایی
 # ---------------------------------------------------------------------------
+def _filtered_asset_queryset(user, params):
+    """Apply the same scoped filters to the asset list and label-print view."""
+    queryset = (
+        visible_assets(user)
+        .select_related("current_snapshot")
+        .prefetch_related("current_snapshot__items")
+        .annotate(tickets_total=Count("tickets", distinct=True))
+    )
+    form = AssetFilterForm(params or None, user=user)
+    ordering = "asset_tag"
+    if form.is_valid():
+        data = form.cleaned_data
+        queryset = apply_search(
+            queryset,
+            data.get("q"),
+            ["asset_tag", "title", "serial_number", "brand", "model_name", "hostname", "ip_address"],
+        )
+        if data.get("center"):
+            queryset = queryset.filter(center=data["center"])
+        if data.get("category"):
+            queryset = queryset.filter(category=data["category"])
+        if data.get("department"):
+            queryset = queryset.filter(department=data["department"])
+        if data.get("location"):
+            queryset = queryset.filter(location=data["location"])
+        if data.get("contract"):
+            queryset = queryset.filter(contract=data["contract"])
+        if data.get("status"):
+            queryset = queryset.filter(status=data["status"])
+        tracking = data.get("tracking")
+        if tracking == "with":
+            queryset = queryset.filter(current_snapshot__isnull=False)
+        elif tracking == "without":
+            queryset = queryset.filter(current_snapshot__isnull=True)
+        ordering = data.get("ordering") or "asset_tag"
+    if ordering == "-open_tickets":
+        return queryset.order_by("-tickets_total", "asset_tag")
+    return queryset.order_by(ordering)
+
+
 class AssetListView(AnyRoleRequiredMixin, BaseListView):
     model = Asset
     template_name = "assets/asset_list.html"
@@ -94,42 +134,7 @@ class AssetListView(AnyRoleRequiredMixin, BaseListView):
         return self.filter_form_class(self.request.GET or None, user=self.request.user)
 
     def get_queryset(self):
-        queryset = (
-            visible_assets(self.request.user)
-            .select_related("current_snapshot")
-            .prefetch_related("current_snapshot__items")
-            .annotate(tickets_total=Count("tickets", distinct=True))
-        )
-        ordering = "asset_tag"
-        form = self.get_filter_form()
-        if form is not None and form.is_valid():
-            data = form.cleaned_data
-            queryset = apply_search(
-                queryset,
-                data.get("q"),
-                ["asset_tag", "title", "serial_number", "brand", "model_name", "hostname", "ip_address"],
-            )
-            if data.get("center"):
-                queryset = queryset.filter(center=data["center"])
-            if data.get("category"):
-                queryset = queryset.filter(category=data["category"])
-            if data.get("department"):
-                queryset = queryset.filter(department=data["department"])
-            if data.get("location"):
-                queryset = queryset.filter(location=data["location"])
-            if data.get("contract"):
-                queryset = queryset.filter(contract=data["contract"])
-            if data.get("status"):
-                queryset = queryset.filter(status=data["status"])
-            tracking = data.get("tracking")
-            if tracking == "with":
-                queryset = queryset.filter(current_snapshot__isnull=False)
-            elif tracking == "without":
-                queryset = queryset.filter(current_snapshot__isnull=True)
-            ordering = data.get("ordering") or "asset_tag"
-        if ordering == "-open_tickets":
-            return queryset.order_by("-tickets_total", "asset_tag")
-        return queryset.order_by(ordering)
+        return _filtered_asset_queryset(self.request.user, self.request.GET)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -257,13 +262,14 @@ def asset_qr_image(request, pk: int):
 
 
 def label_print(request):
-    """چاپ برچسب QR برای تجهیزات انتخاب‌شده یا پالایش‌شده."""
+    """چاپ برچسب QR برای دارایی‌های انتخاب‌شده یا منطبق با فیلترهای فهرست."""
     ids = request.GET.getlist("ids")
-    queryset = visible_assets(request.user)
     if ids:
-        queryset = queryset.filter(pk__in=ids)
+        queryset = visible_assets(request.user).filter(pk__in=ids)
     else:
-        queryset = queryset.filter(baseline_locked_at__isnull=True) if request.GET.get("new") == "1" else queryset
+        queryset = _filtered_asset_queryset(request.user, request.GET)
+        if request.GET.get("new") == "1":
+            queryset = queryset.filter(baseline_locked_at__isnull=True)
     assets = queryset.order_by("asset_tag")[:200]
     rows = []
     for asset in assets:
