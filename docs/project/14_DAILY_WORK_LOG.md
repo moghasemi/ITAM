@@ -59,3 +59,28 @@
 - هیچ Deploy، Migration، Seed، reconciliation apply، Outbox dispatch یا تغییر DB انجام نشد.
 - هیچ آزمون مرورگر یا چاپ فیزیکی انجام نشد.
 
+
+
+### تکمله همان روز — پیاده‌سازی اولیه منوی اصلی و PR #26
+
+**تاریخ:** 2026-11-19؛ ادامه جلسه کاری همان روز.
+
+#### ممیزی تکمیلی و نگاشت منو
+- فایل منبع در شاخه پایه PR #25: `templates/partials/metronic/sidebar.html`، SHA اولیه `00acc6cab1b483ff79e3afb46193a7a2f8712b49`.
+- viewها و URLهای مرتبط در `apps/tickets/views.py`، `apps/assets/views.py`، `apps/maintenance/repair_views.py`، `apps/org/views.py`، `apps/core/views.py` و `apps/integrations/views.py` بررسی شدند.
+- اختلاف‌های active state: ایجاد تیکت با کلید `tickets` به‌جای `ticket_new`؛ ایجاد دارایی با `assets` به‌جای `assets_new`؛ تعمیرکار مستقل و ارزیابی با کلید مشترک `repairs`؛ مراکز/واحدها/پیمانکاران با کلید عمومی `org`؛ انتساب پیمانکار با `contracts`؛ گونه‌های دارایی/قطعه با `settings`؛ HWAgent دسته‌ای با `assets`؛ تعطیلات با `settings`.
+- فهرست اعلان‌ها و تقویم تعطیلات لینک مستقل sidebar نداشتند؛ لینک آن‌ها اضافه شد. گونه قطعات نیز به‌صورت مستقل در گروه دارایی‌ها قرار گرفت.
+
+#### پیاده‌سازی
+- شاخه: `ui/primary-navigation-ux-audit`، پایه دقیق: head PR #25 برابر `94005a451252b501b5667edf3ca87ad8fbbb9f50`.
+- commit کد: `4abb2a2d86ea2c90a14663f8c204e22fb0059e16`.
+- PR #26: https://github.com/moghasemi/ITAM/pull/26 — باز، Draft، base شاخه PR #25، mergeable در آخرین مشاهده true.
+- فایل‌های تغییرکرده: `templates/partials/metronic/sidebar.html` و viewهای tickets/assets/maintenance/org/core برای کلیدهای active menu.
+- گروه‌ها: نمای کلی، میز خدمت، دارایی‌ها، نگهداری و تعمیرات، ارجاع و هماهنگی، سازمان و قراردادها، گزارش و پایش، یکپارچه‌سازی و مدیریت سامانه.
+- role predicates فعلی منو حفظ شده‌اند؛ URL، مدل، permission backend و workflow تغییر نکرده‌اند.
+
+#### وضعیت CI و پذیرش
+- CI مستندات commit `0c98a133e682726b1f2ad936421788e24c178595` در run `44506985845`: 5/5 job success؛ push و pull_request هر دو success.
+- CI کد PR #26 در run `44507835886` هنگام ثبت این تکمله: production-settings-check: success; deploy-script-validation: success; test (3.11): in_progress; test (3.12): in_progress; postgres-test: in_progress.
+- browser/visual/mobile/keyboard/role-based acceptance هنوز انجام نشده است.
+- پیاده‌سازی منو تا پایان CI و بازبینی نهایی، پذیرفته‌شده محسوب نمی‌شود.

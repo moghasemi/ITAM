@@ -264,3 +264,17 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - کد منو: هنوز تغییر نکرده.
 - مرورگر/موبایل/دسترس‌پذیری: هنوز آزمون نشده.
 - اولویت بعدی: استخراج ماتریس منو و ایجاد PR مستقل برای بازطراحی آن پس از تعیین head پایه صحیح زنجیره UI.
+
+
+## وضعیت بازطراحی منو — 2026-11-19
+
+- [x] بررسی static partial منو و تطبیق با viewها و URLهای مرتبط.
+- [x] تعریف گروه‌بندی وظیفه‌محور و ثبت در handbook.
+- [x] پیاده‌سازی اولیه sidebar و active_menu در PR #26: https://github.com/moghasemi/ITAM/pull/26
+- [x] افزودن لینک اعلان‌ها، تقویم تعطیلات و گونه قطعات به گروه مناسب.
+- [ ] CI کامل PR #26 و بررسی mergeability پس از تکمیل workflow.
+- [ ] تست فعال‌شدن فقط یک آیتم منو برای هر صفحه و تست نقش‌محور.
+- [ ] browser acceptance در desktop/tablet/mobile، RTL، dark mode، collapse و drawer.
+- [ ] بررسی لینک‌های جدید در نقش‌های مجاز و فقط همان نقش‌ها.
+- **Commit کد:** `4abb2a2d86ea2c90a14663f8c204e22fb0059e16`؛ branch `ui/primary-navigation-ux-audit`.
+- **CI در آخرین snapshot:** `production-settings-check: success; deploy-script-validation: success; test (3.11): in_progress; test (3.12): in_progress; postgres-test: in_progress`.

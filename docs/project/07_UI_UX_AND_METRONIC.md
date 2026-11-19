@@ -139,3 +139,16 @@ run 44161472256 روی head PR #16: 5/5 job موفق؛ 375 تست Python 3.11/3.
 - P1: بررسی breadcrumb، page title و CTA هر صفحه در امتداد منو.
 - P2: پذیرش نقش‌محور و مرورگر در اندازه‌های مختلف.
 
+
+
+## پیاده‌سازی اولیه بازطراحی منو — PR #26 (2026-11-19)
+
+- شاخه: `ui/primary-navigation-ux-audit`، پایه: `ui/metronic-print-hwagent-finalization` (head PR #25).
+- PR: https://github.com/moghasemi/ITAM/pull/26 — Draft.
+- commit: `4abb2a2d86ea2c90a14663f8c204e22fb0059e16`.
+- partial اصلی: `templates/partials/metronic/sidebar.html`.
+- گروه‌های منو: نمای کلی، میز خدمت، دارایی‌ها، نگهداری و تعمیرات، ارجاع و هماهنگی، سازمان و قراردادها، گزارش و پایش، یکپارچه‌سازی و مدیریت سامانه.
+- اعلان‌ها و تقویم تعطیلات به sidebar اضافه شدند؛ گونه‌های دارایی و گونه‌های قطعه در گروه دارایی‌ها قرار گرفتند.
+- active_menuهای ناسازگار/مشترک برای ticket create، asset create، repairers، feedback، centers، assignments، contractors، departments، locations، asset categories، component types، HWAgent و holidays اصلاح شدند.
+- role predicates فعلی حفظ شده‌اند؛ مجوزهای backend و URLها تغییر نکرده‌اند.
+- **وضعیت:** پیاده‌سازی اولیه؛ CI کد در حال اجرا؛ browser acceptance باز.
