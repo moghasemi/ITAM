@@ -4,6 +4,7 @@
 
 ## نقطه شروع
 - [سند جامع پروژه — نسخه 1.5](project/PROJECT_MASTER_CONTEXT_v1.5_2026-11-19.md)
+- [نقشه‌راه اجرایی و فازبندی پروژه](project/13_PHASED_ROADMAP_AND_EXECUTION.md)
 - [سند جامع پروژه — نسخه 1.4 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.4_2026-11-18.md)
 - [سند جامع پروژه — نسخه 1.3 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.3_2026-11-17.md)
 - [ورود سریع توسعه‌دهنده جدید](project/00_ONBOARDING.md)
