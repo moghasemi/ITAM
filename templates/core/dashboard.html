@@ -98,7 +98,7 @@
     </div>
     <div class="itam-dashboard-table-wrap" role="region" tabindex="0" aria-label="جدول بازدیدهای در انتظار من؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید">
       <table class="table itam-dashboard-table">
-        <thead><tr><th scope="col">شماره</th><th scope="col">قرارداد</th><th scope="col">دوره</th><th scope="col">تاریخ</th><th scope="col">مهلت</th><th scope="col">وضعیت</th><th scope="col"></th></tr></thead>
+        <thead><tr><th scope="col">شماره</th><th scope="col">قرارداد</th><th scope="col">دوره</th><th scope="col">تاریخ</th><th scope="col">مهلت</th><th scope="col">وضعیت</th><th scope="col" aria-label="عملیات"></th></tr></thead>
         <tbody>
         {% for visit in my_visits %}
           <tr class="{% if visit.is_overdue %}is-danger{% endif %}">
@@ -129,7 +129,10 @@
       <div class="kt-card-content itam-dashboard-panel-content">
         {% if monthly_series %}
           <div class="itam-chart-wrap">
-            <div id="itam-monthly-chart" class="itam-chart" role="img" aria-label="نمودار روند درخواست‌های خرابی در شش ماه اخیر"></div>
+            <div id="itam-monthly-chart" class="itam-chart" role="img" aria-label="نمودار روند درخواست‌های خرابی در شش ماه اخیر" aria-describedby="itam-monthly-chart-summary"></div>
+            <ul id="itam-monthly-chart-summary" class="sr-only">
+              {% for point in monthly_series %}<li>{{ point.label }}: {{ point.value|fa }} درخواست</li>{% endfor %}
+            </ul>
             <noscript><p class="form-help">برای نمایش نمودار، JavaScript را فعال کنید.</p></noscript>
           </div>
           {{ monthly_series|json_script:"itam-monthly-series" }}
@@ -289,7 +292,7 @@
     </div>
     <div class="itam-dashboard-table-wrap" role="region" tabindex="0" aria-label="جدول تجهیزات با بیشترین خرابی؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید">
       <table class="table compact itam-dashboard-table">
-        <thead><tr><th scope="col">شماره اموال</th><th scope="col">عنوان</th><th scope="col">تعداد خرابی</th><th scope="col"></th></tr></thead>
+        <thead><tr><th scope="col">شماره اموال</th><th scope="col">عنوان</th><th scope="col">تعداد خرابی</th><th scope="col" aria-label="عملیات"></th></tr></thead>
         <tbody>
         {% for row in top_assets %}
           <tr>

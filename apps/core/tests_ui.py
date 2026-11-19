@@ -397,3 +397,15 @@ class MetronicDashboardAccessibilityAndRoleTests(SimpleTestCase):
             with self.subTest(source=source):
                 self.assertEqual(filter_metronic_badge_variant(source), target)
         self.assertEqual(filter_metronic_badge_variant(None), "secondary")
+
+
+class MetronicDashboardChartAccessibilityTests(SimpleTestCase):
+    def test_monthly_chart_has_a_text_alternative(self):
+        source = Path(get_template("core/dashboard.html").origin.name).read_text(encoding="utf-8")
+        self.assertIn('aria-describedby="itam-monthly-chart-summary"', source)
+        self.assertIn('id="itam-monthly-chart-summary" class="sr-only"', source)
+        self.assertIn('{{ point.label }}: {{ point.value|fa }} درخواست', source)
+
+    def test_action_columns_have_accessible_names(self):
+        source = Path(get_template("core/dashboard.html").origin.name).read_text(encoding="utf-8")
+        self.assertEqual(source.count('<th scope="col" aria-label="عملیات"></th>'), 2)
