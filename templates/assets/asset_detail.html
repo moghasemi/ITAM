@@ -42,7 +42,7 @@
   <div class="card kt-card itam-ops-card">
     <div class="card-head kt-card-header itam-ops-card-header">
       <h2 class="card-title">{{ object.category.icon }} {{ object.display_name }}</h2>
-      <span class="badge badge-{{ object.status_css }}">{{ object.get_status_display }}</span>
+      <span class="kt-badge kt-badge-{{ sm kt-badge-object.status_css|metronic_badge_variant }}>{{ object.get_status_display }}</span>
     </div>
     <div class="card-body kt-card-content itam-ops-card-content">
       <div class="kv">
@@ -54,9 +54,9 @@
         <div class="k">اسنپ‌شات پایه</div>
         <div>
           {% if object.baseline_locked_at %}
-            <span class="badge badge-success">قفل‌شده در {{ object.baseline_locked_at|jdatetime }}</span>
+            <span class="kt-badge kt-badge-sm kt-badge-success">قفل‌شده در {{ object.baseline_locked_at|jdatetime }}</span>
           {% else %}
-            <span class="badge badge-warning">ثبت نشده</span>
+            <span class="kt-badge kt-badge-sm kt-badge-warning">ثبت نشده</span>
           {% endif %}
         </div>
       </div>
@@ -82,9 +82,9 @@
 {% if asset_relationships %}
 <div class="card kt-card itam-ops-card mt-2">
   <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">ارتباطات این دارایی</h2></div>
-  <div class="table-wrap itam-ops-table-wrap">
+  <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول ارتباطات دارایی">
     <table class="table compact kt-table itam-ops-table">
-      <thead><tr><th>دارایی مرتبط</th><th>نوع ارتباط</th><th>روش اتصال</th><th>مرکز</th></tr></thead>
+      <th scope="col"ead><tr><th scope="col">دارایی مرتبط</th><th scope="col">نوع ارتباط</th><th scope="col">روش اتصال</th><th scope="col">مرکز</th></tr></thead>
       <tbody>
         {% for relation in asset_relationships %}
           <tr>
@@ -105,15 +105,15 @@
 {% endif %}
 
 <div data-tabs-scope>
-  <div class="tabs itam-ops-tabs" data-tabs>
-    <button class="tab active" type="button" data-tab-target="hardware">🔧 اقلام سخت‌افزاری</button>
-    <button class="tab" type="button" data-tab-target="snapshots">📚 تاریخچه اسنپ‌شات</button>
-    <button class="tab" type="button" data-tab-target="tickets">🛠 درخواست‌های خرابی</button>
-    <button class="tab" type="button" data-tab-target="visits">🗓 بازدیدهای دوره‌ای</button>
-    <button class="tab" type="button" data-tab-target="files">📎 پیوست‌ها</button>
+  <div class="tabs itam-ops-tabs" data-tabs role="tablist" aria-label="بخش‌های شناسنامه دارایی">
+    <button id="itam-asset-tab-hardware" class="tab active" type="button" role="tab" aria-controls="itam-asset-panel-hardware" aria-selected="true" tabindex="0" data-tab-target="hardware">🔧 اقلام سخت‌افزاری</button>
+    <button id="itam-asset-tab-snapshots" class="tab" type="button" role="tab" aria-controls="itam-asset-panel-snapshots" aria-selected="false" tabindex="-1" data-tab-target="snapshots">📚 تاریخچه اسنپ‌شات</button>
+    <button id="itam-asset-tab-tickets" class="tab" type="button" role="tab" aria-controls="itam-asset-panel-tickets" aria-selected="false" tabindex="-1" data-tab-target="tickets">🛠 درخواست‌های خرابی</button>
+    <button id="itam-asset-tab-visits" class="tab" type="button" role="tab" aria-controls="itam-asset-panel-visits" aria-selected="false" tabindex="-1" data-tab-target="visits">🗓 بازدیدهای دوره‌ای</button>
+    <button id="itam-asset-tab-files" class="tab" type="button" role="tab" aria-controls="itam-asset-panel-files" aria-selected="false" tabindex="-1" data-tab-target="files">📎 پیوست‌ها</button>
   </div>
 
-  <div class="tab-panel itam-ops-tab-panel active" data-tab-panel="hardware">
+  <div id="itam-asset-panel-hardware" class="tab-panel itam-ops-tab-panel active" role="tabpanel" aria-labelledby="itam-asset-tab-hardware" tabindex="0" data-tab-panel="hardware">
     <div class="card kt-card itam-ops-card">
       <div class="card-head kt-card-header itam-ops-card-header">
         <h2 class="card-title">اقلام داخل کیس (وضعیت جاری)</h2>
@@ -125,10 +125,10 @@
           </span>
         {% endif %}
       </div>
-      <div class="table-wrap itam-ops-table-wrap">
+      <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول اقلام سخت‌افزاری">
         <table class="table kt-table itam-ops-table">
-          <thead>
-            <tr><th>قطعه</th><th>برند</th><th>مدل</th><th>سریال</th><th>ظرفیت</th><th>تعداد</th><th>اسلات</th><th>وضعیت قلم</th></tr>
+          <th scope="col"ead>
+            <tr><th scope="col">قطعه</th><th scope="col">برند</th><th scope="col">مدل</th><th scope="col">سریال</th><th scope="col">ظرفیت</th><th scope="col">تعداد</th><th scope="col">اسلات</th><th scope="col">وضعیت قلم</th></tr>
           </thead>
           <tbody>
           {% for item in components %}
@@ -140,7 +140,7 @@
               <td>{{ item.capacity|default:"—" }}</td>
               <td>{{ item.quantity|fa }}</td>
               <td>{{ item.slot|default:"—" }}</td>
-              <td><span class="badge badge-{{ item.condition|item_css }}">{{ item.get_condition_display }}</span></td>
+              <td><span class="kt-badge kt-badge-{{ sm kt-badge-item.condition|item_css|metronic_badge_variant }}>{{ item.get_condition_display }}</span></td>
             </tr>
           {% empty %}
             <tr><td colspan="8">
@@ -168,32 +168,32 @@
     </div>
   </div>
 
-  <div class="tab-panel itam-ops-tab-panel" data-tab-panel="snapshots">
+  <div id="itam-asset-panel-snapshots" class="tab-panel itam-ops-tab-panel" role="tabpanel" aria-labelledby="itam-asset-tab-snapshots" tabindex="0" hidden data-tab-panel="snapshots">
     <div class="card kt-card itam-ops-card">
       <div class="card-head kt-card-header itam-ops-card-header">
         <h2 class="card-title">تاریخچه اسنپ‌شات‌های سخت‌افزاری</h2>
         <span class="muted small">هر ردیف نشان‌دهنده یک بازبینی و تغییرات آن نسبت به وضعیت قبلی است.</span>
       </div>
-      <div class="table-wrap itam-ops-table-wrap">
+      <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول تاریخچه اسنپ‌شات">
         <table class="table kt-table itam-ops-table">
-          <thead>
-            <tr><th>نسخه</th><th>نوع</th><th>وضعیت</th><th>ثبت‌کننده</th><th>زمان ثبت</th>
-                <th>تغییرات</th><th>تایید کارشناس IT</th><th>پلمب</th><th></th></tr>
+          <th scope="col"ead>
+            <tr><th scope="col">نسخه</th><th scope="col">نوع</th><th scope="col">وضعیت</th><th scope="col">ثبت‌کننده</th><th scope="col">زمان ثبت</th>
+                <th scope="col">تغییرات</th><th scope="col">تایید کارشناس IT</th><th scope="col">پلمب</th><th scope="col" aria-label="عملیات"></th></tr>
           </thead>
           <tbody>
           {% for snapshot in snapshots %}
             <tr class="{% if snapshot.has_changes %}is-warning{% endif %}">
               <td>{{ snapshot.version|fa }}</td>
-              <td>{% if snapshot.is_baseline %}<span class="badge badge-primary">پایه</span>{% else %}دوره‌ای{% endif %}</td>
-              <td><span class="badge badge-{{ snapshot.status_css }}">{{ snapshot.get_status_display }}</span></td>
+              <td>{% if snapshot.is_baseline %}<span class="kt-badge kt-badge-sm kt-badge-primary">پایه</span>{% else %}دوره‌ای{% endif %}</td>
+              <td><span class="kt-badge kt-badge-{{ sm kt-badge-snapshot.status_css|metronic_badge_variant }}>{{ snapshot.get_status_display }}</span></td>
               <td>{{ snapshot.recorded_by.display_name|default:"—" }}</td>
               <td class="nowrap">{{ snapshot.recorded_at|jdatetime }}</td>
               <td>
                 {% if snapshot.has_changes %}
-                  <span class="badge badge-danger">{{ snapshot.diff_count|fa }} تغییر</span>
-                  {% if snapshot.diff_data.removed %}<span class="badge badge-danger">{{ snapshot.diff_data.removed|fa }} مفقود</span>{% endif %}
+                  <span class="kt-badge kt-badge-sm kt-badge-destructive">{{ snapshot.diff_count|fa }} تغییر</span>
+                  {% if snapshot.diff_data.removed %}<span class="kt-badge kt-badge-sm kt-badge-destructive">{{ snapshot.diff_data.removed|fa }} مفقود</span>{% endif %}
                 {% else %}
-                  <span class="badge badge-success">بدون تغییر</span>
+                  <span class="kt-badge kt-badge-sm kt-badge-success">بدون تغییر</span>
                 {% endif %}
               </td>
               <td>{{ snapshot.it_confirmed_by.display_name|default:"—" }}</td>
@@ -209,32 +209,32 @@
     </div>
   </div>
 
-  <div class="tab-panel itam-ops-tab-panel" data-tab-panel="tickets">
+  <div id="itam-asset-panel-tickets" class="tab-panel itam-ops-tab-panel" role="tabpanel" aria-labelledby="itam-asset-tab-tickets" tabindex="0" hidden data-tab-panel="tickets">
     <div class="card kt-card itam-ops-card">
       <div class="card-head kt-card-header itam-ops-card-header">
         <h2 class="card-title">درخواست‌های خرابی این تجهیز</h2>
         <a class="btn kt-btn kt-btn-primary btn-primary btn-sm" href="{% url 'tickets:create' %}?asset={{ object.pk }}">اعلام خرابی جدید</a>
       </div>
-      <div class="table-wrap itam-ops-table-wrap">
+      <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول درخواست‌های خرابی دارایی">
         <table class="table compact kt-table itam-ops-table">
-          <thead>
-            <tr><th>شماره</th><th>عنوان</th><th>اولویت</th><th>وضعیت</th><th>اعلام</th><th>حضور</th>
-                <th>اعلام رفع</th><th>رعایت SLA</th><th></th></tr>
+          <th scope="col"ead>
+            <tr><th scope="col">شماره</th><th scope="col">عنوان</th><th scope="col">اولویت</th><th scope="col">وضعیت</th><th scope="col">اعلام</th><th scope="col">حضور</th>
+                <th scope="col">اعلام رفع</th><th scope="col">رعایت SLA</th><th scope="col" aria-label="عملیات"></th></tr>
           </thead>
           <tbody>
           {% for ticket in tickets %}
             <tr>
               <td><a href="{% url 'tickets:detail' ticket.pk %}">{{ ticket.number }}</a></td>
               <td>{{ ticket.title }}</td>
-              <td><span class="badge badge-{{ ticket.priority_css }}">{{ ticket.priority_label }}</span></td>
-              <td><span class="badge badge-{{ ticket.status_css }}">{{ ticket.get_status_display }}</span></td>
+              <td><span class="kt-badge kt-badge-{{ sm kt-badge-ticket.priority_css|metronic_badge_variant }}>{{ ticket.priority_label }}</span></td>
+              <td><span class="kt-badge kt-badge-{{ sm kt-badge-ticket.status_css|metronic_badge_variant }}>{{ ticket.get_status_display }}</span></td>
               <td class="nowrap">{{ ticket.reported_at|jdatetime }}</td>
               <td class="nowrap">{{ ticket.arrived_at|jdatetime|default:"—" }}</td>
               <td class="nowrap">{{ ticket.resolved_declared_at|jdatetime|default:"—" }}</td>
               <td>
-                {% if ticket.response_met is True %}<span class="badge badge-success">رعایت</span>
-                {% elif ticket.response_met is False %}<span class="badge badge-danger">نقض</span>
-                {% else %}<span class="badge badge-neutral">—</span>{% endif %}
+                {% if ticket.response_met is True %}<span class="kt-badge kt-badge-sm kt-badge-success">رعایت</span>
+                {% elif ticket.response_met is False %}<span class="kt-badge kt-badge-sm kt-badge-destructive">نقض</span>
+                {% else %}<span class="kt-badge kt-badge-sm kt-badge-secondary">—</span>{% endif %}
               </td>
               <td><a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'tickets:detail' ticket.pk %}">مشاهده</a></td>
             </tr>
@@ -247,12 +247,12 @@
     </div>
   </div>
 
-  <div class="tab-panel itam-ops-tab-panel" data-tab-panel="visits">
+  <div id="itam-asset-panel-visits" class="tab-panel itam-ops-tab-panel" role="tabpanel" aria-labelledby="itam-asset-tab-visits" tabindex="0" hidden data-tab-panel="visits">
     <div class="card kt-card itam-ops-card">
       <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">سابقه بازدیدهای دوره‌ای</h2></div>
-      <div class="table-wrap itam-ops-table-wrap">
+      <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول بازدیدهای دوره‌ای دارایی">
         <table class="table compact kt-table itam-ops-table">
-          <thead><tr><th>بازدید</th><th>قرارداد</th><th>تاریخ بازدید</th><th>بازدیدکننده</th><th>وضعیت تجهیز</th><th>خدمات انجام‌شده</th><th></th></tr></thead>
+          <th scope="col"ead><tr><th scope="col">بازدید</th><th scope="col">قرارداد</th><th scope="col">تاریخ بازدید</th><th scope="col">بازدیدکننده</th><th scope="col">وضعیت تجهیز</th><th scope="col">خدمات انجام‌شده</th><th scope="col" aria-label="عملیات"></th></tr></thead>
           <tbody>
           {% for check in visits %}
             <tr>
@@ -260,7 +260,7 @@
               <td>{{ check.visit.contract.number }}</td>
               <td class="nowrap">{{ check.checked_at|jdatetime|default:"—" }}</td>
               <td>{{ check.checked_by.display_name|default:"—" }}</td>
-              <td><span class="badge badge-{{ check.condition_css }}">{{ check.get_condition_display }}</span></td>
+              <td><span class="kt-badge kt-badge-{{ sm kt-badge-check.condition_css|metronic_badge_variant }}>{{ check.get_condition_display }}</span></td>
               <td>{{ check.actions_taken|default:"—"|truncatechars:60 }}</td>
               <td><a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'maintenance:check_edit' check.pk %}">برگه</a></td>
             </tr>
@@ -273,7 +273,7 @@
     </div>
   </div>
 
-  <div class="tab-panel itam-ops-tab-panel" data-tab-panel="files">
+  <div id="itam-asset-panel-files" class="tab-panel itam-ops-tab-panel" role="tabpanel" aria-labelledby="itam-asset-tab-files" tabindex="0" hidden data-tab-panel="files">
     <div class="card kt-card itam-ops-card">
       <div class="card-head kt-card-header itam-ops-card-header">
         <h2 class="card-title">پیوست‌های دارایی</h2>
@@ -281,9 +281,9 @@
           <a class="btn kt-btn kt-btn-primary btn-primary btn-sm" href="{% url 'assets:attachment_create' object.pk %}">➕ افزودن پیوست</a>
         {% endif %}
       </div>
-      <div class="table-wrap itam-ops-table-wrap">
+      <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول پیوست‌های دارایی">
         <table class="table compact kt-table itam-ops-table">
-          <thead><tr><th>نوع</th><th>عنوان</th><th>فایل</th><th>بارگذارنده</th><th>زمان</th><th></th></tr></thead>
+          <th scope="col"ead><tr><th scope="col">نوع</th><th scope="col">عنوان</th><th scope="col">فایل</th><th scope="col">بارگذارنده</th><th scope="col">زمان</th><th scope="col" aria-label="عملیات"></th></tr></thead>
           <tbody>
           {% for attachment in attachments %}
             <tr>

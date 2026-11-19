@@ -218,17 +218,52 @@
 
   function setupTabs() {
     document.querySelectorAll("[data-tabs]").forEach(function(group){
-      var buttons=group.querySelectorAll(".tab");
-      buttons.forEach(function(button){button.addEventListener("click",function(){
-        var target=button.getAttribute("data-tab-target"),scope=group.closest("[data-tabs-scope]");
-        buttons.forEach(function(item){item.classList.remove("active");});button.classList.add("active");
-        document.querySelectorAll("[data-tab-panel]").forEach(function(panel){
-          if(panel.closest("[data-tabs-scope]")!==scope)return;
-          panel.classList.toggle("active",panel.getAttribute("data-tab-panel")===target);
+      var buttons=Array.prototype.slice.call(group.querySelectorAll("[role='tab']"));
+      var scope=group.closest("[data-tabs-scope]")||document;
+      var panels=Array.prototype.slice.call(scope.querySelectorAll("[role='tabpanel']"));
+
+      function activate(button, moveFocus){
+        if(!button)return;
+        var panelId=button.getAttribute("aria-controls");
+        buttons.forEach(function(item){
+          var selected=item===button;
+          item.classList.toggle("active",selected);
+          item.setAttribute("aria-selected",selected?"true":"false");
+          item.setAttribute("tabindex",selected?"0":"-1");
         });
-      });});
-      try{var focus=new URLSearchParams(window.location.search).get("focus");
-        if(focus){var target=group.querySelector(".tab[data-tab-target='"+focus+"']");if(target)target.click();}
+        panels.forEach(function(panel){
+          var selected=panel.id===panelId;
+          panel.classList.toggle("active",selected);
+          panel.hidden=!selected;
+        });
+        if(moveFocus)button.focus();
+      }
+
+      buttons.forEach(function(button,index){
+        button.addEventListener("click",function(){activate(button,false);});
+        button.addEventListener("keydown",function(event){
+          var nextIndex=index;
+          if(event.key==="ArrowRight")nextIndex=(index+1)%buttons.length;
+          else if(event.key==="ArrowLeft")nextIndex=(index-1+buttons.length)%buttons.length;
+          else if(event.key==="Home")nextIndex=0;
+          else if(event.key==="End")nextIndex=buttons.length-1;
+          else return;
+          event.preventDefault();
+          activate(buttons[nextIndex],true);
+        });
+      });
+
+      var selected=buttons.find(function(button){return button.getAttribute("aria-selected")==="true";})
+        ||buttons.find(function(button){return button.classList.contains("active");})
+        ||buttons[0];
+      activate(selected,false);
+
+      try{
+        var focus=new URLSearchParams(window.location.search).get("focus");
+        if(focus){
+          var target=buttons.find(function(button){return button.getAttribute("data-tab-target")===focus;});
+          if(target)activate(target,false);
+        }
       }catch(error){}
     });
   }
