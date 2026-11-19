@@ -89,3 +89,13 @@
 - **یافته‌ها:** در head PR #15، active center scope زنجیره county→province و هم‌خوانی TreatmentManagement را enforce می‌کند؛ تکنسین به قرارداد و انتساب فعال مرکز محدود است؛ API HWAgent توکن hash، timestamp، nonce، asset/center/hostname binding و active geography را بررسی می‌کند؛ Outbox mutationها POST و country-admin هستند؛ Adminهای Ticket و Repair workflow read-only شده‌اند.
 - **ریسک‌های باز:** Center.clean/save اختلاف دارند؛ Center.save به‌طور ضمنی TreatmentManagement ایجاد می‌کند؛ trusted proxy و anti-replay هنوز در محیط واقعی UAT نشده‌اند؛ ممیزی کامل IDOR/export/admin/media باقی است.
 - **تصمیم:** این یافته‌ها به‌عنوان code review گزینشی ثبت می‌شوند، نه تأیید امنیتی. هیچ Merge یا عملیات DB از این ثبت نتیجه نمی‌شود.
+
+## D-2026-11-19-007 — نتیجه مقایسه معنایی PRهای #12 و #13 با #14
+- **تاریخ:** 2026-11-19
+- **وضعیت:** Accepted برای ثبت نتیجه ممیزی؛ تصمیم Merge همچنان Open
+- **بررسی:** 7 فایل متفاوت PR #12 و 13 فایل متفاوت PR #13 با head PR #14 از نظر رفتار و تست مقایسه شدند.
+- **یافته:** تغییرات مؤثر #12 در کنترل taxonomy سراسری، settings/holidays، audit scope، repair feedback scope و contract visibility در #14 حضور دارند. تغییرات مؤثر #13 در private media cache/404، seed/TreatmentManagement، CenterForm، SQLite seed guards، visibility تعمیر و درخواست عمومی IT، notification/state guard و delegation viewها در #14 جذب یا تکمیل شده‌اند.
+- **استثنا:** cleanup مربوط به بستن stream در تست private media در #14 عیناً مشابه تغییر PR #13 نیست؛ فعلاً فقط یک موضوع test hygiene است و نیازمند cherry-pick عملکردی نیست.
+- **تصمیم:** برای deltaهای بررسی‌شده، port/cherry-pick مستقل از #12 یا #13 به #14 لازم تشخیص داده نشد. PR #13 به‌دلیل divergence/dirty بودن هنوز تعیین تکلیف نشده و نباید صرفاً بر اساس این نتیجه بسته شود.
+- **محدودیت:** این نتیجه جایگزین review تمام commitها، تست مستقل، تعیین required checks یا تصمیم نهایی ادغام نیست.
+- **ایمنی:** هیچ Merge، code change، migration، seed، reconciliation apply یا Outbox dispatch اجرا نشد.

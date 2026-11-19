@@ -382,3 +382,18 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 - مسیر اصلی محتمل از نظر ancestry همچنان #7 → #8 → #9 → #11 → #14 → #15 → #16 است؛ commitهای #10 در ancestry #11 هستند.
 - PR #14 head خودش CI ناموفق دارد؛ head #15 CI موفق است و اصلاح approval/workflow را حمل می‌کند.
 - هیچ عملیات DB، migration، seed، reconciliation apply یا Outbox dispatch اجرا نشده است.
+
+### تکمیل مقایسه معنایی PRهای #12 و #13 با PR #14 — 2026-11-19
+
+- [x] بررسی معنایی 7 فایل متفاوت PR #12 نسبت به head PR #14.
+- [x] بررسی معنایی 13 فایل متفاوت PR #13 نسبت به head PR #14.
+- [x] تعیین اینکه کدام رفتارها در PR #14 جذب یا با نسخه کامل‌تری جایگزین شده‌اند.
+- [x] ثبت مواردی که ارزش انتقال مستقل ندارند و جلوگیری از cherry-pick تکراری.
+
+**نتیجه PR #12:** تغییرات مؤثر در apps/assets/views.py (مدیریت taxonomy فقط برای country admin)، apps/core/views.py (تنظیمات و تعطیلات سراسری + scope لاگ ممیزی)، apps/maintenance/repair_services.py (محدودشدن بازخورد تعمیر به مرکز برای Center IT) و apps/org/views.py (قراردادهای قابل مشاهده بر مبنای scope و انتساب فعال) در head PR #14 موجودند. تست‌های متناظر نیز در شاخه #14 حضور دارند. تغییر نام یک شناسه تست در apps/maintenance/tests.py فقط اصلاح fixture است. تفاوت cleanup در apps/core/tests_private_media.py یک موضوع نگهداری منبع در تست است، نه قابلیت کسب‌وکاری مفقود؛ فعلاً به‌صورت مستقل port نمی‌شود.
+
+**نتیجه PR #13:** تغییرات مؤثر شامل Cache-Control: private, no-store و پاسخ 404 برای فایل خارج از scope، ایجاد/reuse مدیریت درمان در seed، اعتبارسنجی فرم مرکز، محدودکردن seed tests به SQLite، مرزبندی visibility تعمیر/درخواست عمومی، notification و state guard تخصیص درخواست IT و واگذاری visibility به service در PR #14 جذب یا با نسخه کامل‌تری پوشش داده شده‌اند. head #14 برای گردش GeneralITRequest علاوه بر state guard، manager approval gate و notificationهای تکمیلی دارد. تفاوت‌های تستی موجود نیز در #14 با تست‌های گسترده‌تر یا decorator معادل پوشش داده شده‌اند.
+
+**تصمیم این دور:** در 20 مسیر بررسی‌شده، delta عملکردیِ مفقودی که نیازمند انتقال مستقل از #12 یا #13 به #14 باشد شناسایی نشد. این نتیجه به معنی duplicate کامل بودن branch #13 یا مجوز بستن آن نیست؛ وضعیت diverged/dirty و ancestry آن همچنان باید جداگانه تعیین تکلیف شود. مقایسه، بررسی معنایی مسیرهای متفاوت بود و جایگزین review کامل تمام commitها و اجرای مستقل تست‌ها نیست.
+
+**Gate باقی‌مانده فاز صفر:** review کامل PRهای باز، required checks/branch protection، مقایسه نهایی headهای #14/#15 و سایر شاخه‌ها، و برنامه Merge مرحله‌ای.

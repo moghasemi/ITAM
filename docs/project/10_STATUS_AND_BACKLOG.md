@@ -172,3 +172,14 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - Outbox dispatch/requeue به POST و country-admin محدود است؛ Adminهای RepairRequest و Ticket/Event read-only هستند.
 - موارد باز: یکسان‌سازی Center.clean/save، atomicity و هم‌زمانی get_or_create مدیریت درمان، تنظیم واقعی trusted proxy، تست replay/race و ممیزی کامل IDOR/export/admin/private media.
 - این دور بازبینی گزینشی است؛ security sign-off صادر نشده.
+
+## نتیجه ممیزی معنایی PR #12 و #13 در برابر #14 — 2026-11-19
+
+- PR #12: هفت فایل متفاوت بررسی شد. کنترل‌های taxonomy، تنظیمات سراسری، audit scope، visibility بازخورد تعمیر و contract visibility در head #14 وجود دارند؛ مورد مفقود عملکردی مشاهده نشد.
+- PR #13: سیزده فایل متفاوت بررسی شد. کنترل‌های private/no-store و 404، seed/TreatmentManagement، CenterForm، SQLite test guard، visibility نقش‌ها و گردش GeneralITRequest در #14 وجود دارند یا با پیاده‌سازی کامل‌تری جایگزین شده‌اند.
+- visible_contracts در apps/org/services.py مسیر scope قرارداد را متمرکز می‌کند؛ برای Center/County فقط assignment فعال و تاریخ‌دار مرکز مجاز است و برای Province Admin scope استانی صریح کنترل می‌شود.
+- در GeneralITRequest، #14 علاوه بر کنترل وضعیت و قفل ردیف، manager approval را پیش‌نیاز تخصیص قرار داده است؛ بنابراین تغییر ساده‌تر #13 نباید روی آن overwrite شود.
+- مورد کم‌اهمیت: تفاوت در بستن stream فایل در تست private media؛ فعلاً به‌عنوان cleanup تست ثبت می‌شود، نه delta محصول.
+- تصمیم: cherry-pick مستقل از #12/#13 در این مرحله لازم تشخیص داده نشد. PR #13 به علت divergence و mergeable=false همچنان باز و حل‌نشده می‌ماند؛ این بررسی مجوز بستن یا Merge نیست.
+- آخرین CI مستندات PR #17 روی commit 954c3f6a2a8f3037aad4ce5c9c48f56e852657df در run 44488869040 با نتیجه success تمام شد.
+- هیچ کد برنامه، migration، seed، DB، reconciliation یا Outbox تغییر/اجرا نشد.

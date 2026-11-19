@@ -359,3 +359,14 @@ PRهای #17 (مستندات) و #18 (private media و scope انتساب پیم
 - API HWAgent توکن hash، timestamp، nonce، asset/center/hostname binding و active geography را enforce می‌کند؛ legacy credential بدون asset binding fail-closed است.
 - Outbox dispatch/requeue به POST و country-admin محدود است؛ Adminهای Ticket و Repair workflow read-only هستند.
 - موارد باز: Center.clean/save mismatch، atomicity/concurrency ایجاد TreatmentManagement، trusted proxy واقعی، replay/race UAT و ممیزی کامل IDOR/export/admin/private media. این بررسی security sign-off نیست.
+
+### 20. نتیجه مقایسه معنایی PRهای #12 و #13 با #14 — 2026-11-19
+
+- هفت فایل متفاوت PR #12 با head PR #14 از نظر رفتار بررسی شدند؛ کنترل taxonomy سراسری، settings/holidays، audit log scope، بازخورد تعمیر و قراردادهای قابل مشاهده در #14 حضور دارند.
+- سیزده فایل متفاوت PR #13 بررسی شدند؛ private media cache-control/404، seed و TreatmentManagement، فرم مرکز، SQLite-only test guards، visibility repair/general IT، notification/state guard و delegation viewها در #14 وجود دارند یا با منطق کامل‌تری جایگزین شده‌اند.
+- مسیر visible_contracts در service متمرکز شده و دسترسی مرکز/شهرستان به قرارداد را به assignment فعال و تاریخ‌دار محدود می‌کند؛ Province Admin مسیر استانی جداگانه دارد.
+- workflow درخواست عمومی IT در #14 manager approval gate را نیز اعمال می‌کند؛ تغییر ساده‌تر PR #13 نباید روی این منطق جایگزین شود.
+- اختلاف cleanup stream در تست private media یک موضوع test hygiene باقی می‌ماند و delta عملکردی محسوب نمی‌شود.
+- نتیجه: در فایل‌های بررسی‌شده delta عملکردیِ مفقودی برای port مستقل از #12/#13 شناسایی نشد. PR #13 همچنان branch diverged/dirty است و این نتیجه مجوز بستن یا Merge آن نیست.
+- CI آخرین commit مستندات PR #17، run 44488869040، completed/success است.
+- هیچ تغییر کد برنامه یا عملیات DB/Seed/Migration/Reconciliation/Outbox انجام نشده است.
