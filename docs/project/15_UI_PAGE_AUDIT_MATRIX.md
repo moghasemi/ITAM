@@ -25,7 +25,7 @@
 | دارایی | `assets/attachment_form.html` | Metronic migration contract | Not reviewed | upload feedback، file constraints |
 | دارایی | snapshot detail/form/pending/start | Metronic migration contract | Not reviewed | تفاوت نقش مشاهده/تأیید، diff و state |
 | دارایی | hardware report و HWAgent upload/batch import | Metronic migration contract | Not reviewed | پیام خطا، batch progress، نتیجه import |
-| تیکت | `tickets/ticket_list.html` | Metronic kt-table/kt-badge/kt-btn | PR #29 in progress | scope، region، badge native و CTAهای Metronic؛ browser acceptance باز |
+| تیکت | `tickets/ticket_list.html` | Metronic kt-table/kt-badge/kt-btn | CI verified PR #29; browser open | scope، region، badge native و CTAهای Metronic؛ browser acceptance باز |
 | تیکت | `tickets/ticket_detail.html` | Metronic migration contract | Not reviewed | گردش‌کار، timeline، تأییدها، قطعه و پیوست |
 | تیکت | `tickets/ticket_form.html` و `tickets/my_tickets.html` | Metronic migration contract | Not reviewed | فرم و کارتابل کاربر |
 | نگهداری | visit list/detail/form و my visits | Metronic kt-card/kt-progress/kt-badge | PR #29 in progress (visit list) | کارت آماری و progress native؛ scope/region و badgeها اصلاح شده؛ browser acceptance باز |
@@ -109,3 +109,10 @@
 - شکاف رفتار وابسته: JS ردیف‌های `data-computer-only` و `data-peripheral-only` را فقط با `hidden` مخفی می‌کند و ورودی را disable/clear نمی‌کند. اگر کاربر برای تجهیز جانبی رایانه متصل انتخاب کند و سپس دسته را به رایانه تغییر دهد، مقدار مخفی `connected_computers` همچنان submit می‌شود؛ queryset آن در فرم برای رایانه تهی است و ممکن است فرم را نامعتبر کند. این سناریو هنوز regression test ندارد.
 - وضعیت: Static reviewed؛ هیچ کدی برای این فرم در این دور تغییر نکرده؛ مرورگر/موبایل/keyboard acceptance باز است.
 - اقدام بعدی: گروه‌بندی فرم و مدیریت چرخه مقدار/disabled فیلدهای وابسته همراه تست تغییر category.
+
+
+### نتیجه CI شناسنامه دارایی — PR #30 (2026-11-19)
+- [x] PR #30 head `dd079ea6aab0acdd8ec437496e74b70ba8368e65`: run `44528390670`، هر 5/5 job موفق.
+- [x] Python 3.11، Python 3.12، PostgreSQL، production-settings-check و deploy-script-validation موفق.
+- [ ] browser acceptance، RTL، dark mode، responsive، keyboard و screen-reader همچنان باز است.
+- PR #30 باز، Draft و mergeable=true است؛ Merge نشده.

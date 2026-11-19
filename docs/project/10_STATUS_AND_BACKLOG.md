@@ -317,7 +317,7 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - [x] PR #26 منو: CI 5/5 موفق.
 - [x] PR #27 داشبورد: CI 5/5 موفق.
 - [x] PR #28 فهرست دارایی: CI 5/5 موفق؛ browser acceptance و query-count runtime باز.
-- [x] PR #29 تیکت/بازدید: ایجاد شد؛ CI در حال اجرا.
+- [x] PR #29 تیکت/بازدید: CI 5/5 موفق؛ browser acceptance باز.
 - [ ] Browser acceptance، dark mode، responsive و keyboard برای صفحات اصلاح‌شده.
 - [ ] اصلاح جریان چاپ برچسب و حفظ فیلترها.
 
@@ -349,3 +349,9 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - [ ] regression tests برای تغییر دسته peripheral ↔ computer.
 - [ ] browser acceptance و RTL/responsive/keyboard.
 
+
+
+### نتیجه CI PR #30 — 2026-11-19
+- [x] CI run `44528390670`: 5/5 job success روی head `dd079ea6aab0acdd8ec437496e74b70ba8368e65`.
+- [ ] browser acceptance و UAT نقش‌محور باز.
+- PR #30 باز و Draft؛ هیچ Merge/Deploy انجام نشده است.

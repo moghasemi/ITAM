@@ -224,3 +224,9 @@
 - آزمون تغییر دسته در تست‌های فعلی مشاهده نشد؛ این مورد باید با regression test پوشش داده شود.
 - وضعیت: Static reviewed؛ هنوز کد یا تستی برای این فرم تغییر نکرده است؛ browser acceptance باز.
 
+
+
+### نتیجه CI شناسنامه دارایی — PR #30
+- head نهایی بررسی‌شده: `dd079ea6aab0acdd8ec437496e74b70ba8368e65`.
+- CI pull_request run `44528390670`: completed/success، هر 5/5 job موفق؛ Python 3.11، Python 3.12، PostgreSQL، production settings و deploy validation.
+- PR #30 همچنان باز، Draft و mergeable=true؛ browser acceptance و UAT انجام نشده.
