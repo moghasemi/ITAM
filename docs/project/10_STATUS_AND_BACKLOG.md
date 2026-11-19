@@ -285,3 +285,12 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - [x] CI pull_request run `44507866034`: 5/5 job success.
 - [x] PR #26 در آخرین مشاهده mergeable=true و همچنان Draft است.
 - [ ] browser acceptance و UAT نقش‌محور هنوز انجام نشده‌اند.
+
+
+## شروع ممیزی صفحه‌به‌صفحه UX/UI — 2026-11-19
+- [x] ایجاد ماتریس صفحات و وضعیت ممیزی: `15_UI_PAGE_AUDIT_MATRIX.md`.
+- [x] بازبینی static داشبورد و تطبیق role visibility با endpoint اسنپ‌شات.
+- [x] ایجاد PR #27 برای اصلاح dashboard role gating، Metronic badges و table accessibility.
+- [ ] CI نهایی PR #27 روی head `6d32645b6ec6a1ad1144d7a69a43db53e9c6e17e`.
+- [ ] مرورگر و آزمون visual/responsive/dark-mode/keyboard.
+- [ ] بازبینی UX صفحه‌های دارایی، تیکت و نگهداری؛ وضعیت هر صفحه در ماتریس ثبت می‌شود.

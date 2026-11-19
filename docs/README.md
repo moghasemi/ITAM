@@ -25,6 +25,7 @@
 - [استاندارد مشارکت و کدنویسی](project/12_CONTRIBUTING_AND_CODING_STANDARDS.md)
 
 - [دفتر ثبت روزانه فعالیت‌ها](project/14_DAILY_WORK_LOG.md)
+- [ماتریس ممیزی صفحه‌به‌صفحه UX/UI](project/15_UI_PAGE_AUDIT_MATRIX.md)
 
 ## اسناد تخصصی موجود
 - [معماری سازمانی و امنیت](ENTERPRISE_ARCHITECTURE_AND_SECURITY.md)

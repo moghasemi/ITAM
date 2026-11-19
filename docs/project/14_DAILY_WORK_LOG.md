@@ -91,3 +91,12 @@
 - run pull_request هر 5/5 job را با موفقیت گذراند: test Python 3.11، test Python 3.12، PostgreSQL test، production-settings-check و deploy-script-validation.
 - PR #26 در آخرین بررسی باز، Draft و mergeable=true است؛ Merge نشده.
 - CI موفق به معنی browser acceptance یا UAT نقش‌محور نیست؛ این موارد همچنان بازند.
+
+
+### بازبینی صفحه‌به‌صفحه — داشبورد (2026-11-19)
+- صفحه بررسی‌شده: `templates/core/dashboard.html`، SHA پایه `a17a1558b0ef79cc6bbef1ef9f0fbf47e94d3469`؛ view: `DashboardView` در `apps/core/views.py`.
+- Metronic موجود: kt-card، kt-card-header/content، kt-btn، ApexCharts، responsive grid اختصاصی، dark-mode CSS، empty state و timeline.
+- gapها: پنل و KPI تأیید اسنپ‌شات برای همه نقش‌ها نشان داده می‌شد درحالی‌که endpoint فقط admin_it را مجاز می‌کند؛ badgeها از کلاس legacy بودند؛ table wrapperها keyboard-focus و accessible name نداشتند؛ thها scope نداشتند.
+- PR #27 این موارد را اصلاح می‌کند: role-gating UI و query، kt-badge native با mapping، پنج region قابل فوکوس و scope ستون‌ها.
+- head فعلی PR #27: `6d32645b6ec6a1ad1144d7a69a43db53e9c6e17e`؛ CI در زمان ثبت pending/in progress؛ browser acceptance باز.
+- ماتریس کامل صفحات و وضعیت‌ها در `15_UI_PAGE_AUDIT_MATRIX.md` ایجاد شد. سایر صفحات در این دور هنوز UX-reviewed نیستند، حتی اگر مهاجرت پایه Metronic داشته باشند.
