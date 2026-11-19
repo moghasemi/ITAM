@@ -81,3 +81,11 @@
 - **یافته تکمیلی:** از 19 فایل #12، 12 فایل در #14 دقیقاً یکسان و 7 فایل متفاوت‌اند؛ از 25 فایل #13، 12 فایل یکسان و 13 فایل متفاوت‌اند.
 - **تصمیم:** #10 برای حفظ commitها نیاز به re-open ندارد. #12 و #13 به‌صورت جداگانه و کور Merge نمی‌شوند؛ deltaهای مفقود و تفاوت رفتاری با #14 باید ابتدا بررسی شوند.
 - **پیامد:** مسیر محتمل اصلی #7 → #8 → #9 → #11 → #14 → #15 → #16 است؛ این مسیر تا پایان gateهای فاز صفر تأیید نهایی نیست.
+
+
+## D-2026-11-19-006 — یافته‌های گزینشی scope و HWAgent
+- **تاریخ:** 2026-11-19
+- **وضعیت:** Accepted برای ثبت یافته؛ پذیرش امنیتی: Open
+- **یافته‌ها:** در head PR #15، active center scope زنجیره county→province و هم‌خوانی TreatmentManagement را enforce می‌کند؛ تکنسین به قرارداد و انتساب فعال مرکز محدود است؛ API HWAgent توکن hash، timestamp، nonce، asset/center/hostname binding و active geography را بررسی می‌کند؛ Outbox mutationها POST و country-admin هستند؛ Adminهای Ticket و Repair workflow read-only شده‌اند.
+- **ریسک‌های باز:** Center.clean/save اختلاف دارند؛ Center.save به‌طور ضمنی TreatmentManagement ایجاد می‌کند؛ trusted proxy و anti-replay هنوز در محیط واقعی UAT نشده‌اند؛ ممیزی کامل IDOR/export/admin/media باقی است.
+- **تصمیم:** این یافته‌ها به‌عنوان code review گزینشی ثبت می‌شوند، نه تأیید امنیتی. هیچ Merge یا عملیات DB از این ثبت نتیجه نمی‌شود.

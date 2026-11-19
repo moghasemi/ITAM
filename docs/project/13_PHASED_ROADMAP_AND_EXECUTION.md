@@ -358,3 +358,27 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 - تغییرات اختصاصی #12 و #13 باید با مسیر #14 تطبیق داده شوند؛ فقط deltaهای واقعاً مفقود و مورد تأیید به مسیر اصلی منتقل شوند، نه اینکه هر سه PR به شکل کور پشت سر هم Merge شوند.
 - #17 و #18 پس از #16 شاخه‌های موازی‌اند؛ زنجیره #19 تا #25 پس از #16 مسیر UI جداگانه را تشکیل می‌دهد.
 - این مسیر هنوز برنامه نهایی Merge نیست؛ ابتدا 7 فایل اختلاف #12/#14 و 13 فایل اختلاف #13/#14 و CI/required checks باید تعیین تکلیف شوند.
+## ممیزی امنیتی گزینشی مسیر اصلی PR #15 — 2026-11-19
+
+### کنترل‌های تأییدشده در کد head شاخه fix/integration-qa-security-workflow
+- دامنه مراکز غیرکشوری در User._active_center_scope به مرکز فعال، شهرستان فعال از نوع county، استان فعال از نوع province و یکسانی TreatmentManagement.province با استان جغرافیایی محدود شده است.
+- دامنه پیمانکار فنی بر قرارداد فعال و تاریخ‌دار و انتساب فعال همان مرکز متکی است؛ قرارداد استانی به‌تنهایی همه مراکز را در اختیار تکنسین نمی‌گذارد.
+- API HWAgent توکن خام را ذخیره نمی‌کند؛ token hash را بررسی می‌کند، وضعیت/انقضا را کنترل می‌کند، timestamp با پنجره 300 ثانیه و nonce یکتا دارد، اندازه payload را محدود می‌کند و درخواست را به agent.asset، مرکز و hostname همان دارایی bind می‌کند. اگر asset یا hostname binding ناقص باشد، مسیر fail-closed است.
+- apply_hwagent_snapshot علاوه بر API، دوباره تطبیق agent_credential.asset_id، hostname، active asset و زنجیره فعال مرکز را بررسی می‌کند؛ بنابراین صرف تغییر payload برای انتخاب asset دیگر کافی نیست.
+- عملیات dispatch/requeue در Outbox با POST و country-admin محدود شده‌اند.
+- Admin گردش تعمیر و رخدادهای مرتبط را با ReadOnlyAuditAdmin عرضه می‌کند؛ Ticket، TicketEvent و inlineهای حساس در Admin فاقد add/change/delete عادی هستند.
+- private media در مسیرهای مختلف از visible querysetهای دامنه‌ای عبور می‌کند؛ PR #18 علاوه بر آن درخواست anonymous را (جز لوگوی عمومی تنظیمات) رد می‌کند.
+
+### مواردی که هنوز باید آزموده/بازبینی شوند
+- Center.clean و Center.save یکسان نیستند: clean برای شهرستانی که parent ندارد ممکن است از آن مرحله عبور کند، اما save آن را رد می‌کند. رفتار فرم و پیام خطا باید آزموده و یکپارچه شود.
+- Center.save در صورت نبود TreatmentManagement از get_or_create استفاده می‌کند؛ هم‌زمانی، province بدون code، و atomicity بین ایجاد management و ذخیره center باید بررسی شود.
+- صدور AgentCredential باید با فرم/نقش/مرکز و مرکز غیرفعال end-to-end آزموده شود؛ API در زمان sync زنجیره مرکز را دوباره اعتبارسنجی می‌کند.
+- TrustedProxyHeadersMiddleware فقط IPهای صریح ITAM_TRUSTED_PROXY_IPS را معتبر می‌داند؛ مقداردهی محیط واقعی، ترتیب middleware، TLS termination و X-Forwarded-For واقعی هنوز UAT نشده‌اند.
+- آزمون race/replay در PostgreSQL و SQLite باید با تست هم‌زمانی مستقل و محیط ایزوله تکرار شود؛ CI موفق فعلی به‌تنهایی پذیرش شبکه واقعی نیست.
+- بررسی کامل IDOR، exports، admin endpoints، file serving و all-role matrix هنوز تمام نشده است.
+
+### وضعیت فاز صفر پس از این مرور
+- بازبینی اولیه گزینشی روی 7/8/11/12/14/15/18 انجام شده؛ این مورد را تکمیل security audit یا sign-off تلقی نکنید.
+- مسیر اصلی محتمل از نظر ancestry همچنان #7 → #8 → #9 → #11 → #14 → #15 → #16 است؛ commitهای #10 در ancestry #11 هستند.
+- PR #14 head خودش CI ناموفق دارد؛ head #15 CI موفق است و اصلاح approval/workflow را حمل می‌کند.
+- هیچ عملیات DB، migration، seed، reconciliation apply یا Outbox dispatch اجرا نشده است.

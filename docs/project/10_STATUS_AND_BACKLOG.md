@@ -166,3 +166,9 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - PR #12 در مقایسه با #14، 12/19 فایل با محتوای دقیقاً یکسان دارد و 7 فایل متفاوت؛ بخش‌هایی از تغییرات #12 جذب شده اما branch کامل redundant نیست.
 - PR #13 در مقایسه با #14، 12/25 فایل دقیقاً یکسان و 13 فایل متفاوت دارد؛ duplicate کامل نیست و mergeable=false/dirty باقی می‌ماند.
 - مسیر محتمل mainline از نظر ancestry: #7 → #8 → #9 → #11 → #14 → #15 → #16؛ #10 ancestor #11 است. #12/#13 فقط پس از reconcile کردن deltaهای مفقود قابل تعیین تکلیف‌اند.
+### ممیزی گزینشی امنیتی و داده — 2026-11-19
+- در head PR #15، scope غیرکشوری با active center/county/province و consistency بین جغرافیا و TreatmentManagement محدود شده است؛ technician فقط از قرارداد و assignment فعال مرکز scope می‌گیرد.
+- HWAgent در API به credential، asset، center، hostname، timestamp و nonce bind شده؛ legacy credential بدون asset binding fail-closed است.
+- Outbox dispatch/requeue به POST و country-admin محدود است؛ Adminهای RepairRequest و Ticket/Event read-only هستند.
+- موارد باز: یکسان‌سازی Center.clean/save، atomicity و هم‌زمانی get_or_create مدیریت درمان، تنظیم واقعی trusted proxy، تست replay/race و ممیزی کامل IDOR/export/admin/private media.
+- این دور بازبینی گزینشی است؛ security sign-off صادر نشده.

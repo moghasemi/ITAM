@@ -352,3 +352,10 @@ PRهای #17 (مستندات) و #18 (private media و scope انتساب پیم
 - PR #12 با PR #14 از 19 فایل، 12 محتوای یکسان و 7 متفاوت دارد. PR #13 با PR #14 از 25 فایل، 12 محتوای یکسان و 13 متفاوت دارد.
 - #12/#13 نباید جداگانه و کور Merge شوند؛ deltaهای مفقود باید با مسیر #14 تطبیق داده شوند.
 - مسیر محتمل اصلی: #7 → #8 → #9 → #11 → #14 → #15 → #16؛ برنامه نهایی Merge هنوز باز است.
+
+
+### 19. ممیزی گزینشی scope و HWAgent — 2026-11-19
+- head PR #15، scope مراکز غیرکشوری را به مرکز/شهرستان/استان فعال و consistency TreatmentManagement محدود می‌کند؛ تکنسین به قرارداد و انتساب فعال مرکز محدود است.
+- API HWAgent توکن hash، timestamp، nonce، asset/center/hostname binding و active geography را enforce می‌کند؛ legacy credential بدون asset binding fail-closed است.
+- Outbox dispatch/requeue به POST و country-admin محدود است؛ Adminهای Ticket و Repair workflow read-only هستند.
+- موارد باز: Center.clean/save mismatch، atomicity/concurrency ایجاد TreatmentManagement، trusted proxy واقعی، replay/race UAT و ممیزی کامل IDOR/export/admin/private media. این بررسی security sign-off نیست.
