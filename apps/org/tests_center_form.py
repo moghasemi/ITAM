@@ -1,10 +1,11 @@
 """Regression tests for province-aware county selection in the center form."""
 
+from django.db import IntegrityError
 from django.test import TestCase
 
 from apps.accounts.models import User
 from apps.org.forms import CenterForm
-from apps.org.models import Center, OrganizationalUnit
+from apps.org.models import Center, OrganizationalUnit, TreatmentManagement
 
 
 class CenterFormProvinceCountyTests(TestCase):
@@ -97,3 +98,25 @@ class CenterFormProvinceCountyTests(TestCase):
         form = CenterForm(instance=center, user=self.country_admin)
 
         self.assertEqual(form.fields["province"].initial, self.province_b.pk)
+
+
+    def test_failed_center_insert_rolls_back_auto_created_treatment_management(self):
+        existing = Center.objects.create(
+            name="مرکز با نام تکراری",
+            code="CENTER-FORM-DUPLICATE-1",
+            parent_unit=self.county_a,
+        )
+        management = existing.treatment_management
+        Center.objects.filter(pk=existing.pk).update(treatment_management=None)
+        management.delete()
+
+        with self.assertRaises(IntegrityError):
+            Center.objects.create(
+                name="مرکز با نام تکراری",
+                code="CENTER-FORM-DUPLICATE-2",
+                parent_unit=self.county_b,
+            )
+
+        self.assertFalse(
+            TreatmentManagement.objects.filter(province=self.province_b).exists()
+        )
