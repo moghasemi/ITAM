@@ -205,3 +205,12 @@
 - **پیاده‌سازی:** PR #27، branch `ui/dashboard-role-aware-ux`، head `6d32645b6ec6a1ad1144d7a69a43db53e9c6e17e`، base PR #26.
 - **تست:** regression tests برای role gating، table regions و badge mapping افزوده شد؛ CI در زمان ثبت در حال اجرا بود.
 - **مرز ایمنی:** URL، permission backend، مدل، migration و workflow تغییر نکردند. UAT مرورگر و نقش واقعی هنوز انجام نشده است.
+
+
+## D-2026-11-19-007 — اصلاح صفحه فهرست دارایی‌ها
+- **تاریخ:** 2026-11-19
+- **وضعیت:** Finding ثبت شد؛ پیاده‌سازی: Open
+- **یافته:** `assets/asset_list.html` دوازده سرستون و یازده سلول دارد؛ ستون مرکز فاقد داده است و داده واحد/محل در ستون نامناسب نمایش داده می‌شود؛ empty colspan نیز 11 است.
+- **تصمیم اجرایی:** در PR مستقل، center و department/location در دو سلول جدا نمایش داده شوند؛ colspan=12، scope و aria label اصلاح شود؛ badgeها به Metronic native تبدیل شوند.
+- **ریسک تکمیلی:** احتمال N+1 از `components_count` بدون prefetch؛ قبل از تصمیم به تغییر، query count با تست اندازه‌گیری شود.
+- **شواهد:** template SHA `adf7a4be8d221cd91c80839592509599eb1c47be`؛ view از `visible_assets` استفاده می‌کند.

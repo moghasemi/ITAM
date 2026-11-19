@@ -506,3 +506,9 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 - [x] اصلاحات داشبورد در PR #27 ایجاد شد؛ CI head فعلی هنوز در حال اجرا است.
 - [ ] browser acceptance داشبورد و بررسی contrast/responsive/dark mode.
 - [ ] ممیزی UX صفحات دارایی، تیکت، نگهداری، سازمان، حساب‌ها، گزارش‌ها و یکپارچه‌سازی.
+
+
+## پیشرفت ممیزی UX/UI — فهرست دارایی‌ها (2026-11-19)
+- [x] بازبینی static فهرست دارایی‌ها و ثبت mismatch بین header و cell.
+- [ ] اصلاح 12 ستون/11 سلول، empty colspan، native badges و accessibility در PR مستقل.
+- [ ] بررسی و آزمون query-count برای احتمال N+1 در شمارش قطعات.
