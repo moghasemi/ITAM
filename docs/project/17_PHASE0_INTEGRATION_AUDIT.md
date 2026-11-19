@@ -238,3 +238,15 @@ PR #31 با 8 فایل تغییرکرده، بدون Migration یا تغییر U
 - بررسی race هم‌زمان بین تغییر county و ایجاد/ویرایش center هنوز به تست concurrency روی PostgreSQL و تصمیم نهایی نیاز دارد؛ atomicity PR #32 فقط rollback ایجاد TreatmentManagement را پوشش می‌دهد.
 - ماتریس endpoint×role هنوز نمونه‌ای است و باید برای تمام mutationها تکمیل شود.
 - UAT محلی و تست چاپ واقعی طبق Runbook بخش 10 و سند `18_LOCAL_UAT_RUNBOOK_2026-11-19.md` باقی است.
+
+
+---
+
+## 15. نتیجه نهایی PR #33
+
+
+### نتیجه نهایی CI PR #33 — 2026-11-19، ساعت 14:31 UTC
+- run `44544201157` روی head `f04726b4273466dae9f1df0c932639da0c177b67` completed/success شد.
+- هر پنج job موفق: test (3.11)، test (3.12)، postgres-test، production-settings-check و deploy-script-validation.
+- PR #33 همچنان Draft و open است؛ CI موفق به معنی پذیرش چاپ واقعی، مرورگر یا Merge نیست.
+

@@ -405,3 +405,11 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - قبل از هر switch، خروجی `git status --short`، branch و HEAD سیستم محلی دریافت شود.
 - دو PR جدید در دو worktree جدا تست شوند؛ هیچ stash/reset/rebase لازم نیست.
 - Migration/Seed/DB mutation/Outbox dispatch/Deploy انجام نشود.
+
+
+### نتیجه CI PR #33 — 2026-11-19
+- [x] PR #32: run `44543874381`، 5/5 success.
+- [x] PR #33: run `44544201157`، 5/5 success.
+- [ ] تست محلی هدفمند PR #32 و PR #33.
+- [ ] پذیرش مرورگر و چاپ فیزیکی/PDF.
+- [ ] تکمیل ماتریس endpoint×role و concurrency UAT تغییر county/center.

@@ -318,3 +318,9 @@
 - دو شاخه به‌صورت جداگانه تست می‌شوند؛ PR #32 و #33 ancestry متفاوت دارند و نباید در یک checkout با هم ترکیب شوند.
 - هیچ checkout/switch روی سیستم کاربر انجام نشده؛ وضعیت working tree و DB محلی هنوز نامعلوم است.
 - هیچ migration، seed، reconciliation apply، DB mutation، Outbox dispatch، merge یا deploy انجام نشده است.
+
+
+### تکمیل CI PR #33 — 2026-11-19
+- [x] run `44544201157` روی head `f04726b4273466dae9f1df0c932639da0c177b67` با 5/5 job موفق شد.
+- [x] PR #32 نیز run `44543874381` را با 5/5 job موفق گذراند.
+- [ ] UAT محلی، تست فیلتر در مرورگر و چاپ واقعی/PDF همچنان باز است.

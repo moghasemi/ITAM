@@ -91,3 +91,9 @@ branch/SHA، محیط، نسخه Python/DB، فرمان، pass/fail/skip، CI ی
 - هر دو PR فاقد migration هستند؛ اجرای migrate لازم نیست.
 - ابتدا وضعیت Git و مسیر DB محلی فقط‌خواندنی بررسی شود؛ هیچ switch در صورت working tree کثیف انجام نشود.
 - هیچ Seed، reconciliation apply، Outbox dispatch یا تغییر داده واقعی اجرا نشود.
+
+
+### CI regressionهای فاز صفر — 2026-11-19
+- PR #32، head `60c7337e12d235c56c3925e56422f0fa5618bd7b`: run `44543874381`، هر پنج job success.
+- PR #33، head `f04726b4273466dae9f1df0c932639da0c177b67`: run `44544201157`، هر پنج job success.
+- این CIها تست خودکارند؛ test database آن‌ها مستقل از SQLite محلی کاربر است و جایگزین UAT مرورگر/چاپ نیست.
