@@ -183,3 +183,34 @@
 - هیچ Merge یا Deploy انجام نشد.
 - هیچ migration، seed، تغییر DB یا عملیات reconciliation انجام نشد.
 - هیچ ادعایی درباره رفتار قطعی فعلی سیستم یا اجرای واقعی بازدید ثبت نمی‌شود.
+
+
+---
+
+## ممیزی صفحه شناسنامه دارایی و PR #30 — 2026-11-19
+
+### بازبینی ایستا
+- صفحه: `templates/assets/asset_detail.html`؛ View: `AssetDetailView` در `apps/assets/views.py`.
+- پنج بخش تب‌دار شامل اقلام سخت‌افزاری، تاریخچه Snapshot، درخواست‌های خرابی، بازدیدها و پیوست‌ها بررسی شدند.
+- شش جدول صفحه شامل ارتباطات دارایی، اقلام سخت‌افزاری، Snapshotها، تیکت‌ها، بازدیدها و پیوست‌ها بررسی شدند.
+- یافته‌ها: تب‌ها فاقد tablist/tab/tabpanel ARIA و keyboard pattern بودند؛ جدول‌ها region نام‌گذاری‌شده و قابل فوکوس و `scope=col` نداشتند؛ badgeها legacy بودند.
+- کنترل scope در View: `visible_assets(user)`؛ این فقط مشاهده detail را پوشش می‌دهد و مجوز endpointهای فایل/عملیات جداگانه باید مستقل ممیزی شود.
+
+### پیاده‌سازی
+- شاخه: `ui/asset-detail-accessibility`، پایه دقیق head PR #29: `1af7dc3baca79e50a30421538bdbb375114e6af8`.
+- PR #30: https://github.com/moghasemi/ITAM/pull/30 — باز، Draft، base برابر `ui/ticket-visit-list-ux`.
+- head فعلی: `dd079ea6aab0acdd8ec437496e74b70ba8368e65`.
+- تغییرات: پنج تب ARIA-compliant با ArrowLeft/ArrowRight/Home/End و حفظ `?focus=`؛ شش table region قابل فوکوس و نام‌گذاری‌شده؛ scope سرستون‌ها و action label؛ badge native Metronic؛ سه regression contract test.
+- فایل‌ها: `templates/assets/asset_detail.html`، `static/js/itam.js`، `apps/core/tests_ui.py`.
+
+### وضعیت اعتبارسنجی و مرزها
+- PR باز و Draft؛ CI روی head `dd079ea...` تازه شروع شده و هنوز نتیجه نهایی ثبت نشده است.
+- هیچ browser/visual/RTL/dark-mode/responsive/screen-reader acceptance انجام نشده است.
+- هیچ URL، view، queryset، permission، workflow، model، migration یا داده‌ای تغییر نکرده است.
+- هیچ Merge، Deploy، Migration، Seed، reconciliation apply یا تغییر DB انجام نشده است.
+
+### گام بعدی
+- [ ] بررسی نتیجه نهایی CI و اصلاح هر شکست.
+- [ ] بازبینی patch نهایی و mergeability.
+- [ ] ادامه ممیزی صفحه‌به‌صفحه از فرم دارایی و جزئیات/گردش Snapshot.
+- [ ] ثبت browser acceptance به‌عنوان کار وابسته به محیط محلی کاربر.

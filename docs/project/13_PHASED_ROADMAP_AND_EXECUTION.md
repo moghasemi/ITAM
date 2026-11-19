@@ -546,3 +546,13 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 - [ ] regression tests، CI و UAT نقش‌محور/مرورگر.
 - **مرجع نیازمندی:** `16_PERIODIC_VISIT_LIFECYCLE.md`.
 - **جایگاه:** طراحی و پیاده‌سازی پس از ممیزی کد فعلی؛ کار به‌عنوان نیاز محصول ثبت شده و هنوز پیاده‌سازی نشده است.
+
+
+## ادامه فاز یک — شناسنامه دارایی و PR #30 (2026-11-19)
+- [x] ممیزی ایستای `assets/asset_detail.html` و View مربوط؛ یافته‌های tab accessibility، جدول‌ها و badgeهای legacy ثبت شد.
+- [x] ایجاد PR #30 برای پنج تب قابل دسترس، شش table region، scope سرستون‌ها و badge native Metronic.
+- [x] افزودن regression contract tests برای تب‌ها، جدول‌ها و badgeها.
+- [ ] نتیجه CI نهایی head `dd079ea6aab0acdd8ec437496e74b70ba8368e65` بررسی شود.
+- [ ] browser acceptance، keyboard، RTL، dark mode، responsive و screen-reader.
+- [ ] ادامه ممیزی صفحات دارایی و Snapshot.
+- PR #30 باز، Draft و stacked بر PR #29 است؛ هیچ Merge یا Deploy انجام نشده است.

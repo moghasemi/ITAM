@@ -331,3 +331,12 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - **اولویت:** پس از تکمیل ممیزی UX جاری و در کنار تکمیل گردش‌های کسب‌وکار قرارداد/بازدید.
 - **گام اول:** بررسی model/service/view/signal/task و تست‌های فعلی؛ تا آن زمان هیچ ادعایی درباره نحوه تولید فعلی Visit قطعی نیست.
 - **مرجع کامل:** `16_PERIODIC_VISIT_LIFECYCLE.md`.
+
+
+## ادامه UX/UI — شناسنامه دارایی (2026-11-19)
+- [x] ممیزی ایستای `assets/asset_detail.html`.
+- [x] PR #30 برای دسترس‌پذیری پنج تب، شش جدول و badgeهای Metronic ایجاد شد.
+- [x] regression contract tests افزوده شد.
+- [ ] CI نهایی head `dd079ea6aab0acdd8ec437496e74b70ba8368e65`.
+- [ ] browser acceptance و آزمون صفحه‌کلید/RTL/dark mode/responsive.
+- [ ] ادامه ممیزی فرم دارایی و صفحات Snapshot.

@@ -19,7 +19,7 @@
 | پوسته | header/footer/base | پوسته Metronic | Not reviewed در این دور | بررسی header search، notification dropdown، user menu، center selector |
 | داشبورد | `core/dashboard.html` | kt-card، kt-btn، ApexCharts و CSS ترکیبی | CI verified در PR #27؛ browser open | role gating، native badge، table regions، chart text alternative؛ visual acceptance باقی است |
 | دارایی | `assets/asset_list.html` | Metronic kt-table/kt-badge/kt-btn | CI verified در PR #28؛ browser open | 12 ستون هم‌تراز، مرکز اضافه، colspan=12، badge native، region و prefetch؛ query-count runtime و browser acceptance باز |
-| دارایی | `assets/asset_detail.html` | Metronic migration contract | Not reviewed | تب‌ها، timeline، پیوست، snapshot، action permissions |
+| دارایی | `assets/asset_detail.html` | kt-card، kt-tabs با ARIA، kt-table، kt-badge | PR #30 in progress | پنج تب قابل دسترس، شش جدول نام‌گذاری‌شده، scope ستون‌ها و badge native؛ CI و browser acceptance مستقل‌اند |
 | دارایی | `assets/asset_form.html` | Metronic migration contract | Not reviewed | گروه‌بندی فرم، validation، dependent fields |
 | دارایی | `assets/category_list.html` و `assets/component_type_list.html` | Metronic migration contract | Not reviewed | taxonomy، search، empty state |
 | دارایی | `assets/attachment_form.html` | Metronic migration contract | Not reviewed | upload feedback، file constraints |
@@ -90,3 +90,13 @@
 - Metronic مرتبط: KPI cards، toolbar/filter، kt-table، kt-badge، timeline/calendar در صورت پشتیبانی معتبر Jalali، drawer/modal در صورت بهبود واقعی workflow، progress و alerts.
 - الزامات audit: هدف صفحه و CTA هر نقش، empty/error/loading states، RTL، responsive، keyboard، backend permission، تاریخچه تغییر و توضیح رد/override.
 - گام بعدی: ممیزی model/service/view/template/test و ثبت state machine پیش از طراحی UI؛ browser acceptance پس از پیاده‌سازی لازم است.
+
+
+### شناسنامه دارایی — ممیزی ایستا و PR #30 (2026-11-19)
+- Template: `templates/assets/asset_detail.html`؛ View: `AssetDetailView` در `apps/assets/views.py`.
+- View از `visible_assets(user)` برای محدودکردن دارایی قابل مشاهده استفاده می‌کند؛ این بررسی فقط مسیر detail را پوشش می‌دهد و sign-off امنیتی پیوست/Snapshot نیست.
+- یافته‌ها: تب‌های پنج‌گانه فاقد ARIA tab pattern و keyboard navigation بودند؛ شش جدول فاقد نام region/focus و scope سرستون‌ها بودند؛ badgeهای وضعیت از کلاس legacy استفاده می‌کردند.
+- PR #30: `ui/asset-detail-accessibility`، head فعلی `dd079ea6aab0acdd8ec437496e74b70ba8368e65`، stacked بر PR #29.
+- تغییرات: role/aria/hidden و مدیریت ArrowLeft/ArrowRight/Home/End برای تب‌ها؛ حفظ deep-link موجود `?focus=`؛ شش جدول keyboard region؛ scope ستون‌ها و action label؛ badge native Metronic؛ regression tests.
+- وضعیت: PR باز و Draft؛ CI روی head جدید در حال اجرا/انتظار نتیجه؛ browser acceptance، RTL، dark mode، responsive و screen-reader هنوز باز.
+- مرز: URL، view، queryset، permission، workflow، model، migration و داده تغییر نکرده‌اند.
