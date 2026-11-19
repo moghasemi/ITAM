@@ -3,11 +3,11 @@
 
 {% block page_actions %}
   {% if can_create %}
-    <a class="btn kt-btn kt-btn-primary btn-primary" href="{% url 'assets:create' %}">➕ ثبت دارایی</a>
-    <a class="btn kt-btn kt-btn-secondary btn-secondary" href="{% url 'assets:hwagent_batch_import' %}">📥 بارگذاری گروهی HWAgent</a>
-    <a class="btn kt-btn kt-btn-light btn-ghost" href="{% url 'assets:label_print' %}{{ request.GET.urlencode }}" target="_blank">🖨 چاپ برچسب QR</a>
+    <a class="kt-btn kt-btn-primary" href="{% url 'assets:create' %}"><i class="ki-filled ki-plus" aria-hidden="true"></i> ثبت دارایی</a>
+    <a class="kt-btn kt-btn-secondary" href="{% url 'assets:hwagent_batch_import' %}"><i class="ki-filled ki-cloud-download" aria-hidden="true"></i> بارگذاری گروهی HWAgent</a>
+    <a class="kt-btn kt-btn-light" href="{% url 'assets:label_print' %}{{ request.GET.urlencode }}" target="_blank"><i class="ki-filled ki-printer" aria-hidden="true"></i> چاپ برچسب QR</a>
   {% endif %}
-  <a class="btn kt-btn kt-btn-light btn-ghost" href="{% url 'assets:hardware_report' %}">🔒 گزارش تغییر اقلام</a>
+  <a class="kt-btn kt-btn-light" href="{% url 'assets:hardware_report' %}"><i class="ki-filled ki-shield-search" aria-hidden="true"></i> گزارش تغییر اقلام</a>
 {% endblock %}
 
 {% block content %}
@@ -15,13 +15,13 @@
 <div class="itam-ops-filter">{% include "partials/filter_bar.html" %}</div>
 
 <div class="card kt-card itam-ops-card">
-  <div class="table-wrap itam-ops-table-wrap">
+  <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول دارایی‌ها؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید">
     <table class="table kt-table itam-ops-table">
       <thead>
         <tr>
-          <th>شماره اموال</th><th>گونه</th><th>عنوان تجهیز</th><th>برند / مدل</th><th>سریال</th>
-          <th>مرکز</th>
-          <th>واحد / محل</th><th>امانت‌دار</th><th>اقلام سخت‌افزاری</th><th>خرابی‌ها</th><th>وضعیت</th><th></th>
+          <th scope="col">شماره اموال</th><th scope="col">گونه</th><th scope="col">عنوان تجهیز</th><th scope="col">برند / مدل</th><th scope="col">سریال</th>
+          <th scope="col">مرکز</th>
+          <th scope="col">واحد / محل</th><th scope="col">امانت‌دار</th><th scope="col">اقلام سخت‌افزاری</th><th scope="col">خرابی‌ها</th><th scope="col">وضعیت</th><th scope="col" aria-label="عملیات"></th>
         </tr>
       </thead>
       <tbody>
@@ -32,28 +32,29 @@
           <td>{{ asset.display_name }}</td>
           <td>{{ asset.brand|default:"—" }}{% if asset.model_name %} / {{ asset.model_name }}{% endif %}</td>
           <td class="ltr">{{ asset.serial_number|default:"—" }}</td>
+          <td>{{ asset.center.name|default:"—" }}</td>
           <td>{{ asset.department.name|default:"—" }}{% if asset.location %} / {{ asset.location.full_label }}{% endif %}</td>
           <td>{{ asset.custodian.display_name|default:"—" }}</td>
           <td>
             {% if asset.requires_component_tracking %}
               {% if asset.current_snapshot_id %}
-                <span class="badge badge-success">{{ asset.components_count|fa }} قلم</span>
+                <span class="kt-badge kt-badge-sm kt-badge-success">{{ asset.components_count|fa }} قلم</span>
               {% else %}
-                <span class="badge badge-danger">ثبت نشده</span>
+                <span class="kt-badge kt-badge-sm kt-badge-destructive">ثبت نشده</span>
               {% endif %}
             {% else %}
-              <span class="badge badge-neutral">—</span>
+              <span class="kt-badge kt-badge-sm kt-badge-secondary">—</span>
             {% endif %}
           </td>
-          <td><span class="badge badge-{{ asset.tickets_total|yesno:'warning,neutral' }}">{{ asset.tickets_total|fa }}</span></td>
-          <td><span class="badge badge-{{ asset.status_css }}">{{ asset.get_status_display }}</span></td>
+          <td><span class="kt-badge kt-badge-sm kt-badge-{{ asset.tickets_total|yesno:'warning,neutral'|metronic_badge_variant }}">{{ asset.tickets_total|fa }}</span></td>
+          <td><span class="kt-badge kt-badge-sm kt-badge-{{ asset.status_css|metronic_badge_variant }}">{{ asset.get_status_display }}</span></td>
           <td class="table-actions">
             <a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'assets:detail' asset.pk %}">شناسنامه</a>
             <a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'tickets:create' %}?asset={{ asset.pk }}">اعلام خرابی</a>
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="11">{% include "partials/empty.html" with text="دارایی‌ای ثبت نشده است." %}</td></tr>
+        <tr><td colspan="12">{% include "partials/empty.html" with text="دارایی‌ای ثبت نشده است." %}</td></tr>
       {% endfor %}
       </tbody>
     </table>
