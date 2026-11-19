@@ -3,35 +3,43 @@
 
 {% block page_actions %}
   {% if can_create %}
-    <a class="btn kt-btn kt-btn-primary btn-primary" href="{% url 'maintenance:visit_create' %}">➕ ثبت نوبت بازدید</a>
+    <a class="kt-btn kt-btn-primary" href="{% url 'maintenance:visit_create' %}"><i class="ki-filled ki-plus" aria-hidden="true"></i> ثبت نوبت بازدید</a>
   {% endif %}
-  <a class="btn kt-btn kt-btn-light btn-ghost" href="{% url 'reports:visits' %}">گزارش رعایت بازدیدها</a>
+  <a class="kt-btn kt-btn-light" href="{% url 'reports:visits' %}"><i class="ki-filled ki-chart-line-up" aria-hidden="true"></i> گزارش رعایت بازدیدها</a>
 {% endblock %}
 
 {% block content %}
 <div class="itam-ops-page itam-ops-list-page">
 
-<div class="stat-grid itam-ops-stat-grid">
-  <div class="stat-card itam-ops-stat-card is-info"><div class="stat-icon">🗓</div><div>
-    <div class="stat-value">{{ counts.planned|fa }}</div><div class="stat-label">برنامه‌ریزی‌شده</div></div></div>
-  <div class="stat-card itam-ops-stat-card is-warning"><div class="stat-icon">⏳</div><div>
-    <div class="stat-value">{{ counts.in_progress|fa }}</div><div class="stat-label">در حال انجام</div></div></div>
-  <div class="stat-card itam-ops-stat-card is-success"><div class="stat-icon">✅</div><div>
-    <div class="stat-value">{{ counts.done|fa }}</div><div class="stat-label">انجام‌شده</div></div></div>
-  <div class="stat-card itam-ops-stat-card is-danger"><div class="stat-icon">⚠️</div><div>
-    <div class="stat-value">{{ counts.missed|fa }}</div><div class="stat-label">انجام‌نشده</div></div></div>
+<div class="itam-ops-stat-grid">
+  <article class="kt-card itam-ops-stat-card is-info">
+    <span class="itam-ops-stat-icon"><i class="ki-filled ki-calendar" aria-hidden="true"></i></span>
+    <div><div class="itam-ops-stat-value">{{ counts.planned|fa }}</div><div class="itam-ops-stat-label">برنامه‌ریزی‌شده</div></div>
+  </article>
+  <article class="kt-card itam-ops-stat-card is-warning">
+    <span class="itam-ops-stat-icon"><i class="ki-filled ki-time" aria-hidden="true"></i></span>
+    <div><div class="itam-ops-stat-value">{{ counts.in_progress|fa }}</div><div class="itam-ops-stat-label">در حال انجام</div></div>
+  </article>
+  <article class="kt-card itam-ops-stat-card is-success">
+    <span class="itam-ops-stat-icon"><i class="ki-filled ki-check-circle" aria-hidden="true"></i></span>
+    <div><div class="itam-ops-stat-value">{{ counts.done|fa }}</div><div class="itam-ops-stat-label">انجام‌شده</div></div>
+  </article>
+  <article class="kt-card itam-ops-stat-card is-danger">
+    <span class="itam-ops-stat-icon"><i class="ki-filled ki-warning-2" aria-hidden="true"></i></span>
+    <div><div class="itam-ops-stat-value">{{ counts.missed|fa }}</div><div class="itam-ops-stat-label">انجام‌نشده</div></div>
+  </article>
 </div>
 
 <div class="mt-2"><div class="itam-ops-filter">{% include "partials/filter_bar.html" %}</div></div>
 
 <div class="card kt-card itam-ops-card">
-  <div class="table-wrap itam-ops-table-wrap">
+  <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول بازدیدهای دوره‌ای؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید">
     <table class="table kt-table itam-ops-table">
       <thead>
         <tr>
-          <th>شماره بازدید</th><th>قرارداد</th><th>پیمانکار</th><th>دوره</th>
-          <th>تاریخ برنامه</th><th>آخرین مهلت</th><th>کارشناس</th>
-          <th>پیشرفت بازدید</th><th>ایرادها</th><th>وضعیت</th><th>تایید IT</th><th></th>
+          <th scope="col">شماره بازدید</th><th scope="col">قرارداد</th><th scope="col">پیمانکار</th><th scope="col">دوره</th>
+          <th scope="col">تاریخ برنامه</th><th scope="col">آخرین مهلت</th><th scope="col">کارشناس</th>
+          <th scope="col">پیشرفت بازدید</th><th scope="col">ایرادها</th><th scope="col">وضعیت</th><th scope="col">تایید IT</th><th scope="col" aria-label="عملیات"></th>
         </tr>
       </thead>
       <tbody>
@@ -50,12 +58,12 @@
           </td>
           <td>
             {% if visit.faulty_count %}
-              <span class="badge badge-warning">{{ visit.faulty_count|fa }}</span>
+              <span class="kt-badge kt-badge-sm kt-badge-warning">{{ visit.faulty_count|fa }}</span>
             {% else %}—{% endif %}
           </td>
-          <td><span class="badge badge-{{ visit.status|visits_status_css }}">{{ visit.get_status_display }}</span></td>
-          <td>{% if visit.it_confirmed_at %}<span class="badge badge-success">تایید شده</span>{% else %}—{% endif %}</td>
-          <td><a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'maintenance:visit_detail' visit.pk %}">برگه بازدید</a></td>
+          <td><span class="kt-badge kt-badge-sm kt-badge-{{ visit.status|visits_status_css|metronic_badge_variant }}">{{ visit.get_status_display }}</span></td>
+          <td>{% if visit.it_confirmed_at %}<span class="kt-badge kt-badge-sm kt-badge-success">تایید شده</span>{% else %}—{% endif %}</td>
+          <td><a class="kt-btn kt-btn-light kt-btn-sm" href="{% url 'maintenance:visit_detail' visit.pk %}"><i class="ki-filled ki-eye" aria-hidden="true"></i> برگه بازدید</a></td>
         </tr>
       {% empty %}
         <tr><td colspan="12">{% include "partials/empty.html" with text="بازدیدی ثبت نشده است." %}</td></tr>
