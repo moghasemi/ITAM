@@ -214,3 +214,13 @@
 - [ ] بازبینی patch نهایی و mergeability.
 - [ ] ادامه ممیزی صفحه‌به‌صفحه از فرم دارایی و جزئیات/گردش Snapshot.
 - [ ] ثبت browser acceptance به‌عنوان کار وابسته به محیط محلی کاربر.
+
+
+### ممیزی فرم دارایی — 2026-11-19
+- Template: `templates/assets/asset_form.html`؛ فرم: `AssetForm` در `apps/assets/forms.py`.
+- نقاط مثبت: partial مشترک label/help/error، CSRF و multipart، CTA اصلی روشن، querysetهای محدودشده به scope کاربر و clean برای انطباق مرکز با واحد/محل/امانت‌دار/قرارداد.
+- یافته UX: 25 فیلد در یک grid بدون heading/section معنایی نمایش داده می‌شوند؛ پیشنهاد گروه‌بندی به اطلاعات شناسایی، محل و مالکیت، مشخصات فنی، ارتباط تجهیزات و اطلاعات خرید/گارانتی.
+- یافته رفتاری: اسکریپت category فقط wrapper را hidden می‌کند و input را disable/clear نمی‌کند. در سناریوی انتخاب رایانه متصل برای تجهیز جانبی و سپس تغییر دسته به رایانه، مقدار پنهان همچنان submit می‌شود؛ queryset `connected_computers` برای رایانه تهی است و فرم می‌تواند validation error بدهد.
+- آزمون تغییر دسته در تست‌های فعلی مشاهده نشد؛ این مورد باید با regression test پوشش داده شود.
+- وضعیت: Static reviewed؛ هنوز کد یا تستی برای این فرم تغییر نکرده است؛ browser acceptance باز.
+

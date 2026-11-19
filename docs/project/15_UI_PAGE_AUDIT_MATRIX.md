@@ -20,7 +20,7 @@
 | داشبورد | `core/dashboard.html` | kt-card، kt-btn، ApexCharts و CSS ترکیبی | CI verified در PR #27؛ browser open | role gating، native badge، table regions، chart text alternative؛ visual acceptance باقی است |
 | دارایی | `assets/asset_list.html` | Metronic kt-table/kt-badge/kt-btn | CI verified در PR #28؛ browser open | 12 ستون هم‌تراز، مرکز اضافه، colspan=12، badge native، region و prefetch؛ query-count runtime و browser acceptance باز |
 | دارایی | `assets/asset_detail.html` | kt-card، kt-tabs با ARIA، kt-table، kt-badge | PR #30 in progress | پنج تب قابل دسترس، شش جدول نام‌گذاری‌شده، scope ستون‌ها و badge native؛ CI و browser acceptance مستقل‌اند |
-| دارایی | `assets/asset_form.html` | Metronic migration contract | Not reviewed | گروه‌بندی فرم، validation، dependent fields |
+| دارایی | `assets/asset_form.html` | kt-card، kt-form-item، kt-input، form-grid | Static reviewed | 25 فیلد در یک grid بدون section؛ فیلدهای وابسته category با hidden کنترل می‌شوند اما disabled/clear نمی‌شوند؛ آزمون تغییر category لازم است |
 | دارایی | `assets/category_list.html` و `assets/component_type_list.html` | Metronic migration contract | Not reviewed | taxonomy، search، empty state |
 | دارایی | `assets/attachment_form.html` | Metronic migration contract | Not reviewed | upload feedback، file constraints |
 | دارایی | snapshot detail/form/pending/start | Metronic migration contract | Not reviewed | تفاوت نقش مشاهده/تأیید، diff و state |
@@ -100,3 +100,12 @@
 - تغییرات: role/aria/hidden و مدیریت ArrowLeft/ArrowRight/Home/End برای تب‌ها؛ حفظ deep-link موجود `?focus=`؛ شش جدول keyboard region؛ scope ستون‌ها و action label؛ badge native Metronic؛ regression tests.
 - وضعیت: PR باز و Draft؛ CI روی head جدید در حال اجرا/انتظار نتیجه؛ browser acceptance، RTL، dark mode، responsive و screen-reader هنوز باز.
 - مرز: URL، view، queryset، permission، workflow، model، migration و داده تغییر نکرده‌اند.
+
+
+### فرم دارایی — ممیزی ایستا 2026-11-19
+- Template: `templates/assets/asset_form.html`؛ فرم: `AssetForm` در `apps/assets/forms.py`؛ فرم create/update از همین template استفاده می‌کند.
+- نقاط مثبت: CSRF، enctype مناسب upload، label/help/error از partial مشترک، یک CTA اصلی، بازگشت به فهرست، فیلتر queryset مرکز/قرارداد/واحد/محل/امانت‌دار در سمت سرور، اعتبارسنجی تعلق وابستگی‌ها به مرکز.
+- شکاف UX: تمام فیلدها به‌صورت یک grid پیوسته نمایش داده می‌شوند؛ گروه‌های معنایی مانند شناسایی، محل و مالکیت، مشخصات فنی، ارتباط تجهیزات و اطلاعات خرید/گارانتی از هم جدا نیستند.
+- شکاف رفتار وابسته: JS ردیف‌های `data-computer-only` و `data-peripheral-only` را فقط با `hidden` مخفی می‌کند و ورودی را disable/clear نمی‌کند. اگر کاربر برای تجهیز جانبی رایانه متصل انتخاب کند و سپس دسته را به رایانه تغییر دهد، مقدار مخفی `connected_computers` همچنان submit می‌شود؛ queryset آن در فرم برای رایانه تهی است و ممکن است فرم را نامعتبر کند. این سناریو هنوز regression test ندارد.
+- وضعیت: Static reviewed؛ هیچ کدی برای این فرم در این دور تغییر نکرده؛ مرورگر/موبایل/keyboard acceptance باز است.
+- اقدام بعدی: گروه‌بندی فرم و مدیریت چرخه مقدار/disabled فیلدهای وابسته همراه تست تغییر category.

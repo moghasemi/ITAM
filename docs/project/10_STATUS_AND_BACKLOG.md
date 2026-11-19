@@ -340,3 +340,12 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - [ ] CI نهایی head `dd079ea6aab0acdd8ec437496e74b70ba8368e65`.
 - [ ] browser acceptance و آزمون صفحه‌کلید/RTL/dark mode/responsive.
 - [ ] ادامه ممیزی فرم دارایی و صفحات Snapshot.
+
+
+## فرم ثبت/ویرایش دارایی — UX/UI
+- [x] Static audit فرم و AssetForm.
+- [ ] گروه‌بندی 25 فیلد به بخش‌های معنایی.
+- [ ] اصلاح hidden/disabled/clear state فیلدهای وابسته به category.
+- [ ] regression tests برای تغییر دسته peripheral ↔ computer.
+- [ ] browser acceptance و RTL/responsive/keyboard.
+

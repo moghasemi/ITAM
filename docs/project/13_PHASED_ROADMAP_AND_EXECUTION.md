@@ -556,3 +556,13 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 - [ ] browser acceptance، keyboard، RTL، dark mode، responsive و screen-reader.
 - [ ] ادامه ممیزی صفحات دارایی و Snapshot.
 - PR #30 باز، Draft و stacked بر PR #29 است؛ هیچ Merge یا Deploy انجام نشده است.
+
+
+## ممیزی فرم ثبت/ویرایش دارایی — 2026-11-19
+- [x] بازبینی ایستای `assets/asset_form.html` و `AssetForm`.
+- [x] تأیید نقاط مثبت: server-side scoped querysets، validation وابستگی‌ها به مرکز، partial مشترک label/help/error، CSRF و multipart.
+- [x] ثبت نیاز به گروه‌بندی معنایی 25 فیلد.
+- [x] ثبت سناریوی احتمالی validation error هنگام تغییر category از peripheral به computer به علت باقی‌ماندن مقدار مخفی `connected_computers`.
+- [ ] طراحی و پیاده‌سازی گروه‌بندی فرم و مدیریت state فیلدهای وابسته.
+- [ ] افزودن regression tests برای تغییر دسته در دو جهت و حفظ/پاک‌سازی مقادیر مطابق قرارداد.
+- [ ] آزمون مرورگر responsive، RTL و keyboard.
