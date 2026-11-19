@@ -100,3 +100,13 @@
 - PR #27 این موارد را اصلاح می‌کند: role-gating UI و query، kt-badge native با mapping، پنج region قابل فوکوس و scope ستون‌ها.
 - head فعلی PR #27: `6d32645b6ec6a1ad1144d7a69a43db53e9c6e17e`؛ CI در زمان ثبت pending/in progress؛ browser acceptance باز.
 - ماتریس کامل صفحات و وضعیت‌ها در `15_UI_PAGE_AUDIT_MATRIX.md` ایجاد شد. سایر صفحات در این دور هنوز UX-reviewed نیستند، حتی اگر مهاجرت پایه Metronic داشته باشند.
+
+
+### بازبینی صفحه فهرست دارایی‌ها — 2026-11-19
+- Template: `templates/assets/asset_list.html`، SHA `adf7a4be8d221cd91c80839592509599eb1c47be`.
+- View: `AssetListView` در `apps/assets/views.py`؛ از `visible_assets` استفاده می‌کند و فرم فیلتر به مراکز scope‌شده محدود است.
+- Metronic موجود: kt-card، kt-table، kt-btn، filter_bar و pagination؛ table wrapper برای overflow افقی وجود دارد.
+- **یافته UX/data alignment:** 12 سرستون تعریف شده اما هر ردیف 11 سلول دارد؛ مقدار مرکز نمایش داده نمی‌شود و مقدار واحد/محل زیر عنوان مرکز می‌افتد؛ empty-state نیز colspan=11 دارد. باید مرکز و واحد/محل در دو سلول مجزا نمایش داده شوند و colspan به 12 تغییر کند.
+- **یافته consistency/accessibility:** badgeهای وضعیت هنوز legacy هستند؛ thها scope ندارند و ستون عملیات نام ندارد.
+- **ریسک کارایی احتمالی:** `visible_assets`، category/contract/department/location/custodian/center را select_related می‌کند اما current_snapshot/items را prefetch نمی‌کند؛ `components_count` برای هر ردیف از related manager count می‌گیرد. این یک N+1 محتمل است و باید با query-count test تأیید شود.
+- **اقدام بعدی:** PR مستقل برای اصلاح ساختار ستون‌ها، native Metronic badges، accessibility و prefetch بهینه؛ هیچ کدی در این بازبینی تغییر نکرد.

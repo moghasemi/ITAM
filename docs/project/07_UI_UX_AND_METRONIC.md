@@ -158,3 +158,11 @@ run 44161472256 روی head PR #16: 5/5 job موفق؛ 375 تست Python 3.11/3.
 - PR #26 head `4abb2a2d86ea2c90a14663f8c204e22fb0059e16`، run push `44507835886` و run pull_request `44507866034` هر دو success.
 - run pull_request: 5/5 job موفق، شامل Python 3.11، Python 3.12، PostgreSQL، production settings و deploy-script validation.
 - وضعیت پذیرش: CI verified؛ browser/visual/role-based acceptance هنوز Open.
+
+
+### بازبینی صفحه فهرست دارایی‌ها — 2026-11-19
+- Template از kt-card، kt-table، kt-btn، filter partial و pagination استفاده می‌کند؛ badgeهای وضعیت هنوز legacy هستند.
+- ایراد قطعی ساختار: 12 header در برابر 11 cell در row؛ center cell حذف شده و سلول department/location زیر heading مرکز قرار می‌گیرد؛ colspan empty state نیز 11 است.
+- جدول باید center و department/location را در دو سلول مستقل نشان دهد، 12 ستون را در empty state حفظ کند، th scope و action label داشته باشد و table region برای صفحه‌کلید نام‌گذاری شود.
+- احتمال N+1 در شمارش قطعات دارایی به علت property `components_count` و نبود prefetch برای `current_snapshot__items`؛ هنوز runtime query count اندازه‌گیری نشده است.
+- وضعیت: Static reviewed؛ کد هنوز تغییر نکرده است.

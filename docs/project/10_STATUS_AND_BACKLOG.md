@@ -294,3 +294,11 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - [ ] CI نهایی PR #27 روی head `6d32645b6ec6a1ad1144d7a69a43db53e9c6e17e`.
 - [ ] مرورگر و آزمون visual/responsive/dark-mode/keyboard.
 - [ ] بازبینی UX صفحه‌های دارایی، تیکت و نگهداری؛ وضعیت هر صفحه در ماتریس ثبت می‌شود.
+
+
+## ممیزی UX صفحه فهرست دارایی‌ها — 2026-11-19
+- [x] بررسی template و view و filter form.
+- [x] ثبت ایراد قطعی 12 header در برابر 11 cell و colspan اشتباه.
+- [x] ثبت gapهای badge، scope و table accessibility.
+- [ ] اصلاح در PR مستقل stacked بر PR #27.
+- [ ] تست هم‌ترازی ستون‌ها و query count برای جلوگیری از N+1.

@@ -18,7 +18,7 @@
 | پوسته | sidebar | Metronic KT Menu و partial مستقل | CI verified در PR #26؛ browser open | آزمون نقش‌ها، active state، collapse و mobile drawer |
 | پوسته | header/footer/base | پوسته Metronic | Not reviewed در این دور | بررسی header search، notification dropdown، user menu، center selector |
 | داشبورد | `core/dashboard.html` | kt-card، kt-btn، ApexCharts و CSS ترکیبی | PR in progress؛ CI pending | role gating، native badge، جدول قابل‌دسترسی؛ visual acceptance باقی است |
-| دارایی | `assets/asset_list.html` | Metronic migration contract | Not reviewed | فیلتر، toolbar، pagination، تراکم جدول، bulk actions |
+| دارایی | `assets/asset_list.html` | Metronic migration contract | Static reviewed؛ PR اصلاحی بعدی | 12 سرستون/11 سلول؛ مرکز غایب، colspan اشتباه، badge legacy، scope و N+1 احتمالی؛ PR28 برنامه‌ریزی شود |
 | دارایی | `assets/asset_detail.html` | Metronic migration contract | Not reviewed | تب‌ها، timeline، پیوست، snapshot، action permissions |
 | دارایی | `assets/asset_form.html` | Metronic migration contract | Not reviewed | گروه‌بندی فرم، validation، dependent fields |
 | دارایی | `assets/category_list.html` و `assets/component_type_list.html` | Metronic migration contract | Not reviewed | taxonomy، search، empty state |
@@ -56,3 +56,11 @@
 
 ## قاعده تکمیل هر ردیف
 هر ردیف فقط پس از ثبت مسیر template، view، role، قابلیت‌های Metronic مرتبط، موارد استفاده/عدم استفاده، یافته‌ها، اصلاح PR، CI و شواهد مرورگر به وضعیت بعدی ارتقا می‌یابد.
+
+
+### فهرست دارایی‌ها — بازبینی ایستا 2026-11-19
+- Header count: 12؛ cell count در row template: 11؛ مقدار مرکز جا افتاده و داده واحد/محل در ستون اشتباه قرار گرفته است.
+- empty colspan=11 است؛ پس از اصلاح باید 12 باشد.
+- وضعیت‌ها با badgeهای legacy نمایش داده می‌شوند؛ استفاده از filter `metronic_badge_variant` و `kt-badge` در PR بعدی.
+- جدول wrapper افقی دارد اما keyboard region، نام دسترس‌پذیر و scope ستون‌ها ندارد.
+- احتمال N+1 در `components_count` به علت عدم prefetch `current_snapshot__items` ثبت شد؛ نیازمند تست query count.
