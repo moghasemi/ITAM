@@ -218,3 +218,12 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - [ ] تکمیل ممیزی سایر endpointهای مستقیم، exportها و Admin.
 
 هیچ کد برنامه‌ای در این دور تغییر نکرد؛ موارد فوق code-review finding هستند، نه exploit اجراشده یا UAT عملیاتی.
+
+
+## وضعیت reviewهای GitHub و CI نهایی handbook — 2026-11-19
+
+- [x] GitHub Reviews برای PRهای #7 تا #25 بررسی شد: صفر review رسمی.
+- [x] Inline review comments برای PRهای #7 تا #25: صفر مورد.
+- [x] Conversation comments در issue thread PRهای #7 تا #25: صفر مورد.
+- [x] CI آخرین commit handbook `d54eba7b8cbd505723bd1ff14ea63e15e6c7b8a9`: push run `44496497082` و pull_request run `44496504493`، هر دو 5/5 job success.
+- **تفسیر:** نبود reviewها نشانه تأیید کد نیست؛ تمام PRها هنوز به review مستقل محتوایی و تعیین ترتیب merge نیاز دارند.

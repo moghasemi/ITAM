@@ -395,3 +395,10 @@ PRهای #17 (مستندات) و #18 (private media و scope انتساب پیم
 - endpointهای `ticket_add_part` و `ticket_add_attachment` در backend فقط visible ticket را کنترل می‌کنند و permission متناظر با شرط `is_manager_side` در template را enforce نمی‌کنند؛ direct POST از requester/نقش فاقد مجوز باید با تست رد شود.
 - اسکن filenameها نشان داد PRهای #17 و #18 با زنجیره UI #19–#25 مسیر مشترک ندارند؛ هم‌پوشانی درون زنجیره UI از ancestry شاخه‌های فرزند است.
 - این‌ها یافته‌های code review با شدت اولیه P2 هستند؛ exploit یا UAT محیط عملیاتی اجرا نشده است. اصلاح کد و regression tests در فاز یک باز می‌ماند.
+
+
+### 24. وضعیت review metadata و CI مستندات — 2026-11-19
+
+- GitHub Reviews، inline review comments و conversation comments برای PRهای #7 تا #25 بررسی شدند؛ در snapshot هیچ‌کدام رکوردی نداشتند.
+- نبود review یا comment، به معنی تأیید کد نیست و جایگزین بازبینی مستقل diffها نمی‌شود.
+- آخرین commit handbook در این دور `d54eba7b8cbd505723bd1ff14ea63e15e6c7b8a9` است؛ push run `44496497082` و pull_request run `44496504493` هر دو 5/5 job موفق دارند.
