@@ -42,7 +42,7 @@
   <div class="card kt-card itam-ops-card">
     <div class="card-head kt-card-header itam-ops-card-header">
       <h2 class="card-title">{{ object.category.icon }} {{ object.display_name }}</h2>
-      <span class="kt-badge kt-badge-{{ sm kt-badge-object.status_css|metronic_badge_variant }}>{{ object.get_status_display }}</span>
+      <span class="kt-badge kt-badge-sm kt-badge-{{ object.status_css|metronic_badge_variant }}">{{ object.get_status_display }}</span>
     </div>
     <div class="card-body kt-card-content itam-ops-card-content">
       <div class="kv">
@@ -140,7 +140,7 @@
               <td>{{ item.capacity|default:"—" }}</td>
               <td>{{ item.quantity|fa }}</td>
               <td>{{ item.slot|default:"—" }}</td>
-              <td><span class="kt-badge kt-badge-{{ sm kt-badge-item.condition|item_css|metronic_badge_variant }}>{{ item.get_condition_display }}</span></td>
+              <td><span class="kt-badge kt-badge-sm kt-badge-{{ item.condition|item_css|metronic_badge_variant }}">{{ item.get_condition_display }}</span></td>
             </tr>
           {% empty %}
             <tr><td colspan="8">
@@ -185,7 +185,7 @@
             <tr class="{% if snapshot.has_changes %}is-warning{% endif %}">
               <td>{{ snapshot.version|fa }}</td>
               <td>{% if snapshot.is_baseline %}<span class="kt-badge kt-badge-sm kt-badge-primary">پایه</span>{% else %}دوره‌ای{% endif %}</td>
-              <td><span class="kt-badge kt-badge-{{ sm kt-badge-snapshot.status_css|metronic_badge_variant }}>{{ snapshot.get_status_display }}</span></td>
+              <td><span class="kt-badge kt-badge-sm kt-badge-{{ snapshot.status_css|metronic_badge_variant }}">{{ snapshot.get_status_display }}</span></td>
               <td>{{ snapshot.recorded_by.display_name|default:"—" }}</td>
               <td class="nowrap">{{ snapshot.recorded_at|jdatetime }}</td>
               <td>
@@ -226,8 +226,8 @@
             <tr>
               <td><a href="{% url 'tickets:detail' ticket.pk %}">{{ ticket.number }}</a></td>
               <td>{{ ticket.title }}</td>
-              <td><span class="kt-badge kt-badge-{{ sm kt-badge-ticket.priority_css|metronic_badge_variant }}>{{ ticket.priority_label }}</span></td>
-              <td><span class="kt-badge kt-badge-{{ sm kt-badge-ticket.status_css|metronic_badge_variant }}>{{ ticket.get_status_display }}</span></td>
+              <td><span class="kt-badge kt-badge-sm kt-badge-{{ ticket.priority_css|metronic_badge_variant }}">{{ ticket.priority_label }}</span></td>
+              <td><span class="kt-badge kt-badge-sm kt-badge-{{ ticket.status_css|metronic_badge_variant }}">{{ ticket.get_status_display }}</span></td>
               <td class="nowrap">{{ ticket.reported_at|jdatetime }}</td>
               <td class="nowrap">{{ ticket.arrived_at|jdatetime|default:"—" }}</td>
               <td class="nowrap">{{ ticket.resolved_declared_at|jdatetime|default:"—" }}</td>
@@ -260,7 +260,7 @@
               <td>{{ check.visit.contract.number }}</td>
               <td class="nowrap">{{ check.checked_at|jdatetime|default:"—" }}</td>
               <td>{{ check.checked_by.display_name|default:"—" }}</td>
-              <td><span class="kt-badge kt-badge-{{ sm kt-badge-check.condition_css|metronic_badge_variant }}>{{ check.get_condition_display }}</span></td>
+              <td><span class="kt-badge kt-badge-sm kt-badge-{{ check.condition_css|metronic_badge_variant }}">{{ check.get_condition_display }}</span></td>
               <td>{{ check.actions_taken|default:"—"|truncatechars:60 }}</td>
               <td><a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'maintenance:check_edit' check.pk %}">برگه</a></td>
             </tr>
