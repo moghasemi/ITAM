@@ -96,7 +96,7 @@
       </div>
       <a class="kt-btn kt-btn-sm kt-btn-outline" href="{% url 'maintenance:my_visits' %}">کارتابل کامل <i class="ki-filled ki-arrow-left" aria-hidden="true"></i></a>
     </div>
-    <div class="itam-dashboard-table-wrap" role="region" tabindex="0" aria-label="جدول تجهیزات با بیشترین خرابی؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید" role="region" tabindex="0" aria-label="جدول بازدیدهای دوره‌ای پیش‌رو؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید" role="region" tabindex="0" aria-label="جدول اسنپ‌شات‌های در انتظار تأیید؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید" role="region" tabindex="0" aria-label="جدول آخرین درخواست‌های خرابی؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید" role="region" tabindex="0" aria-label="جدول بازدیدهای در انتظار من؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید">
+    <div class="itam-dashboard-table-wrap" role="region" tabindex="0" aria-label="جدول بازدیدهای در انتظار من؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید">
       <table class="table itam-dashboard-table">
         <thead><tr><th scope="col">شماره</th><th scope="col">قرارداد</th><th scope="col">دوره</th><th scope="col">تاریخ</th><th scope="col">مهلت</th><th scope="col">وضعیت</th><th scope="col"></th></tr></thead>
         <tbody>
@@ -169,7 +169,7 @@
         </div>
         <a class="kt-btn kt-btn-sm kt-btn-outline" href="{% url 'tickets:list' %}">همه درخواست‌ها <i class="ki-filled ki-arrow-left" aria-hidden="true"></i></a>
       </div>
-      <div class="itam-dashboard-table-wrap">
+      <div class="itam-dashboard-table-wrap" role="region" tabindex="0" aria-label="جدول آخرین درخواست‌های خرابی؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید">
         <table class="table compact itam-dashboard-table">
           <thead><tr><th scope="col">شماره</th><th scope="col">تجهیز</th><th scope="col">اولویت</th><th scope="col">وضعیت</th><th scope="col">زمان اعلام</th></tr></thead>
           <tbody>
@@ -198,7 +198,7 @@
         </div>
         <a class="kt-btn kt-btn-sm kt-btn-outline" href="{% url 'assets:snapshot_pending' %}">کارتابل تأیید <i class="ki-filled ki-arrow-left" aria-hidden="true"></i></a>
       </div>
-      <div class="itam-dashboard-table-wrap">
+      <div class="itam-dashboard-table-wrap" role="region" tabindex="0" aria-label="جدول اسنپ‌شات‌های در انتظار تأیید؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید">
         <table class="table compact itam-dashboard-table">
           <thead><tr><th scope="col">تجهیز</th><th scope="col">نسخه</th><th scope="col">تغییرات</th><th scope="col">ثبت‌کننده</th><th scope="col">وضعیت</th></tr></thead>
           <tbody>
@@ -234,7 +234,7 @@
           <div><h2 id="upcoming-visits-title">بازدیدهای دوره‌ای پیش‌رو</h2><p>برنامه بازدید و مهلت انجام</p></div>
         </div>
       </div>
-      <div class="itam-dashboard-table-wrap">
+      <div class="itam-dashboard-table-wrap" role="region" tabindex="0" aria-label="جدول بازدیدهای دوره‌ای پیش‌رو؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید">
         <table class="table compact itam-dashboard-table">
           <thead><tr><th scope="col">شماره</th><th scope="col">پیمانکار</th><th scope="col">تاریخ برنامه</th><th scope="col">مهلت</th><th scope="col">وضعیت</th></tr></thead>
           <tbody>
@@ -287,7 +287,7 @@
         <div><h2 id="top-assets-title">تجهیزات با بیشترین خرابی</h2><p>تجهیزاتی که بیشترین تعداد درخواست خرابی برای آن‌ها ثبت شده است</p></div>
       </div>
     </div>
-    <div class="itam-dashboard-table-wrap">
+    <div class="itam-dashboard-table-wrap" role="region" tabindex="0" aria-label="جدول تجهیزات با بیشترین خرابی؛ برای دیدن ستون‌های بیشتر پیمایش افقی کنید">
       <table class="table compact itam-dashboard-table">
         <thead><tr><th scope="col">شماره اموال</th><th scope="col">عنوان</th><th scope="col">تعداد خرابی</th><th scope="col"></th></tr></thead>
         <tbody>
