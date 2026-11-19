@@ -79,3 +79,14 @@
 - PR #28: 5/5 success.
 - PR #29: CI run `44511550010` در حال اجرا؛ browser acceptance همه صفحات باز است.
 - Docs run `44510837380`: 5/5 success.
+
+---
+
+### بازدیدهای دوره‌ای و مدیریت قرارداد — نیاز جدید 2026-11-19
+
+- حوزه‌های درگیر: contract list/detail/form، visit list/detail/form و کارتابل پیمانکار/کارشناس مرکز/مدیر استان.
+- وضعیت: **Requirement captured; code audit not started**؛ نباید با PR #29 که صرفاً ظاهر فهرست بازدید را اصلاح می‌کند اشتباه شود.
+- UX مورد انتظار: خلاصه تعداد تعهدهای قراردادی/ایجادشده/زمان‌بندی‌شده/در انتظار هر تأیید/انجام‌شده؛ فیلتر مرکز، پیمانکار، دوره و وضعیت؛ جدول و نمای تقویمی سازگار با تقویم شمسی.
+- Metronic مرتبط: KPI cards، toolbar/filter، kt-table، kt-badge، timeline/calendar در صورت پشتیبانی معتبر Jalali، drawer/modal در صورت بهبود واقعی workflow، progress و alerts.
+- الزامات audit: هدف صفحه و CTA هر نقش، empty/error/loading states، RTL، responsive، keyboard، backend permission، تاریخچه تغییر و توضیح رد/override.
+- گام بعدی: ممیزی model/service/view/template/test و ثبت state machine پیش از طراحی UI؛ browser acceptance پس از پیاده‌سازی لازم است.
