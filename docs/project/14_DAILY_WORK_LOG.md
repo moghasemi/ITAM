@@ -230,3 +230,52 @@
 - head نهایی بررسی‌شده: `dd079ea6aab0acdd8ec437496e74b70ba8368e65`.
 - CI pull_request run `44528390670`: completed/success، هر 5/5 job موفق؛ Python 3.11، Python 3.12، PostgreSQL، production settings و deploy validation.
 - PR #30 همچنان باز، Draft و mergeable=true؛ browser acceptance و UAT انجام نشده.
+
+
+---
+
+## تکمیل ممیزی ریموت فاز صفر و اصلاح کنترل دسترسی — 2026-11-19
+
+### گراف PR و CI
+- 24 PR باز در snapshot این ثبت وجود داشتند (#7 تا #31 به‌جز #10 که بسته و Merge نشده است).
+- CI head تمام PRهای باز بررسی شد: 23 PR success و PR #14 failure.
+- PRهای #7، #8، #9، #11، #12، #13 و #15 تا #31 در آخرین head مشاهده‌شده CI موفق دارند؛ PR #14 در سه محیط تست failure دارد.
+- PR #13 نسبت به base خود diverged است (40 ahead / 7 behind) و mergeable=false.
+- PR #10 بسته و unmerged است، اما commit آن ancestor شاخه #11 و #12 است؛ بنابراین بسته‌شدن PR به معنی حذف تغییرات از ancestry نیست.
+- PR #30 head نهایی `efc58c49a7710ff37692c0c6682079d19fae824b` و CI run `44532719115` هر پنج job موفق دارد.
+- main فاقد Branch Protection، Required Checks و Ruleset است. هیچ تنظیمی تغییر داده نشد.
+
+### ممیزی نقش، export، admin و endpoint
+- scope نقش‌ها در `get_scoped_centers` و helperهای `visible_assets`، `visible_tickets`، `visible_visits`، `visible_repair_requests`، `visible_general_it_requests`، `visible_outbox_events` و `visible_users` مرور شد.
+- گزارش‌های SLA، پیمانکار، تعمیرکار مستقل، دارایی، بازدید و تحلیل خرابی از querysetهای scope-aware استفاده می‌کنند.
+- خروجی CSV/XLSX تابع `_safe_spreadsheet_value` برای خنثی‌سازی Formula Injection دارد و عملیات export لاگ می‌شود.
+- مسیر HWAgent بررسی شد: hash token، انقیاد مرکز/دارایی/hostname، Timestamp با پنجره 300 ثانیه، Nonce یکتا، محدودیت اندازه بدنه و تراکنش ثبت Snapshot. پذیرش Windows و شبکه واقعی هنوز انجام نشده است.
+- مسیرهای حساس Outbox برای dispatch/requeue به POST و مدیر کشوری محدود شده‌اند؛ اجرای واقعی dispatch انجام نشد.
+- مرور admin منتخب: AuditLog، MaintenanceVisit، VisitAssetCheck و بخش‌های Ticket read-only هستند؛ تنظیمات سامانه تک‌نمونه و بدون delete است.
+- مرور static محدود است و جایگزین آزمون endpointها با ماتریس کامل role × action نیست.
+
+### Migration و همزمانی
+- `org.0005_contract_province_scope` و `org.0006_treatment_management` هر دو RunPython با reverse noop دارند؛ backfill از داده جغرافیایی استنتاج می‌شود و rollback رابطه‌های جدید را برنمی‌گرداند.
+- `org.0010_contract_center_assignment` قید partial unique برای یک انتساب فعال به‌ازای هر مرکز دارد؛ پیش از Migration روی دیتابیس موجود، duplicateهای active باید فقط‌خواندنی شناسایی شوند.
+- `accounts.0005_login_throttle_lock` و `integrations.0003_outboxdelivery_lease_lock` فیلدهای هماهنگی/lease را اضافه می‌کنند؛ تست PostgreSQL CI موفق است، اما رقابت واقعی و دیتابیس محلی جداگانه باید آزموده شوند.
+- Migrationها اجرا نشدند و هیچ DB mutation صورت نگرفت.
+
+### PR #31 — اصلاح یافته‌های P2/P3
+- شاخه `security/p2-authorization-hardening` بر پایه head PR #15 ساخته شد.
+- PR #31: https://github.com/moghasemi/ITAM/pull/31 — Draft، open، mergeable=true.
+- head: `6ed9e53c8aa13c7984057613c5de1966be9785f9`.
+- CI run `44540345588`: هر 5 job موفق (Python 3.11، Python 3.12، PostgreSQL، Production settings و deploy-script validation).
+- تغییرها: یکسان‌سازی scope فهرست/فایل ارجاع؛ owner-only کردن امضا؛ کنترل backend برای POST افزودن قطعه/پیوست تیکت؛ POST+CSRF برای خواندن اعلان.
+- 7 regression test جدید افزوده شد. هیچ URL، schema، migration یا داده‌ای تغییر نکرد.
+
+### مرز ایمنی
+- هیچ PR ادغام یا deploy نشد.
+- هیچ Migration، Seed، reconciliation، تغییر دیتابیس یا dispatch رخداد Outbox اجرا نشد.
+- Backup و CSVهای reconciliation دست‌نخورده باقی ماندند.
+- UAT مرورگر، چاپ، HWAgent ویندوز و Reverse Proxy/TLS به سیستم محلی واگذار می‌شوند.
+
+### گام بعدی
+- [ ] ثبت گزارش نهایی PR #31 و تثبیت آن در زنجیره integration.
+- [ ] تصمیم درباره راهبرد ادغام #14/#15 و تعیین تکلیف #12/#13.
+- [ ] تصمیم مالک درباره Branch Protection و Required Checks.
+- [ ] ادامه بررسی‌های P3 و آزمون نقش × عملیات؛ سپس UAT محلی.

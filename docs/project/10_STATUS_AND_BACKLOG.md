@@ -355,3 +355,29 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - [x] CI run `44528390670`: 5/5 job success روی head `dd079ea6aab0acdd8ec437496e74b70ba8368e65`.
 - [ ] browser acceptance و UAT نقش‌محور باز.
 - PR #30 باز و Draft؛ هیچ Merge/Deploy انجام نشده است.
+
+
+---
+
+## وضعیت فاز صفر و یافته‌های امنیتی — 2026-11-19
+
+### یافته‌های P2/P3 و اصلاحات
+- [x] D-2026-11-19-009: دامنه فایل پیوست ارجاع از فهرست ارجاع گسترده‌تر بود؛ queryset مشترک `visible_referrals` در PR #31 به فهرست و private media اعمال شد.
+- [x] D-2026-11-19-010: فایل امضای کاربر در private media برای کاربران هم‌مرکز/مدیر کشوری قابل دریافت بود؛ در PR #31 به مالک احرازشده محدود شد.
+- [x] D-2026-11-19-011: POST مستقیم افزودن قطعه/پیوست تیکت فقط visible_tickets را بررسی می‌کرد؛ در PR #31 login، POST و `can_manage_ticket` اجباری شد.
+- [x] D-2026-11-19-013: خواندن اعلان با GET وضعیت را تغییر می‌داد؛ در PR #31 به POST+CSRF تبدیل و تست GET-no-mutation افزوده شد.
+- **وضعیت PR #31:** Draft، mergeable، CI پنج از پنج موفق؛ هنوز Merge نشده است.
+
+### موانع یکپارچه‌سازی
+- PR #14: CI failure در تست‌های گردش درخواست عمومی IT؛ تغییرات آن در ancestry PR #15 وجود دارد و head PR #15 CI سبز دارد. PR #14 را مستقل ادغام نکنید.
+- PR #13: diverged و mergeable=false؛ تا تعیین تکلیف، از Merge مستقل خودداری شود.
+- PR #12: mergeable=true اما شاخه موازی/هم‌پوشان با مسیر #14/#15 است؛ قبل از هر اقدام، فقط به‌عنوان تغییر مستقل تأییدنشده تلقی شود.
+- main: Branch Protection و Required Checks ندارد؛ تغییر تنظیمات به مجوز صریح مالک نیاز دارد.
+
+### ریسک‌های Migration و داده
+- Migrationهای `org.0005` و `org.0006` شامل RunPython با reverse noop هستند؛ داده‌های backfill مشتق‌شده‌اند، اما rollback رابطه‌های جدید را بازسازی نمی‌کند.
+- قید یکتای شرطی انتساب فعال مرکز در `org.0010` ممکن است در دیتابیس موجود با duplicate فعال برخورد کند؛ پیش از اجرا باید preflight فقط‌خواندنی انجام شود.
+- Migration اتصال Asset به AgentCredential فیلد nullable دارد، اما endpoint HWAgent برای credential بدون asset/hostname binding fail-closed است؛ credentialهای قدیمی باید پیش از استفاده دوباره bind شوند.
+- هیچ Migration، Seed، reconciliation، تغییر داده یا Outbox dispatch اجرا نشده است.
+
+**مرجع تفصیلی:** `17_PHASE0_INTEGRATION_AUDIT.md`.

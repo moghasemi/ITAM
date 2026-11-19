@@ -572,3 +572,34 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 - [x] PR #30، head `dd079ea6aab0acdd8ec437496e74b70ba8368e65`، run `44528390670`: 5/5 job success.
 - [ ] browser acceptance و پذیرش واقعی هنوز انجام نشده است.
 - PR #30 باز، Draft و stacked بر PR #29 باقی مانده؛ هیچ Merge یا Deploy انجام نشده است.
+
+
+---
+
+## جمع‌بندی ممیزی فاز صفر — وضعیت 2026-11-19
+
+### کارهای تکمیل‌شده از راه دور
+- [x] استخراج گراف وابستگی PRهای باز و مقایسه ancestry شاخه‌ها.
+- [x] بررسی وضعیت CI برای همه 24 PR باز: 23 مورد success و فقط PR #14 دارای failure است.
+- [x] بررسی Branch Protection شاخه main: محافظت غیرفعال، Required Checks خالی و Ruleset وجود ندارد.
+- [x] بازبینی static نقش‌ها و scopeهای مرکزی در assets، tickets، visits، repairs/referrals، reports و outbox.
+- [x] بازبینی مسیرهای export و کنترل Formula Injection در CSV/XLSX.
+- [x] مرور مسیرهای admin منتخب، private media، HWAgent، login throttling و dispatch/requeue Outbox.
+- [x] مرور Migrationهای مرتبط با قرارداد، مدیریت درمان، انتساب مرکز، HWAgent و Outbox.
+- [x] اصلاح یافته‌های P2/P3 شماره 009 تا 011 و 013 در PR #31؛ CI آن 5/5 موفق است.
+
+### موارد باز پیش از بستن کامل فاز صفر
+- [ ] تعیین راهبرد یکپارچه‌سازی PR #14 و #15؛ PR #14 به‌تنهایی CI قرمز دارد و نباید مستقل Merge شود.
+- [ ] تصمیم مالک پروژه درباره PRهای هم‌پوشان #12 و #13؛ #13 diverged و mergeable=false است.
+- [ ] تصمیم و مجوز صریح مالک برای فعال‌سازی Branch Protection و Required Checks روی main؛ هیچ تنظیمی تغییر داده نشده است.
+- [ ] تکمیل بررسی‌های P3 باقی‌مانده و ماتریس آزمون نقش × عملیات برای endpointهای حساس.
+- [ ] بررسی CI نهایی هر commit جدید پس از هر تغییر در شاخه‌های stacked.
+
+### مواردی که فقط با سیستم محلی قابل پذیرش‌اند
+- [ ] UAT مرورگر: RTL، responsive، dark mode، keyboard و screen reader.
+- [ ] چاپ واقعی صفحات و برچسب دارایی.
+- [ ] HWAgent روی Windows و آزمون اتصال/بازیابی پس از قطع شبکه.
+- [ ] Reverse Proxy/TLS، trusted proxy و محدودسازی IP در محیط واقعی.
+- [ ] آزمون Backup/Restore و rehearsal مهاجرت روی نسخه کپی‌شده از دیتابیس واقعی.
+
+**وضعیت:** ممیزی ریموت فاز صفر تا حد زیادی تکمیل شده است؛ بستن نهایی آن منوط به تصمیم‌های ادغام/Branch Protection و تکمیل CI هر تغییر تازه است. UAT محلی مستقل باقی می‌ماند. جزئیات در `17_PHASE0_INTEGRATION_AUDIT.md` ثبت شده است.
