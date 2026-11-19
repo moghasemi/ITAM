@@ -314,7 +314,6 @@ def private_media(request, path: str):
     allowed = False
 
     if path.startswith("settings/"):
-        # Organization logos are intentionally public for the login page.
         allowed = SystemSetting.objects.filter(logo=path).exists()
     elif not getattr(user, "is_authenticated", False):
         # Reject anonymous private-media requests before role/scope evaluation.

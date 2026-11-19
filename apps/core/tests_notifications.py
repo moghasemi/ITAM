@@ -30,7 +30,8 @@ class NotificationReadMethodTests(TestCase):
         response = self.client.post(
             reverse("core:notification_read", args=[self.notification.pk])
         )
-        self.assertRedirects(response, "/notifications-target/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/notifications-target/")
         self.notification.refresh_from_db()
         self.assertTrue(self.notification.is_read)
         self.assertIsNotNone(self.notification.read_at)
