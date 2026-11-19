@@ -3,7 +3,8 @@
 این پوشه مرجع مستندات محصول، معماری، امنیت، عملیات و توسعه ITAM است.
 
 ## نقطه شروع
-- [سند جامع پروژه — نسخه 1.7](project/PROJECT_MASTER_CONTEXT_v1.7_2026-11-19.md)
+- [سند جامع پروژه — نسخه 1.8](project/PROJECT_MASTER_CONTEXT_v1.8_2026-11-19.md)
+- [سند جامع پروژه — نسخه 1.7 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.7_2026-11-19.md)
 - [سند جامع پروژه — نسخه 1.6 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.6_2026-11-19.md)
 - [سند جامع پروژه — نسخه 1.5 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.5_2026-11-19.md)
 - [نقشه‌راه اجرایی و فازبندی پروژه](project/13_PHASED_ROADMAP_AND_EXECUTION.md)
@@ -25,7 +26,6 @@
 - [استاندارد مشارکت و کدنویسی](project/12_CONTRIBUTING_AND_CODING_STANDARDS.md)
 
 - [دفتر ثبت روزانه فعالیت‌ها](project/14_DAILY_WORK_LOG.md)
-- [ماتریس ممیزی صفحه‌به‌صفحه UX/UI](project/15_UI_PAGE_AUDIT_MATRIX.md)
 
 ## اسناد تخصصی موجود
 - [معماری سازمانی و امنیت](ENTERPRISE_ARCHITECTURE_AND_SECURITY.md)

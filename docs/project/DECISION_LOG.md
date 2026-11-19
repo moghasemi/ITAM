@@ -195,3 +195,13 @@
 - run push `44507835886`: success.
 - run pull_request `44507866034`: 5/5 job success.
 - PR #26 هنوز Draft و Merge نشده است؛ browser/role-based acceptance باز می‌ماند.
+
+
+## D-2026-11-19-006 — بازبینی UX/UI داشبورد و اصلاح role-aware
+- **تاریخ:** 2026-11-19
+- **وضعیت:** Implemented در PR Draft؛ CI و browser acceptance: Open
+- **یافته:** داشبورد، KPI و جدول اسنپ‌شات در انتظار تأیید را برای همه نقش‌ها نمایش می‌داد، در حالی که endpoint کارتابل فقط admin_it را مجاز می‌کرد.
+- **تصمیم:** UI و query این داده فقط برای admin_it فعال شود؛ badgeهای داشبورد به variantهای بومی Metronic تبدیل شوند؛ جدول‌های افقی نام دسترس‌پذیر و keyboard focus داشته باشند.
+- **پیاده‌سازی:** PR #27، branch `ui/dashboard-role-aware-ux`، head `6d32645b6ec6a1ad1144d7a69a43db53e9c6e17e`، base PR #26.
+- **تست:** regression tests برای role gating، table regions و badge mapping افزوده شد؛ CI در زمان ثبت در حال اجرا بود.
+- **مرز ایمنی:** URL، permission backend، مدل، migration و workflow تغییر نکردند. UAT مرورگر و نقش واقعی هنوز انجام نشده است.
