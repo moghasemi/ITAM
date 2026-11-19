@@ -183,3 +183,9 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - تصمیم: cherry-pick مستقل از #12/#13 در این مرحله لازم تشخیص داده نشد. PR #13 به علت divergence و mergeable=false همچنان باز و حل‌نشده می‌ماند؛ این بررسی مجوز بستن یا Merge نیست.
 - آخرین CI مستندات PR #17 روی commit 954c3f6a2a8f3037aad4ce5c9c48f56e852657df در run 44488869040 با نتیجه success تمام شد.
 - هیچ کد برنامه، migration، seed، DB، reconciliation یا Outbox تغییر/اجرا نشد.
+
+
+## Branch protection و required checks — 2026-11-19
+- شاخه main از GitHub API با protected=false و protection.enabled=false گزارش شده است.
+- required_status_checks در وضعیت enforcement_level=off و بدون check/context ثبت شده؛ repository rulesets نیز خالی برگشته است.
+- این وضعیت یک ریسک governance است: CI سبز به‌صورت اجباری gate ادغام main نشده است. پیش از شروع Mergeهای زنجیره‌ای، فعال‌سازی branch protection و required checks توصیه می‌شود.

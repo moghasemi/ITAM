@@ -99,3 +99,11 @@
 - **تصمیم:** برای deltaهای بررسی‌شده، port/cherry-pick مستقل از #12 یا #13 به #14 لازم تشخیص داده نشد. PR #13 به‌دلیل divergence/dirty بودن هنوز تعیین تکلیف نشده و نباید صرفاً بر اساس این نتیجه بسته شود.
 - **محدودیت:** این نتیجه جایگزین review تمام commitها، تست مستقل، تعیین required checks یا تصمیم نهایی ادغام نیست.
 - **ایمنی:** هیچ Merge، code change، migration، seed، reconciliation apply یا Outbox dispatch اجرا نشد.
+
+
+## D-2026-11-19-008 — وضعیت حفاظت شاخه main
+- **تاریخ:** 2026-11-19
+- **وضعیت:** یافته تأییدشده؛ اقدام اصلاحی Open
+- **شواهد:** endpoint شاخه main مقدار protected=false و protection.enabled=false برگرداند؛ required checks خاموش و بدون context بود؛ endpoint repository rulesets آرایه خالی برگرداند.
+- **ریسک:** هیچ gate اجباری repository-level برای موفقیت CI پیش از تغییر main در snapshot مشاهده نشد.
+- **تصمیم:** پیش از Mergeهای نهایی، فعال‌سازی branch protection و required CI checks به‌عنوان اقدام پیشنهادی ثبت شود. در این مرحله تنظیمات GitHub تغییر داده نشد.

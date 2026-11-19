@@ -370,3 +370,9 @@ PRهای #17 (مستندات) و #18 (private media و scope انتساب پیم
 - نتیجه: در فایل‌های بررسی‌شده delta عملکردیِ مفقودی برای port مستقل از #12/#13 شناسایی نشد. PR #13 همچنان branch diverged/dirty است و این نتیجه مجوز بستن یا Merge آن نیست.
 - CI آخرین commit مستندات PR #17، run 44488869040، completed/success است.
 - هیچ تغییر کد برنامه یا عملیات DB/Seed/Migration/Reconciliation/Outbox انجام نشده است.
+
+
+### 21. وضعیت حفاظت شاخه main — 2026-11-19
+- GitHub API برای main مقدار protected=false و protection.enabled=false گزارش کرد.
+- required status checks خاموش و بدون context/check بودند؛ repository rulesets نیز خالی بود.
+- این یک ریسک governance پیش از Merge است؛ فعال‌سازی branch protection و required CI checks توصیه می‌شود. هیچ تنظیم مخزن تغییر داده نشد.

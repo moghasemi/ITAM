@@ -397,3 +397,11 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 **تصمیم این دور:** در 20 مسیر بررسی‌شده، delta عملکردیِ مفقودی که نیازمند انتقال مستقل از #12 یا #13 به #14 باشد شناسایی نشد. این نتیجه به معنی duplicate کامل بودن branch #13 یا مجوز بستن آن نیست؛ وضعیت diverged/dirty و ancestry آن همچنان باید جداگانه تعیین تکلیف شود. مقایسه، بررسی معنایی مسیرهای متفاوت بود و جایگزین review کامل تمام commitها و اجرای مستقل تست‌ها نیست.
 
 **Gate باقی‌مانده فاز صفر:** review کامل PRهای باز، required checks/branch protection، مقایسه نهایی headهای #14/#15 و سایر شاخه‌ها، و برنامه Merge مرحله‌ای.
+
+
+### بررسی سیاست حفاظت شاخه main — 2026-11-19
+- [x] دریافت metadata زنده شاخه main.
+- [x] بررسی endpoint حفاظت شاخه و rulesets مخزن.
+- نتیجه: main با protected=false گزارش شده؛ protection.enabled=false و required_status_checks با enforcement_level=off و بدون context/check است. فهرست repository rulesets نیز خالی است.
+- پیامد: در snapshot فعلی GitHub، gate اجباری سمت مخزن برای جلوگیری از push/merge بدون CI مشاهده نمی‌شود. تا زمان تعیین سیاست، ادغام مرحله‌ای باید با کنترل دستی انجام شود؛ پیشنهاد می‌شود بعداً حفاظت main و required checks فعال شوند.
+- محدودیت: این بررسی وضعیت جاری GitHub است و ممکن است با تغییر تنظیمات عوض شود.
