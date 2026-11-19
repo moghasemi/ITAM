@@ -10,7 +10,7 @@ from unittest.mock import Mock
 from django.test import SimpleTestCase
 
 from apps.core.context_processors import site_context
-from apps.core.templatetags.itam_tags import filter_metronic_badge_variant
+from apps.core.templatetags.itam_tags import filter_metronic_badge_variant, metronic_progress_bar
 
 
 class MetronicTemplateCompilationTests(SimpleTestCase):
@@ -453,3 +453,17 @@ class MetronicTicketAndVisitListUXTests(SimpleTestCase):
         self.assertIn('aria-label="عملیات"', source)
         self.assertIn('kt-badge kt-badge-sm', source)
         self.assertNotIn('class="badge', source)
+
+
+class MetronicProgressComponentTests(SimpleTestCase):
+    def test_visit_progress_uses_accessible_metronic_component(self):
+        html = str(metronic_progress_bar(3, 4, "پیشرفت بازدید"))
+        self.assertIn('class="kt-progress kt-progress-primary"', html)
+        self.assertIn('role="progressbar"', html)
+        self.assertIn('aria-valuenow="75"', html)
+        self.assertIn('aria-label="پیشرفت بازدید"', html)
+        self.assertIn('width:75.0%', html)
+
+    def test_zero_total_progress_is_safe(self):
+        html = str(metronic_progress_bar(0, 0))
+        self.assertIn('aria-valuenow="0"', html)

@@ -241,6 +241,24 @@ def progress_bar(value, total, label=""):
 
 
 @register.simple_tag
+def metronic_progress_bar(value, total, label="پیشرفت"):
+    """Accessible Metronic 9 progress component."""
+    try:
+        value = float(value or 0)
+        total = float(total or 0)
+        pct_value = min(100.0, max(0.0, value * 100 / total)) if total else 0.0
+    except (TypeError, ValueError):
+        pct_value = 0.0
+    width = f"{pct_value:.1f}"
+    return format_html(
+        '<div class="kt-progress kt-progress-primary" role="progressbar" aria-label="{}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{}"><div class="kt-progress-indicator" style="width:{}%;transform:none"></div></div>',
+        label or "پیشرفت",
+        round(pct_value),
+        width,
+    )
+
+
+@register.simple_tag
 def qr_svg(content, size=6):
     """تصویر QR به‌صورت SVG درون‌خطی."""
     from apps.assets.qrgen import svg

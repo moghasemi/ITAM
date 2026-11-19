@@ -53,7 +53,7 @@
           <td class="nowrap">{{ visit.scheduled_end_date|jdate }}</td>
           <td>{{ visit.technician.display_name|default:"—" }}</td>
           <td style="min-width:130px">
-            {% progress_bar visit.checks_done visit.checks_total %}
+            {% metronic_progress_bar visit.checks_done visit.checks_total "پیشرفت بازدید" %}
             <span class="small muted">{{ visit.checks_done|fa }} از {{ visit.checks_total|fa }}</span>
           </td>
           <td>
