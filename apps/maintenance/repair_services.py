@@ -108,6 +108,38 @@ def _can_manage_center(user, center):
     )
 
 
+def visible_referrals(user):
+    """Return the exact referral queryset visible in the referral worklist."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return GeneralReferral.objects.none()
+    if _is_country_admin(user):
+        return GeneralReferral.objects.all()
+
+    rows = GeneralReferral.objects.all()
+    can_create = user.role == User.ROLE_ADMIN_IT or _is_province_admin(user)
+    if not can_create:
+        return rows.filter(recipient_user=user)
+
+    centers = user.get_scoped_centers()
+    province_ids = set(
+        centers.filter(treatment_management__province_id__isnull=False)
+        .values_list("treatment_management__province_id", flat=True)
+    )
+    if (
+        _is_province_admin(user)
+        and user.org_unit_id
+        and user.org_unit.unit_type == OrganizationalUnit.UNIT_PROVINCE
+        and user.org_unit.is_active
+    ):
+        province_ids.add(user.org_unit_id)
+
+    return rows.filter(
+        Q(center__in=centers)
+        | Q(center__isnull=True, province_id__in=province_ids)
+        | Q(recipient_user=user)
+    ).distinct()
+
+
 def _require_province_admin_for_center(user, center):
     if not _is_province_admin(user):
         raise PermissionDenied("این اقدام فقط برای مدیر فناوری اطلاعات استان مجاز است.")

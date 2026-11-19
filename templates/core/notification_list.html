@@ -17,7 +17,10 @@
       {% for note in notifications %}
         <li class="{% if note.is_read %}is-done{% else %}is-current{% endif %}">
           <div class="time-label">
-            <a href="{% url 'core:notification_read' note.pk %}">{{ note.title }}</a>
+            <form method="post" action="{% url 'core:notification_read' note.pk %}" class="inline-form">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-ghost notification-read-link">{{ note.title }}</button>
+            </form>
             <span class="badge badge-{{ note.level }}">{{ note.get_level_display }}</span>
           </div>
           <div class="time-value">{{ note.created_at|jdatetime }} — {{ note.created_at|rel }}</div>

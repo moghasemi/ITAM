@@ -265,3 +265,53 @@ class PrivateMediaAuthorizationTests(TestCase):
         request.user = province_admin
         with self.assertRaises(Http404):
             private_media(request, owner.signature.name)
+
+
+    def test_same_center_manager_cannot_download_referral_hidden_from_worklist(self):
+        manager = User.objects.create_user(
+            username="media-same-center-manager", password="test-password",
+            role=User.ROLE_MANAGER, center=self.center_a,
+        )
+        path = self.referral.attachment.name
+        request = RequestFactory().get(f"/media/{path}")
+        request.user = manager
+        with self.assertRaises(Http404):
+            private_media(request, path)
+
+    def test_same_center_requester_cannot_download_unaddressed_referral(self):
+        requester = User.objects.create_user(
+            username="media-same-center-requester", password="test-password",
+            role=User.ROLE_REQUESTER, center=self.center_a,
+        )
+        path = self.referral.attachment.name
+        request = RequestFactory().get(f"/media/{path}")
+        request.user = requester
+        with self.assertRaises(Http404):
+            private_media(request, path)
+
+    def test_user_signature_is_owner_only_even_for_same_center_and_country_admin(self):
+        owner = User.objects.create_user(
+            username="media-owner-only-signature", password="test-password",
+            role=User.ROLE_REQUESTER, center=self.center_a,
+        )
+        owner.signature = SimpleUploadedFile("owner-only-signature.png", b"private-signature")
+        owner.save(update_fields=["signature"])
+
+        same_center_admin = User.objects.create_user(
+            username="media-same-center-signature-admin", password="test-password",
+            role=User.ROLE_ADMIN_IT, center=self.center_a,
+        )
+        country_admin = User.objects.create_user(
+            username="media-country-signature-admin", password="test-password",
+            role=User.ROLE_ADMIN_COUNTRY,
+        )
+
+        owner_request = RequestFactory().get(f"/media/{owner.signature.name}")
+        owner_request.user = owner
+        self.assertEqual(private_media(owner_request, owner.signature.name).status_code, 200)
+
+        for user in (same_center_admin, country_admin):
+            request = RequestFactory().get(f"/media/{owner.signature.name}")
+            request.user = user
+            with self.assertRaises(Http404):
+                private_media(request, owner.signature.name)
