@@ -156,3 +156,8 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - [ ] رفع/ثبت علت دقیق CI ناموفق #14 در زنجیره ادغام؛ PR #15 سبز است اما PR #14 نباید مستقل Merge شود.
 - [ ] بررسی Branch Protection/required checks با مجوز مناسب.
 - [ ] تهیه برنامه ادغام topological و gate-by-gate.
+### اصلاحیه مهم PR #13/#14 — تطبیق hash فایل‌ها
+- 25 فایل PR #13 با محتوای head PR #14 مقایسه شد: 12 فایل دقیقاً یکسان، 13 فایل متفاوت.
+- فایل‌های یکسان: org/forms.py، org/load_iran_geography.py، org/services.py، org/tests_center_form.py، org/tests_iran_geography.py، reports/forms.py، reports/tests_scope.py، reports/views.py، tickets/views.py، config/urls.py و دو template مرکز/درخواست.
+- فایل‌های متفاوت شامل assets views/tests، core seed/private-media/security tests، maintenance services/views/tests، org/views و tickets/tests هستند.
+- نتیجه: PR #13 یک duplicate کامل نیست؛ یک شاخه partially overlapping و diverged است. هیچ تصمیم بستن یا حذف آن گرفته نشده؛ 13 فایل متفاوت باید از نظر رفتار/امنیت مقایسه شوند.

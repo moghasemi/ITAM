@@ -340,3 +340,8 @@ PRهای #17 (مستندات) و #18 (private media و scope انتساب پیم
 - Branch Protection برای main با 403 قابل خواندن نبود؛ required checks تأیید نشده‌اند.
 - بازبینی کد فعلی گزینشی است: migration و TreatmentManagement/Center.save، HWAgent credential checks، trusted proxy/login throttle، Outbox permissions، reconciliation command و private media بررسی اولیه شده‌اند؛ این به معنی تأیید کامل امنیت یا پذیرش نیست.
 - هیچ Merge، Deploy، Migration، Seed، reconciliation apply یا Outbox dispatch انجام نشده است.
+
+
+### اصلاحیه ممیزی PR #13/#14 (2026-11-19)
+- تطبیق hash 25 فایل PR #13 با head PR #14: 12 فایل یکسان، 13 فایل متفاوت.
+- PR #13 duplicate کامل نیست؛ partially overlapping و diverged است. 13 فایل متفاوت نیازمند بررسی معنایی‌اند. از بستن/حذف آن پیش از این بررسی خودداری شود.

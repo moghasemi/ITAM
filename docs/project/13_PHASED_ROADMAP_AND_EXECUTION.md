@@ -327,3 +327,12 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 ### محدودیت‌ها و اقدامات ممنوع انجام‌نشده
 
 هیچ Merge، Deploy، Migration، Seed، reconciliation apply، Outbox dispatch یا تغییر DB انجام نشده است. branch protection به علت محدودیت مجوز GitHub قابل خواندن نبود. تست محلی، مرورگر، چاپ فیزیکی و Windows HWAgent نیز انجام نشده‌اند.
+## اصلاحیه تطبیق محتوایی PR #13 و #14 — 2026-11-19
+
+بررسی hash محتوای 25 فایل تغییرکرده PR #13 در دو head شاخه #13 و #14 انجام شد. نتیجه: 12 فایل در دو شاخه byte-for-byte یکسان‌اند: apps/org/forms.py، apps/org/management/commands/load_iran_geography.py، apps/org/services.py، apps/org/tests_center_form.py، apps/org/tests_iran_geography.py، apps/reports/forms.py، apps/reports/tests_scope.py، apps/reports/views.py، apps/tickets/views.py، config/urls.py، templates/maintenance/it_request_detail.html و templates/org/simple_form.html.
+
+13 فایل دیگر در دو head محتوای متفاوت دارند: apps/assets/tests.py، apps/assets/views.py، apps/core/management/commands/seed_sistan_demo.py، apps/core/tests_private_media.py، apps/core/tests_security_governance.py، apps/core/tests_seed_demo.py، apps/core/tests_seed_sistan_demo.py، apps/maintenance/repair_services.py، apps/maintenance/repair_views.py، apps/maintenance/tests.py، apps/maintenance/tests_repair_workflows.py، apps/org/views.py و apps/tickets/tests.py.
+
+بنابراین PR #13 را نباید duplicate کامل یا قابل حذف تلقی کرد. توصیف دقیق‌تر: شاخه‌ای diverged و partially overlapping است؛ 12 فایل دقیقاً جذب شده‌اند، اما 13 فایل نیازمند diff معنایی و تصمیم درباره نسخه مرجع هستند. تا پایان این تطبیق، #13 نه قابل Merge است و نه می‌توان آن را بدون ریسک بست.
+
+این اصلاحیه، برداشت اولیه «duplicate/stale candidate» را محدود می‌کند: فقط هم‌پوشانی قابل اثبات است؛ duplicate بودن کل PR اثبات نشده است.
