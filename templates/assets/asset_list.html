@@ -5,7 +5,7 @@
   {% if can_create %}
     <a class="kt-btn kt-btn-primary" href="{% url 'assets:create' %}"><i class="ki-filled ki-plus" aria-hidden="true"></i> ثبت دارایی</a>
     <a class="kt-btn kt-btn-secondary" href="{% url 'assets:hwagent_batch_import' %}"><i class="ki-filled ki-cloud-download" aria-hidden="true"></i> بارگذاری گروهی HWAgent</a>
-    <a class="kt-btn kt-btn-light" href="{% url 'assets:label_print' %}{{ request.GET.urlencode }}" target="_blank"><i class="ki-filled ki-printer" aria-hidden="true"></i> چاپ برچسب QR</a>
+    <a class="kt-btn kt-btn-light" href="{% url 'assets:label_print' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" target="_blank"><i class="ki-filled ki-printer" aria-hidden="true"></i> چاپ برچسب QR</a>
   {% endif %}
   <a class="kt-btn kt-btn-light" href="{% url 'assets:hardware_report' %}"><i class="ki-filled ki-shield-search" aria-hidden="true"></i> گزارش تغییر اقلام</a>
 {% endblock %}
