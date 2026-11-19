@@ -512,3 +512,12 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 - [x] بازبینی static فهرست دارایی‌ها و ثبت mismatch بین header و cell.
 - [ ] اصلاح 12 ستون/11 سلول، empty colspan، native badges و accessibility در PR مستقل.
 - [ ] بررسی و آزمون query-count برای احتمال N+1 در شمارش قطعات.
+
+
+## پیشرفت UX/UI — PRهای #26 تا #28 و ممیزی فهرست‌ها (2026-11-19)
+- [x] PR #26 منو: CI 5/5 موفق.
+- [x] PR #27 داشبورد: CI 5/5 موفق روی head فعلی؛ browser acceptance باز.
+- [x] PR #28 فهرست دارایی: ایجاد شد؛ CI در حال اجرا.
+- [x] بررسی static اولیه فهرست تیکت و بازدید؛ هم‌ترازی 12 ستون صحیح، اما badge و table accessibility نیازمند تکمیل.
+- [ ] اصلاح ticket/visit list badges و keyboard accessibility.
+- [ ] اصلاح و آزمون فیلترهای چاپ برچسب.

@@ -214,3 +214,12 @@
 - **تصمیم اجرایی:** در PR مستقل، center و department/location در دو سلول جدا نمایش داده شوند؛ colspan=12، scope و aria label اصلاح شود؛ badgeها به Metronic native تبدیل شوند.
 - **ریسک تکمیلی:** احتمال N+1 از `components_count` بدون prefetch؛ قبل از تصمیم به تغییر، query count با تست اندازه‌گیری شود.
 - **شواهد:** template SHA `adf7a4be8d221cd91c80839592509599eb1c47be`؛ view از `visible_assets` استفاده می‌کند.
+
+
+## D-2026-11-19-008 — بازبینی اولیه فهرست تیکت و بازدید
+- **تاریخ:** 2026-11-19
+- **وضعیت:** Findings ثبت شد؛ پیاده‌سازی: Open
+- **شواهد:** `tickets/ticket_list.html` و `maintenance/visit_list.html` static بررسی شدند؛ هر دو 12 header/12 cell و colspan=12 دارند.
+- **یافته‌های مشترک:** badgeهای legacy، th بدون scope، ستون عملیات بدون نام و table wrapper فاقد keyboard-focus/accessible region.
+- **یافته بازدید:** stat-grid/stat-card از لایه قدیمی استفاده می‌کند و باید از نظر تناسب با Metronic بررسی شود.
+- **اقدام:** اصلاح صفحه‌محور با تست رگرسیون؛ URL، workflow و permissionها حفظ شوند.
