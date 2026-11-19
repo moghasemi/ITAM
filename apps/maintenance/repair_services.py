@@ -269,7 +269,6 @@ def set_repairer_active(*, repairer, active, reason, actor):
 
 
 @transaction.atomic
-@transaction.atomic
 def assign_contractor_to_center(*, contract, center, start_date, actor):
     if not _is_province_admin(actor):
         raise PermissionDenied("انتساب پیمانکار رسمی فقط توسط مدیر استان انجام می‌شود.")
