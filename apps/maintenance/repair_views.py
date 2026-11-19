@@ -46,6 +46,7 @@ from .repair_services import (
     visible_repair_feedback,
     visible_repairers,
     visible_repair_requests,
+    visible_referrals,
 )
 
 
@@ -372,24 +373,14 @@ def feedback_reply(request, pk: int):
 def referral_list(request):
     if not request.user.is_authenticated:
         raise PermissionDenied("ورود به سامانه الزامی است.")
-    rows = GeneralReferral.objects.select_related("center", "province", "repair_request", "created_by")
+    rows = visible_referrals(request.user).select_related(
+        "center", "province", "repair_request", "created_by"
+    )
     can_create = (
         request.user.role == User.ROLE_ADMIN_IT
         or request.user.is_admin_province
         or request.user.is_admin_country
     )
-    if not request.user.is_admin_country:
-        from django.db.models import Q
-        if can_create:
-            scoped_centers = request.user.get_scoped_centers()
-            province_ids = _province_scope_ids(request.user)
-            rows = rows.filter(
-                Q(center__in=scoped_centers)
-                | Q(center__isnull=True, province_id__in=province_ids)
-                | Q(recipient_user=request.user)
-            )
-        else:
-            rows = rows.filter(recipient_user=request.user)
     scoped_centers = request.user.get_scoped_centers()
     scoped_center_ids = set(scoped_centers.values_list("pk", flat=True))
     scoped_province_ids = _province_scope_ids(request.user)

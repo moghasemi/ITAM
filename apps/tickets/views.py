@@ -9,6 +9,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, ListView
 
@@ -392,10 +393,14 @@ def ticket_add_note(request, pk: int):
     return redirect("tickets:detail", pk=pk)
 
 
+@login_required
+@require_POST
 def ticket_add_part(request, pk: int):
-    form = TicketPartForm(request.POST or None)
     ticket = get_object_or_404(visible_tickets(request.user), pk=pk)
-    if request.method == "POST" and form.is_valid():
+    if not can_manage_ticket(request.user, ticket):
+        raise PermissionDenied("اجازه افزودن قطعه به این درخواست را ندارید.")
+    form = TicketPartForm(request.POST)
+    if form.is_valid():
         part = form.save(commit=False)
         part.ticket = ticket
         part.save()
@@ -437,10 +442,13 @@ def ticket_attachment_download(request, pk: int):
 
 
 @login_required
+@require_POST
 def ticket_add_attachment(request, pk: int):
-    form = TicketAttachmentForm(request.POST or None, request.FILES or None)
     ticket = get_object_or_404(visible_tickets(request.user), pk=pk)
-    if request.method == "POST" and form.is_valid():
+    if not can_manage_ticket(request.user, ticket):
+        raise PermissionDenied("اجازه افزودن پیوست به این درخواست را ندارید.")
+    form = TicketAttachmentForm(request.POST, request.FILES)
+    if form.is_valid():
         attachment = form.save(commit=False)
         attachment.ticket = ticket
         attachment.uploaded_by = request.user

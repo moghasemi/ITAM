@@ -15,6 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils._os import safe_join
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from django.views.generic import ListView, UpdateView
 
 from apps.accounts.models import User
@@ -205,6 +206,7 @@ def notification_list(request):
 
 
 @login_required
+@require_POST
 def notification_read(request, pk: int):
     notification = get_object_or_404(Notification, pk=pk, user=request.user)
     notification.mark_read()
@@ -312,18 +314,15 @@ def private_media(request, path: str):
     allowed = False
 
     if path.startswith("settings/"):
+        # Organization logos are intentionally public for the login page.
         allowed = SystemSetting.objects.filter(logo=path).exists()
+    elif not getattr(user, "is_authenticated", False):
+        # Reject anonymous private-media requests before role/scope evaluation.
+        raise Http404
     elif path.startswith("signatures/"):
         owner = User.objects.filter(signature=path).first()
-        if owner:
-            allowed = (
-                owner.pk == user.pk
-                or user.is_admin_country
-                or (
-                    owner.center_id
-                    and user.get_scoped_centers().filter(pk=owner.center_id).exists()
-                )
-            )
+        # User signatures are private to their authenticated owner.
+        allowed = bool(owner and owner.pk == user.pk)
     elif path.startswith("visits/"):
         check = VisitAssetCheck.objects.select_related("visit", "asset").filter(photo=path).first()
         if check:
@@ -362,34 +361,13 @@ def private_media(request, path: str):
             allowed = visible_repair_requests(user).filter(pk=repair.pk).exists()
     elif path.startswith("referrals/"):
         from apps.maintenance.models import GeneralReferral
+        from apps.maintenance.repair_services import visible_referrals
         referral = GeneralReferral.objects.filter(
             Q(attachment=path) | Q(resolution_attachment=path)
         ).first()
         if referral:
-            allowed = (
-                user.is_admin_country
-                or referral.created_by_id == user.pk
-                or referral.recipient_user_id == user.pk
-                or (
-                    not referral.center_id
-                    and referral.province_id
-                    and user.get_scoped_centers().filter(
-                        treatment_management__province_id=referral.province_id
-                    ).exists()
-                )
-                or (
-                    referral.center_id
-                    and user.get_scoped_centers().filter(pk=referral.center_id).exists()
-                )
-                or (
-                    not referral.center_id
-                    and referral.province_id
-                    and user.is_admin_province
-                    and user.org_unit_id == referral.province_id
-                    and user.org_unit.unit_type == "province"
-                    and user.org_unit.is_active
-                )
-            )
+            # Match the exact same role-scoped policy used by the referral list.
+            allowed = visible_referrals(user).filter(pk=referral.pk).exists()
 
     if not allowed:
         raise Http404

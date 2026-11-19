@@ -27,7 +27,7 @@ from apps.org.models import (
     Center, Contract, ContractCenterAssignment, Contractor, OrganizationalUnit, SlaPolicy,
 )
 
-from .models import Ticket, TicketAttachment, TicketEvent, TicketPause
+from .models import Ticket, TicketAttachment, TicketEvent, TicketPart, TicketPause
 from .services import (
     acknowledge,
     can_confirm_as_it,
@@ -634,3 +634,28 @@ class TicketWorkflowTests(TestCase):
         )
         self.assertTrue(can_manage_ticket(self.technician, ticket))
 
+
+
+    def test_requester_cannot_add_ticket_part_by_direct_post(self):
+        from django.urls import reverse
+
+        ticket = self._create()
+        client = Client()
+        client.force_login(self.requester)
+        response = client.post(reverse("tickets:add_part", args=[ticket.pk]), data={})
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(TicketPart.objects.filter(ticket=ticket).count(), 0)
+
+    def test_requester_cannot_add_ticket_attachment_by_direct_post(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.urls import reverse
+
+        ticket = self._create()
+        client = Client()
+        client.force_login(self.requester)
+        response = client.post(
+            reverse("tickets:add_attachment", args=[ticket.pk]),
+            data={"file": SimpleUploadedFile("forbidden.txt", b"must not persist")},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(TicketAttachment.objects.filter(ticket=ticket).count(), 0)
