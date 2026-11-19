@@ -189,3 +189,9 @@
 - **مرز ایمنی:** role predicates قبلی حفظ شدند؛ URL، permission backend، model، workflow و DB تغییر نکردند.
 - **وضعیت تست:** CI در حال اجرا در run `44507835886`؛ browser/role-based UAT انجام نشده است.
 - **پیامد:** قبل از Merge باید CI، active state، role visibility، responsive و keyboard behavior تأیید شوند.
+
+
+### تکمله D-2026-11-19-005 — نتیجه CI
+- run push `44507835886`: success.
+- run pull_request `44507866034`: 5/5 job success.
+- PR #26 هنوز Draft و Merge نشده است؛ browser/role-based acceptance باز می‌ماند.

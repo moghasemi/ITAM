@@ -421,3 +421,10 @@ PRهای #17 (مستندات) و #18 (private media و scope انتساب پیم
 - گروه‌های جدید: نمای کلی، میز خدمت، دارایی‌ها، نگهداری و تعمیرات، ارجاع و هماهنگی، سازمان و قراردادها، گزارش و پایش، یکپارچه‌سازی و مدیریت سامانه.
 - کلیدهای active_menu برای چند مسیر اصلاح شده‌اند؛ role predicates فعلی حفظ شده‌اند.
 - هیچ PR Merge یا Deploy نشده؛ هیچ migration/seed/DB mutation اجرا نشده است.
+
+
+### وضعیت تکمیلی PR #26 — CI مورخ 2026-11-19
+- commit کد: `4abb2a2d86ea2c90a14663f8c204e22fb0059e16`.
+- CI push run `44507835886` و pull_request run `44507866034` هر دو completed/success؛ run PR شامل 5/5 job موفق است.
+- PR #26 open/Draft/mergeable=true؛ هیچ Merge انجام نشده است.
+- browser acceptance، responsive، keyboard و UAT نقش‌محور هنوز انجام نشده‌اند.

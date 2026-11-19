@@ -493,3 +493,8 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 - [ ] تست خودکار/نقش‌محور active state و visibility.
 - [ ] پذیرش واقعی مرورگر و responsive.
 - [ ] ادامه ارزیابی UX صفحه‌به‌صفحه طبق سند 07.
+
+
+## نتیجه CI بازطراحی منو — 2026-11-19
+- PR #26 روی head `4abb2a2d86ea2c90a14663f8c204e22fb0059e16`؛ push run `44507835886` و pull_request run `44507866034` هر دو موفق شدند.
+- هر 5 job در pull_request موفق‌اند. browser acceptance و UAT نقش‌محور همچنان باز است.
