@@ -135,3 +135,24 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - هاست، PostgreSQL production، TLS/reverse proxy، firewall، service hardening، monitoring، secret rotation و Production UAT.
 - مجوز خریداری‌شده Metronic برای deployment تجاری باید قبل از عرضه بررسی شود.
 - نرمال‌سازی جغرافیای شهر/محله و provenance مراکز.
+
+---
+
+## Snapshot ممیزی فاز صفر — دور دوم (2026-11-19)
+
+- 18 PR باز و Draft؛ 7 PR بسته. پنج PR #1/#2/#4/#5/#6 Merge شده‌اند؛ #3 و #10 بسته بدون Merge هستند.
+- 17/18 head PRهای باز CI موفق؛ تنها #14 ناموفق. #10 نیز CI ناموفق دارد.
+- PR #12 از head PR #10 منشعب شده است؛ بنابراین commitهای #10 در ancestry #12 هستند و باید در برنامه ادغام حفظ شوند.
+- PR #13 نسبت به base خود 40 ahead و 7 behind و dirty است. PR #14 همان patchهای apps/org/forms.py و apps/org/tests_center_form.py را نیز حمل می‌کند؛ #13 نامزد duplicate/stale است، نه هنوز قطعی.
+- لاگ #14: خطای approval gate در تخصیص GeneralITRequest و mismatch بین expected assigned/approved. PR #15 CI موفق دارد؛ head #14 همچنان ناموفق است.
+- PR #17 در head c6cf538644815fe178673edbea3497f92a79811c CI موفق run 44485800684 دارد.
+- Branch Protection endpoint برای main به علت 403 قابل خواندن نبود؛ required checks هنوز تأیید نشده‌اند.
+- بررسی اولیه PRها نشان داده migration TreatmentManagement و Center.save، HWAgent credential binding، trusted proxy/login throttling، Outbox role restrictions، reconciliation CSV-first و private media authorization نیازمند بازبینی/آزمون پذیرش تکمیلی‌اند.
+- هیچ Merge، Deploy، Migration، Seed، reconciliation apply یا Outbox dispatch انجام نشده است.
+
+### موارد باز بعد از دور دوم
+- [ ] تطبیق کامل #13/#14 و تعیین تکلیف شاخه stale/تکراری.
+- [ ] تکمیل بررسی تمام diffها و security review؛ بازبینی انجام‌شده در این دور اولیه و گزینشی است.
+- [ ] رفع/ثبت علت دقیق CI ناموفق #14 در زنجیره ادغام؛ PR #15 سبز است اما PR #14 نباید مستقل Merge شود.
+- [ ] بررسی Branch Protection/required checks با مجوز مناسب.
+- [ ] تهیه برنامه ادغام topological و gate-by-gate.

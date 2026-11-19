@@ -322,3 +322,21 @@ PRهای #17 (مستندات) و #18 (private media و scope انتساب پیم
 4. هیچ migration، seed، reconcile --apply یا Outbox dispatch اجرا نشود.
 5. هنگام بازگشت دسترسی محلی، ابتدا branch/HEAD/status بررسی شود؛ سپس sync امن و پذیرش مرورگر/کارکردی آغاز شود.
 6. هاست و Production همچنان Deferred هستند.
+
+
+
+---
+
+## 17. الحاقیه ممیزی فاز صفر — دور دوم (2026-11-19)
+
+نقشه‌راه رسمی فازهای صفر تا پنج در docs/project/13_PHASED_ROADMAP_AND_EXECUTION.md ثبت شده است. این الحاقیه وضعیت تازه GitHub را ثبت می‌کند و جایگزین تاریخچه قبلی نیست.
+
+- Snapshot: 18 PR باز و Draft؛ 7 PR بسته؛ 5 مورد از بسته‌ها Merge و 2 مورد بسته بدون Merge.
+- CI روی headهای 18 PR باز: 17 موفق و #14 ناموفق. PR #10 بسته و CI آن ناموفق است.
+- PR #12 از head PR #10 منشعب شده؛ commitهای #10 در ancestry #12 حضور دارند.
+- PR #13 نسبت به base خودش diverged (40 ahead / 7 behind) و mergeable=false/dirty است. PR #14 patchهای فرم مرکز و تست‌های #13 را نیز دارد؛ #13 باید تا تعیین تکلیف به‌عنوان duplicate/stale candidate باقی بماند.
+- علت شکست PR #14 در لاگ CI، اختلاف تست‌ها با approval gate گردش GeneralITRequest بود؛ PR #15 روی head خودش CI موفق دارد.
+- PR #17 head c6cf538644815fe178673edbea3497f92a79811c، run 44485800684 موفق.
+- Branch Protection برای main با 403 قابل خواندن نبود؛ required checks تأیید نشده‌اند.
+- بازبینی کد فعلی گزینشی است: migration و TreatmentManagement/Center.save، HWAgent credential checks، trusted proxy/login throttle، Outbox permissions، reconciliation command و private media بررسی اولیه شده‌اند؛ این به معنی تأیید کامل امنیت یا پذیرش نیست.
+- هیچ Merge، Deploy، Migration، Seed، reconciliation apply یا Outbox dispatch انجام نشده است.

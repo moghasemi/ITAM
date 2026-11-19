@@ -247,3 +247,83 @@
 
 - 2026-11-19: فازبندی صفر تا پنج، زیرمجموعه‌ها، معیارهای پایان و چک‌لیست ممیزی اولیه اضافه شد.
 - 2026-11-19: وضعیت اولیه فاز صفر بر اساس snapshot زنده GitHub ثبت شد؛ موارد تکمیل‌نشده عمداً تیک نخورده‌اند.
+
+## تکمله ممیزی فاز صفر — دور دوم (2026-11-19)
+
+### وضعیت زنده PRها و CI
+
+Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1، #2، #4، #5 و #6 Merge شده‌اند؛ #3 و #10 بسته و Merge‌نشده‌اند. PR #10 همچنان در تاریخچه اهمیت دارد: base PR #12 دقیقاً commit برابر head PR #10 است؛ بنابراین commitهای #10 در ancestry شاخه #12 حضور دارند، هرچند PR #10 بسته است.
+
+| PR | وضعیت | CI روی head فعلی | نکته ممیزی |
+|---|---|---|---|
+| #7 | Open/Draft | Success | پایه مستقل از main؛ 100 commit جلوتر |
+| #8 | Open/Draft | Success | stacked روی #7؛ 153 commit جلوتر از base |
+| #9 | Open/Draft | Success | 4 commit workflow-integrity |
+| #10 | Closed/Not merged | Failure | 3 commit CI/docs؛ head آن base شاخه #12 است |
+| #11 | Open/Draft | Success | شاخه مستقل روی #9؛ 145 commit جلوتر |
+| #12 | Open/Draft | Success | base آن head بسته‌شده #10 است؛ 24 commit تغییر اختصاصی |
+| #13 | Open/Draft | Success | diverged؛ 40 ahead و 7 behind؛ mergeable=false/dirty |
+| #14 | Open/Draft | Failure | 44 commit جلوتر از #11؛ خطاهای workflow در تست‌ها |
+| #15 | Open/Draft | Success | 43 commit جلوتر از #14؛ خطاهای مشخص‌شده در #14 در head بعدی رفع شده‌اند |
+| #16 | Open/Draft | Success | 5 commit UI روی #15 |
+| #17 | Open/Draft | Success | head فعلی شامل نقشه‌راه و اصلاح مستندات است؛ run 44485800684 |
+| #18 | Open/Draft | Success | private media و contractor assignment scope |
+| #19 | Open/Draft | Success | CSS cascade |
+| #20 | Open/Draft | Success | sidebar/content width |
+| #21 | Open/Draft | Success | accessibility و mobile navigation |
+| #22 | Open/Draft | Success | dashboard |
+| #23 | Open/Draft | Success | صفحات عملیاتی |
+| #24 | Open/Draft | Success | template migration و legacy shell cleanup |
+| #25 | Open/Draft | Success | print و standalone HWAgent |
+
+نتیجه CI: 17 از 18 PR باز روی headهای بررسی‌شده موفق‌اند؛ تنها PR #14 ناموفق است. PR #10 نیز بسته‌شده و CI آن ناموفق بوده است. این وضعیت‌ها مربوط به SHAهای ثبت‌شده در همین snapshot هستند و با تغییر head باید دوباره بررسی شوند.
+
+### گراف وابستگی دقیق‌تر و مسئله شاخه‌ها
+
+- #7: main → #7 → #8 → #9.
+- از #9 دو شاخه ایجاد شده: #10 (بسته، بدون Merge) و #11 (باز). #12 از head #10 ساخته شده و #13 از #12.
+- #14 از #11 ساخته شده؛ #15 از #14؛ #16 از #15.
+- #17 و #18 شاخه‌های موازی بر پایه #16 هستند.
+- #19 تا #25 زنجیره UI متوالی هستند.
+- #13 در مقایسه با base خودش diverged است و 7 commit از base را ندارد؛ Merge مستقیم آن امن نیست.
+- PR #14 همان تغییرات اصلی apps/org/forms.py و apps/org/tests_center_form.py را که در PR #13 آمده‌اند نیز در diff خود دارد. این هم‌پوشانی، PR #13 را نامزد duplicate/stale می‌کند؛ اما تا تطبیق کامل همه فایل‌ها و commitها، بستن یا حذف آن توصیه نمی‌شود.
+- PR #14 تعدادی از تغییرات کنترل دسترسی مشابه زنجیره #12 را نیز در diff خود حمل می‌کند؛ دو شاخه موازی بخشی از تغییرات را جداگانه جذب کرده‌اند و باید از ادغام دوباره یا conflict معنایی جلوگیری شود.
+
+### ریشه شکست CI در PR #14
+
+لاگ run 43704669403 نشان داد:
+- تست test_manager_approval_is_optional_when_bypass_reason_is_recorded با ValidationError متوقف شده، چون تخصیص درخواست قبل از تعیین تکلیف تأیید مدیر مجاز نبوده است.
+- تست test_stale_manager_review_cannot_replace_first_decision وضعیت assigned را به‌جای approved مشاهده کرده است.
+- تست‌های Python 3.11/3.12 و PostgreSQL در همین بخش گردش درخواست شکست خورده‌اند؛ production settings و deploy validation موفق بوده‌اند.
+- PR #15 روی head خودش CI موفق دارد (run 44156606115، پنج job). این نشان می‌دهد اصلاحات بعدی مشکل را برطرف کرده‌اند، اما PR #14 همچنان head ناموفق دارد و نباید مستقل Merge شود.
+
+### بررسی محتوای کد — یافته‌ها و نقاط نیازمند آزمون
+
+- PR #7 مدل TreatmentManagement را از جغرافیا جدا می‌کند، migration داده‌ای برای backfill دارد و مسیر ذخیره Center در صورت نبود TreatmentManagement از get_or_create استفاده می‌کند. پیش از پذیرش باید رفتار داده‌های orphan، province بدون code، هم‌زمانی ایجاد management و سازگاری clean() با save() آزموده شود.
+- PR #7 در مسیر HWAgent، ثبت baseline را از auto-approve به pending تغییر می‌دهد و برای مسیر بدون user اعتبارنامه فعال، انقضا، مرکز/دارایی و زنجیره سازمانی را کنترل می‌کند. binding دقیق credential به asset/hostname در PRهای بعدی تکمیل شده و باید end-to-end آزموده شود.
+- PR #11 شامل trusted-proxy parsing و database-backed login throttling است. قبل از Production باید زنجیره middleware، مقدار واقعی ITAM_TRUSTED_PROXY_IPS و رفتار پشت reverse proxy واقعی بررسی شود.
+- PR #12 محدودیت Outbox management و dispatch را به country admin منتقل می‌کند و عملیات dispatch/requeue را به POST محدود می‌کند؛ تست مستقیم endpoint و role matrix باید بررسی شود.
+- PR #15 فرمان reconciliation را به CSV-first، بررسی امضای شواهد مرکز، قفل رکورد و transaction اتمیک نزدیک‌تر کرده است. هیچ اجرای --apply در این ممیزی انجام نشده و ممنوع باقی می‌ماند.
+- PR #18 برای media خصوصی، درخواست anonymous را (به‌جز لوگوی عمومی تنظیمات) رد می‌کند و دسترسی مدیریت کشور را از superuser root جدا می‌کند. CI موفق است؛ تست روی وب‌سرور واقعی و proxy هنوز لازم است.
+
+### دسترسی‌های ممیزی GitHub
+
+- دریافت Branch Protection برای main با خطای 403 (Resource not accessible by integration) رد شد؛ بنابراین وضعیت required checks و branch protection تأیید نشده است.
+- endpoint قابل‌مشاهده rulesets فهرست خالی برگرداند؛ این به‌تنهایی جایگزین بررسی Branch Protection نیست.
+- reviewهای ثبت‌شده در endpointهای بررسی‌شده PRهای #7 تا #12 خالی بودند؛ inline comments بررسی‌شده در #13 تا #15 نیز خالی بودند. این مشاهده، اثبات نبود هرگونه گفت‌وگوی review در تمام PRها نیست.
+
+### چک‌لیست به‌روزشده فاز صفر
+
+- [x] تطبیق base/head و آمار compare برای PRهای #7 تا #18.
+- [x] تعیین اینکه PR #12 از head بسته‌شده #10 منشعب شده است.
+- [x] شناسایی هم‌پوشانی محتوایی PR #13 و #14 در فرم مرکز و تست‌های آن.
+- [x] استخراج خطاهای واقعی CI از لاگ PR #14 و مقایسه با CI موفق PR #15.
+- [x] بازبینی اولیه بخش‌های حساس migration، HWAgent، proxy/rate limit، Outbox، reconciliation و private media.
+- [ ] تطبیق کامل همه فایل‌ها و commitهای PR #13 و #14 و تصمیم درباره duplicate/stale بودن #13.
+- [ ] تکمیل بازبینی محتوایی تمام diffها و تست‌های امنیتی/داده‌ای؛ بررسی فعلی هنوز یک مرور اولیه است.
+- [ ] دریافت دسترسی مجاز برای خواندن Branch Protection/required checks یا تأیید تنظیمات از مالک مخزن.
+- [ ] نهایی‌کردن برنامه ادغام؛ هیچ PR در این دور Merge نشده است.
+
+### محدودیت‌ها و اقدامات ممنوع انجام‌نشده
+
+هیچ Merge، Deploy، Migration، Seed، reconciliation apply، Outbox dispatch یا تغییر DB انجام نشده است. branch protection به علت محدودیت مجوز GitHub قابل خواندن نبود. تست محلی، مرورگر، چاپ فیزیکی و Windows HWAgent نیز انجام نشده‌اند.
