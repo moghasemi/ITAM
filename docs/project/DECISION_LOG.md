@@ -178,3 +178,14 @@
 - **دامنه مجاز:** مستندسازی و ایجاد شاخه/PR برای تغییرات مستند و آزمون‌پذیر.
 - **خارج از دامنه:** Merge، Deploy، Migration، Seed، reconciliation apply، DB mutation و تغییر مجوزهای backend بدون تصمیم جداگانه.
 - **پیامد:** بازبینی UX/UI و نظم منو از این پس معیار Definition of Done تغییرات UI خواهد بود.
+
+
+## D-2026-11-19-005 — پیاده‌سازی مرحله اول بازطراحی منوی اصلی
+- **تاریخ:** 2026-11-19
+- **وضعیت:** Implemented در PR Draft؛ CI و پذیرش عملیاتی: Open
+- **زمینه:** ممیزی static نشان داد گروه‌بندی sidebar ناهمگون است و چندین view کلید active_menu ناسازگار یا مشترک دارند.
+- **تصمیم اجرایی:** منو در partial مستقل Metronic بر اساس وظایف کاربر دسته‌بندی شود. کلیدهای active_menu برای صفحات مقصد یکتا و با آیتم منو هم‌تراز شوند. اعلان‌ها و تقویم تعطیلات به‌عنوان مقصدهای قابل دسترس در منو قرار گیرند.
+- **پیاده‌سازی:** PR #26، branch `ui/primary-navigation-ux-audit`، commit `4abb2a2d86ea2c90a14663f8c204e22fb0059e16`، base=head PR #25.
+- **مرز ایمنی:** role predicates قبلی حفظ شدند؛ URL، permission backend، model، workflow و DB تغییر نکردند.
+- **وضعیت تست:** CI در حال اجرا در run `44507835886`؛ browser/role-based UAT انجام نشده است.
+- **پیامد:** قبل از Merge باید CI، active state، role visibility، responsive و keyboard behavior تأیید شوند.

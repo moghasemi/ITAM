@@ -482,3 +482,14 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 - [ ] برای هر صفحه، قابلیت‌های مرتبط Metronic و دلیل عدم استفاده از قابلیت‌های نامرتبط ثبت شود.
 - [ ] آزمون responsive، RTL، dark mode، keyboard/accessibility و browser acceptance.
 - [ ] حفظ تمام URLها، permissionها، workflowها و رفتارهای دامنه در بازطراحی منو.
+
+
+## پیشرفت اجرای اولویت UX/UI و منو — 2026-11-19
+
+- [x] ماتریس اولیه لینک‌ها و active_menuها از sidebar و viewهای مرتبط استخراج شد.
+- [x] گروه‌بندی اولیه منو در PR #26 پیاده‌سازی شد؛ role predicates موجود حفظ شدند.
+- [x] کلیدهای active_menu ناسازگار/مشترک اصلاح شدند.
+- [ ] CI نهایی PR #26.
+- [ ] تست خودکار/نقش‌محور active state و visibility.
+- [ ] پذیرش واقعی مرورگر و responsive.
+- [ ] ادامه ارزیابی UX صفحه‌به‌صفحه طبق سند 07.
