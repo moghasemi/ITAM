@@ -205,3 +205,16 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 
 ### محدودیت‌ها
 این یافته به معنی تکمیل ممیزی امنیتی نیست. سایر IDORها، همه exportها، Admin endpoints، signature/visit/hardware media و UAT وب‌سرور واقعی همچنان باید جداگانه بررسی شوند.
+
+
+## تکمیل ممیزی امنیتی و هم‌پوشانی PR — 2026-11-19
+
+- [x] CI commit مستندات `1f370bb3798367bacb8feceff2a3feca8ddefc78`: push `44495868255` و pull_request `44495875141`، هر کدام 5/5 job موفق.
+- **P2 — امضاها:** مسیر عمومی private media برای `signatures/` به owner، مدیر کشوری و اعضای همان center scope دسترسی می‌دهد؛ در مقابل endpoint `signature_file` و تست accounts آن owner-only هستند. نیازمند تصمیم سیاستی؛ در صورت owner-only بودن، محدودکردن private_media و تست منفی هم‌مرکز.
+- **P2 — افزودن قطعه/پیوست Ticket:** `ticket_add_part` و `ticket_add_attachment` در backend فقط visibility تیکت را می‌سنجند، نه `can_manage_ticket`؛ درحالی‌که template فرم‌ها را فقط برای manager-side نمایش می‌دهد. نیازمند permission server-side و تست direct POST برای requester/نقش غیرمجاز.
+- **P2 — پیوست ارجاع:** همان mismatch قبلی بین referral list و private media؛ سیاست مشترک visibility لازم است.
+- [x] اسکن file-path overlap: PR #17 و #18 با زنجیره #19–#25 مسیر مشترک نداشتند؛ overlapهای درون زنجیره UI از ancestry شاخه‌های فرزند می‌آیند و باید با compare واقعی تفسیر شوند.
+- [ ] اصلاح هر سه مورد امنیتی و افزودن regression tests.
+- [ ] تکمیل ممیزی سایر endpointهای مستقیم، exportها و Admin.
+
+هیچ کد برنامه‌ای در این دور تغییر نکرد؛ موارد فوق code-review finding هستند، نه exploit اجراشده یا UAT عملیاتی.

@@ -422,3 +422,20 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 **شدت اولیه:** P2 (افشای محرمانگی پیوست با دانستن URL/مسیر فایل؛ شدت نهایی با حساسیت واقعی مستندات و سیاست محصول بازبینی شود).
 
 **مرز نتیجه:** این بررسی فقط mismatch سیاست ارجاع/فایل را تأیید می‌کند؛ ممیزی کامل IDOR، export، Admin و همه مسیرهای media همچنان باز است. هیچ کد برنامه، migration، seed، DB، reconciliation، Outbox، Merge یا Deploy تغییر/اجرا نشد.
+
+
+### تکمیل مرور تکمیلی media، endpointهای Ticket و هم‌پوشانی PRها — 2026-11-19
+
+- [x] بررسی مسیر عمومی `/media/<path>` و سیاست دسترسی امضاها در `private_media`.
+- [x] تطبیق `signature_file` و تست `test_signature_is_available_only_to_authenticated_owner` با مسیر عمومی media.
+- [x] بررسی server-side authorization دو endpoint افزودن قطعه و پیوست Ticket در برابر شرط نمایش فرم در template.
+- [x] اسکن file-path overlap بین PRهای #17/#18 و زنجیره UI از #19 تا #25.
+- [x] CI هر دو event روی commit مستندات `1f370bb3798367bacb8feceff2a3feca8ddefc78`: push run `44495868255` و pull_request run `44495875141`، هر کدام 5/5 job موفق.
+
+**یافته P2 — امضای کاربران:** مسیر `private_media` برای فایل‌های `signatures/` دسترسی را به مالک، مدیر کشوری و هر کاربر هم‌مرکز گسترش می‌دهد؛ اما endpoint اختصاصی `signature_file` و تست `apps/accounts/tests_signature.py` دسترسی را «فقط برای مالک authenticated» توصیف و آزمایش می‌کنند. در template فعلی نمایه نیز امضا از endpoint مالک‌محور فراخوانی می‌شود؛ کاربردی که نیاز به دسترسی هم‌مرکز به امضای دیگران را توجیه کند در صفحات بررسی‌شده مشاهده نشد. مسیر عمومی media می‌تواند این مرز را دور بزند، مشروط به دانستن مسیر فایل. سیاست محصول باید روشن شود؛ اگر مالک‌محور است، شاخه signatures در private_media نیز به مالک محدود و تست منفی same-center اضافه شود.
+
+**یافته P2 — mutation مستقیم Ticket:** در `apps/tickets/views.py`، endpointهای `ticket_add_part` و `ticket_add_attachment` فقط `visible_tickets(user)` را کنترل می‌کنند و بررسی `can_manage_ticket` ندارند. template فقط فرم افزودن قطعه و پیوست را برای `is_manager_side` نمایش می‌دهد، اما شرط UI کنترل دسترسی سمت سرور نیست. چون requester می‌تواند برخی تیکت‌های قابل مشاهده را در `visible_tickets` ببیند، امکان POST مستقیم به این endpointها و افزودن قطعه/پیوست خارج از نقش مورد انتظار وجود دارد. اقدام اصلاحی: enforce کردن `can_manage_ticket(user, ticket)` (یا permission دقیق‌تر محصول) در backend و افزودن تست‌های 403/404 برای requester و نقش‌های فاقد مجوز؛ تست مثبت برای IT/technician مجاز حفظ شود.
+
+**هم‌پوشانی PRها:** فهرست فایل‌های تغییرکرده PR #17 و #18 با PRهای #19 تا #25 هیچ مسیر مشترکی نشان نداد. در زنجیره UI، هم‌پوشانی فایل‌های #20 تا #25 و #19/#24 ناشی از تغییرات حمل‌شده در شاخه‌های فرزند/ancestry است؛ این اسکن فقط هم‌پوشانی مسیر فایل را می‌سنجد و جایگزین compare commit، conflict check یا review معنایی نیست.
+
+**Gate باقی‌مانده:** اصلاح سه یافته P2 در فاز یک؛ تکمیل ممیزی سایر endpointهای مستقیم و all-role matrix؛ و نهایی‌سازی ترتیب ادغام پس از بازبینی review threads و CI همه headها. فاز صفر باز می‌ماند.

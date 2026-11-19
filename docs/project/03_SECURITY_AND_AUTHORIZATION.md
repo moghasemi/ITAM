@@ -67,3 +67,20 @@ superuser بودن مجوز حذف شواهد یا bypass قواعد محصول 
 **الگوی اصلاح:** سیاست visibility ارجاع را در یک service/queryset واحد تعریف کنید و در فهرست، resolve و private media دوباره استفاده کنید؛ مجوز فایل نباید از مجوز مشاهده/دریافت خود رکورد گسترده‌تر باشد. تست منفی برای manager/requester غیرگیرنده در ارجاع مرکزدار و استانیِ بدون مرکز، و تست مثبت برای گیرنده و نقش‌های مجاز اضافه شود.
 
 تست‌های فعلی private media دسترسی same-center برای admin_it و منع مرکز دیگر را پوشش می‌دهند؛ نقش‌های manager/requester غیرگیرنده را در این مسیر پوشش نمی‌دهند. این یافته code-review است و UAT محیط وب‌سرور یا ممیزی کامل همه فایل‌ها محسوب نمی‌شود.
+
+
+## تکمیل ممیزی: امضاها و endpointهای افزودن Ticket — 2026-11-19
+
+### امضاهای کاربران — P2، نیازمند تعیین سیاست
+
+شاخه `signatures/` در `private_media` به owner، مدیر کشوری و هر کاربر هم‌مرکز دسترسی می‌دهد؛ اما endpoint اختصاصی `signature_file` و تست `apps/accounts/tests_signature.py` مرز owner-only را بیان می‌کنند. template نمایه از endpoint اختصاصی استفاده می‌کند و در templateهای بررسی‌شده نیاز عملیاتی برای دیدن امضای دیگران در همان مرکز مشاهده نشد. اگر سیاست موردنظر owner-only است، شاخه `private_media` باید هم‌راستا شود؛ اگر دسترسی هم‌مرکز لازم است، آن را در policy و تست‌ها صریح کنید.
+
+### افزودن قطعه و پیوست Ticket — P2
+
+در `apps/tickets/views.py`، توابع `ticket_add_part` و `ticket_add_attachment` تیکت را از `visible_tickets` دریافت می‌کنند، اما مجوز عملیاتی `can_manage_ticket` را بررسی نمی‌کنند. فرم‌های متناظر در `templates/tickets/ticket_detail.html` فقط برای `is_manager_side` نمایش داده می‌شوند؛ این صرفاً کنترل UX است و direct POST را مسدود نمی‌کند. نقش requester می‌تواند تیکت‌های خودش را در queryset ببیند؛ بنابراین backend باید permission را enforce کند.
+
+**اصلاح پیشنهادی:** کنترل permission در server-side هر دو endpoint و regression tests برای direct POST نقش‌های requester/manager فاقد مجوز و مسیر مثبت IT/technician مجاز. برای پیوست، اعتبارسنجی نوع/محتوا و audit trail موجود نیز حفظ شود.
+
+### نتیجه file-path overlap شاخه‌ها
+
+اسکن filenameهای تغییرکرده نشان داد PR #17 و #18 با PRهای #19 تا #25 مسیر مشترک ندارند. هم‌پوشانی #20 تا #25 و #19/#24 در زنجیره UI از ancestry شاخه‌های فرزند ناشی می‌شود. این بررسی به‌تنهایی نبود conflict معنایی یا مجوز merge را ثابت نمی‌کند.

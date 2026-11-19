@@ -386,3 +386,12 @@ PRهای #17 (مستندات) و #18 (private media و scope انتساب پیم
 - این اختلاف می‌تواند دسترسی مستقیم به پیوست را برای manager/requester هم‌مرکز یا هم‌استان، در صورت دانستن مسیر فایل، ممکن کند. شدت اولیه P2؛ اصلاح باید با یک visibility service مشترک و تست‌های منفی/مثبت نقش‌محور انجام شود.
 - تست‌های موجود private media، admin IT هم‌مرکز و کاربر مرکز دیگر را پوشش می‌دهند؛ manager/requester غیرگیرنده را پوشش نمی‌دهند.
 - این دور فقط audit و documentation بود؛ کد برنامه تغییر نکرد. سایر مسیرهای IDOR/export/Admin/media و UAT وب‌سرور واقعی همچنان باز هستند.
+
+
+### 23. یافته‌های تکمیلی authorization و overlap — 2026-11-19
+
+- CI commit قبلی مستندات `1f370bb3798367bacb8feceff2a3feca8ddefc78` با push run `44495868255` و PR run `44495875141`، هر دو 5/5 job موفق، تأیید شد.
+- در `private_media`، مسیر `signatures/` برای کاربران هم‌مرکز گسترده‌تر از endpoint owner-only `signature_file` است؛ نیازمند تعیین سیاست و یکسان‌سازی.
+- endpointهای `ticket_add_part` و `ticket_add_attachment` در backend فقط visible ticket را کنترل می‌کنند و permission متناظر با شرط `is_manager_side` در template را enforce نمی‌کنند؛ direct POST از requester/نقش فاقد مجوز باید با تست رد شود.
+- اسکن filenameها نشان داد PRهای #17 و #18 با زنجیره UI #19–#25 مسیر مشترک ندارند؛ هم‌پوشانی درون زنجیره UI از ancestry شاخه‌های فرزند است.
+- این‌ها یافته‌های code review با شدت اولیه P2 هستند؛ exploit یا UAT محیط عملیاتی اجرا نشده است. اصلاح کد و regression tests در فاز یک باز می‌ماند.
