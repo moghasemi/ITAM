@@ -248,7 +248,7 @@ class HolidayListView(CountryAdminRequiredMixin, BaseListView):
     model = Holiday
     template_name = "core/holiday_list.html"
     page_title = "تعطیلات رسمی"
-    active_menu = "settings"
+    active_menu = "holidays"
     paginate_by = 30
 
 
@@ -259,7 +259,7 @@ class HolidayUpdateView(CountryAdminRequiredMixin, PageContextMixin, UpdateView)
     form_class = HolidayForm
     template_name = "core/holiday_form.html"
     page_title = "ویرایش تعطیلی رسمی"
-    active_menu = "settings"
+    active_menu = "holidays"
     success_url = "/settings/holidays/"
 
 
@@ -276,7 +276,7 @@ def holiday_create(request):
     return render(
         request,
         "core/holiday_form.html",
-        {"form": form, "page_title": "ثبت تعطیلی رسمی", "active_menu": "settings"},
+        {"form": form, "page_title": "ثبت تعطیلی رسمی", "active_menu": "holidays"},
     )
 
 

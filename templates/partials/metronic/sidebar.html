@@ -23,7 +23,7 @@
             </a>
           </div>
 
-          <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">درخواست‌ها و خدمات</span></div>
+          <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">میز خدمت</span></div>
           <div class="kt-menu-item {% if active_menu == 'tickets' %}active{% endif %}">
             <a class="kt-menu-link" href="{% url 'tickets:list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-message-text-2"></i></span><span class="kt-menu-title">درخواست‌های خرابی</span></a>
           </div>
@@ -42,22 +42,11 @@
           <div class="kt-menu-item {% if active_menu == 'it_requests' %}active{% endif %}">
             <a class="kt-menu-link" href="{% url 'maintenance:it_request_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-message-add"></i></span><span class="kt-menu-title">درخواست‌های عمومی IT</span></a>
           </div>
-          {% if user.is_admin_it or user.is_admin_province or user.is_superuser %}
-            <div class="kt-menu-item {% if active_menu == 'repairs' %}active{% endif %}">
-              <a class="kt-menu-link" href="{% url 'maintenance:repair_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-wrench"></i></span><span class="kt-menu-title">تعمیرات مستقل</span></a>
-            </div>
-            <div class="kt-menu-item {% if active_menu == 'repairs' %}active{% endif %}">
-              <a class="kt-menu-link" href="{% url 'maintenance:repairer_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-user-square"></i></span><span class="kt-menu-title">تعمیرکاران مستقل</span></a>
-            </div>
-            <div class="kt-menu-item {% if active_menu == 'repairs' %}active{% endif %}">
-              <a class="kt-menu-link" href="{% url 'maintenance:feedback_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-star"></i></span><span class="kt-menu-title">ارزیابی تعمیرکاران</span></a>
-            </div>
-            <div class="kt-menu-item {% if active_menu == 'referrals' %}active{% endif %}">
-              <a class="kt-menu-link" href="{% url 'maintenance:referral_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-share"></i></span><span class="kt-menu-title">ارجاع‌های عمومی</span></a>
-            </div>
-          {% endif %}
+          <div class="kt-menu-item {% if active_menu == 'notifications' %}active{% endif %}">
+            <a class="kt-menu-link" href="{% url 'core:notification_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-notification-bing"></i></span><span class="kt-menu-title">اعلان‌ها</span></a>
+          </div>
 
-          <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">مدیریت دارایی</span></div>
+          <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">دارایی‌ها</span></div>
           <div class="kt-menu-item {% if active_menu == 'assets' %}active{% endif %}">
             <a class="kt-menu-link" href="{% url 'assets:list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-devices"></i></span><span class="kt-menu-title">فهرست دارایی‌ها</span></a>
           </div>
@@ -75,16 +64,46 @@
               <a class="kt-menu-link" href="{% url 'assets:hwagent_batch_import' %}"><span class="kt-menu-icon"><i class="ki-filled ki-cloud-download"></i></span><span class="kt-menu-title">ورود گروهی HWAgent</span></a>
             </div>
           {% endif %}
+          {% if user.is_admin_country %}
+            <div class="kt-menu-item {% if active_menu == 'asset_categories' %}active{% endif %}">
+              <a class="kt-menu-link" href="{% url 'assets:category_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-category"></i></span><span class="kt-menu-title">گونه‌های دارایی</span></a>
+            </div>
+            <div class="kt-menu-item {% if active_menu == 'component_types' %}active{% endif %}">
+              <a class="kt-menu-link" href="{% url 'assets:component_type_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-devices"></i></span><span class="kt-menu-title">گونه‌های قطعه سخت‌افزاری</span></a>
+            </div>
+          {% endif %}
 
-          <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">قرارداد و بازدید</span></div>
+          <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">نگهداری و تعمیرات</span></div>
           <div class="kt-menu-item {% if active_menu == 'visits' %}active{% endif %}">
             <a class="kt-menu-link" href="{% url 'maintenance:visit_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-calendar"></i></span><span class="kt-menu-title">بازدیدهای دوره‌ای</span></a>
           </div>
+          {% if user.is_admin_it or user.is_admin_province or user.is_superuser %}
+            <div class="kt-menu-item {% if active_menu == 'repairs' %}active{% endif %}">
+              <a class="kt-menu-link" href="{% url 'maintenance:repair_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-wrench"></i></span><span class="kt-menu-title">تعمیرات مستقل</span></a>
+            </div>
+            <div class="kt-menu-item {% if active_menu == 'repairers' %}active{% endif %}">
+              <a class="kt-menu-link" href="{% url 'maintenance:repairer_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-user-square"></i></span><span class="kt-menu-title">تعمیرکاران مستقل</span></a>
+            </div>
+            <div class="kt-menu-item {% if active_menu == 'repair_feedback' %}active{% endif %}">
+              <a class="kt-menu-link" href="{% url 'maintenance:feedback_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-star"></i></span><span class="kt-menu-title">ارزیابی تعمیرکاران</span></a>
+            </div>
+          {% endif %}
+
+          {% if user.is_admin_it or user.is_admin_province or user.is_superuser %}
+            <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">ارجاع و هماهنگی</span></div>
+            <div class="kt-menu-item {% if active_menu == 'referrals' %}active{% endif %}">
+              <a class="kt-menu-link" href="{% url 'maintenance:referral_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-share"></i></span><span class="kt-menu-title">ارجاع‌های عمومی</span></a>
+            </div>
+          {% endif %}
+
+          {% if user.is_admin_province or user.is_superuser or user.is_admin_it or user.is_manager %}
+            <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">سازمان و قراردادها</span></div>
+          {% endif %}
           {% if user.is_admin_province or user.is_superuser %}
             <div class="kt-menu-item {% if active_menu == 'centers' %}active{% endif %}">
-              <a class="kt-menu-link" href="{% url 'org:center_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-bank"></i></span><span class="kt-menu-title">مراکز استان</span></a>
+              <a class="kt-menu-link" href="{% url 'org:center_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-bank"></i></span><span class="kt-menu-title">مراکز</span></a>
             </div>
-            <div class="kt-menu-item {% if active_menu == 'contracts' %}active{% endif %}">
+            <div class="kt-menu-item {% if active_menu == 'assignments' %}active{% endif %}">
               <a class="kt-menu-link" href="{% url 'org:assignment_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-share"></i></span><span class="kt-menu-title">انتساب پیمانکار به مراکز</span></a>
             </div>
           {% endif %}
@@ -92,40 +111,44 @@
             <div class="kt-menu-item {% if active_menu == 'contracts' %}active{% endif %}">
               <a class="kt-menu-link" href="{% url 'org:contract_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-document"></i></span><span class="kt-menu-title">قراردادها</span></a>
             </div>
-            <div class="kt-menu-item {% if active_menu == 'org' %}active{% endif %}">
+            <div class="kt-menu-item {% if active_menu == 'contractors' %}active{% endif %}">
               <a class="kt-menu-link" href="{% url 'org:contractor_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-briefcase"></i></span><span class="kt-menu-title">پیمانکاران</span></a>
             </div>
-            <div class="kt-menu-item {% if active_menu == 'org' %}active{% endif %}">
-              <a class="kt-menu-link" href="{% url 'org:department_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-abstract-26"></i></span><span class="kt-menu-title">واحدها و محل‌ها</span></a>
+            <div class="kt-menu-item {% if active_menu == 'org_units' %}active{% endif %}">
+              <a class="kt-menu-link" href="{% url 'org:department_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-abstract-26"></i></span><span class="kt-menu-title">واحدهای سازمانی</span></a>
+            </div>
+            <div class="kt-menu-item {% if active_menu == 'locations' %}active{% endif %}">
+              <a class="kt-menu-link" href="{% url 'org:location_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-geolocation"></i></span><span class="kt-menu-title">محل‌های استقرار</span></a>
             </div>
           {% endif %}
 
           {% if user.is_admin_it or user.is_manager %}
-            <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">پایش و مدیریت</span></div>
+            <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">گزارش و پایش</span></div>
             <div class="kt-menu-item {% if active_menu == 'reports' %}active{% endif %}">
               <a class="kt-menu-link" href="{% url 'reports:home' %}"><span class="kt-menu-icon"><i class="ki-filled ki-chart-line-up"></i></span><span class="kt-menu-title">گزارش‌ها و تحلیل</span></a>
-            </div>
-            <div class="kt-menu-item {% if active_menu == 'integrations' %}active{% endif %}">
-              <a class="kt-menu-link" href="{% url 'integrations:outbox_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-exit-up"></i></span><span class="kt-menu-title">صف ارسال به مدیریت</span></a>
             </div>
             <div class="kt-menu-item {% if active_menu == 'audit' %}active{% endif %}">
               <a class="kt-menu-link" href="{% url 'core:audit_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-shield-search"></i></span><span class="kt-menu-title">گزارش ممیزی</span></a>
             </div>
+            <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">یکپارچه‌سازی</span></div>
+            <div class="kt-menu-item {% if active_menu == 'integrations' %}active{% endif %}">
+              <a class="kt-menu-link" href="{% url 'integrations:outbox_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-exit-up"></i></span><span class="kt-menu-title">صف ارسال رخدادها</span></a>
+            </div>
           {% endif %}
 
           {% if user.is_admin_it %}
-            <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">مدیریت کاربران</span></div>
+            <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">مدیریت سامانه</span></div>
             <div class="kt-menu-item {% if active_menu == 'users' %}active{% endif %}">
               <a class="kt-menu-link" href="{% url 'accounts:user_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-people"></i></span><span class="kt-menu-title">کاربران</span></a>
             </div>
           {% endif %}
           {% if user.is_admin_country %}
-            <div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">تنظیمات سراسری</span></div>
+            {% if not user.is_admin_it %}<div class="kt-menu-item pt-3 pb-1"><span class="kt-menu-heading">مدیریت سامانه</span></div>{% endif %}
             <div class="kt-menu-item {% if active_menu == 'settings' %}active{% endif %}">
               <a class="kt-menu-link" href="{% url 'core:setting_update' %}"><span class="kt-menu-icon"><i class="ki-filled ki-setting-2"></i></span><span class="kt-menu-title">تنظیمات سامانه</span></a>
             </div>
-            <div class="kt-menu-item">
-              <a class="kt-menu-link" href="{% url 'assets:category_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-category"></i></span><span class="kt-menu-title">گونه‌های دارایی و قطعه</span></a>
+            <div class="kt-menu-item {% if active_menu == 'holidays' %}active{% endif %}">
+              <a class="kt-menu-link" href="{% url 'core:holiday_list' %}"><span class="kt-menu-icon"><i class="ki-filled ki-calendar"></i></span><span class="kt-menu-title">تقویم تعطیلات</span></a>
             </div>
           {% endif %}
         </nav>

@@ -139,7 +139,7 @@ class TicketCreateView(PageContextMixin, CreateView):
     form_class = TicketCreateForm
     template_name = "tickets/ticket_form.html"
     page_title = "اعلام خرابی تجهیز"
-    active_menu = "tickets"
+    active_menu = "ticket_new"
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:

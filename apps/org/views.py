@@ -54,7 +54,7 @@ class CenterListView(AdminItRequiredMixin, BaseListView):
     model = Center
     template_name = "org/center_list.html"
     page_title = "مراکز استان و مدیریت ستادی"
-    active_menu = "org"
+    active_menu = "centers"
 
     def get_queryset(self):
         scoped = self.request.user.get_scoped_centers()
@@ -70,7 +70,7 @@ class CenterCreateView(ProvinceAdminRequiredMixin, BaseCreateView):
     form_class = CenterForm
     template_name = "org/simple_form.html"
     page_title = "افزودن مرکز جدید"
-    active_menu = "org"
+    active_menu = "centers"
     success_url = reverse_lazy("org:center_list")
     success_message = "مرکز جدید با موفقیت ثبت شد."
 
@@ -85,7 +85,7 @@ class CenterUpdateView(ProvinceAdminRequiredMixin, BaseUpdateView):
     form_class = CenterForm
     template_name = "org/simple_form.html"
     page_title = "ویرایش مشخصات مرکز"
-    active_menu = "org"
+    active_menu = "centers"
     success_url = reverse_lazy("org:center_list")
     success_message = "تغییرات مرکز ذخیره شد."
 
@@ -105,7 +105,7 @@ class DepartmentListView(AdminItRequiredMixin, BaseListView):
     model = Department
     template_name = "org/department_list.html"
     page_title = "واحدهای سازمانی"
-    active_menu = "org"
+    active_menu = "org_units"
 
     def get_queryset(self):
         scoped = self.request.user.get_scoped_centers()
@@ -118,7 +118,7 @@ class DepartmentCreateView(AdminItRequiredMixin, BaseCreateView):
     form_class = DepartmentForm
     template_name = "org/simple_form.html"
     page_title = "افزودن واحد سازمانی"
-    active_menu = "org"
+    active_menu = "org_units"
     success_url = reverse_lazy("org:department_list")
     success_message = "واحد سازمانی ثبت شد."
 
@@ -133,7 +133,7 @@ class DepartmentUpdateView(AdminItRequiredMixin, BaseUpdateView):
     form_class = DepartmentForm
     template_name = "org/simple_form.html"
     page_title = "ویرایش واحد سازمانی"
-    active_menu = "org"
+    active_menu = "org_units"
     success_url = reverse_lazy("org:department_list")
 
     def get_queryset(self):
@@ -153,7 +153,7 @@ class LocationListView(AdminItRequiredMixin, BaseListView):
     model = Location
     template_name = "org/location_list.html"
     page_title = "محل‌های استقرار"
-    active_menu = "org"
+    active_menu = "locations"
 
     def get_queryset(self):
         scoped = self.request.user.get_scoped_centers()
@@ -168,7 +168,7 @@ class LocationCreateView(AdminItRequiredMixin, BaseCreateView):
     form_class = LocationForm
     template_name = "org/simple_form.html"
     page_title = "افزودن محل استقرار"
-    active_menu = "org"
+    active_menu = "locations"
     success_url = reverse_lazy("org:location_list")
     success_message = "محل استقرار ثبت شد."
 
@@ -183,7 +183,7 @@ class LocationUpdateView(AdminItRequiredMixin, BaseUpdateView):
     form_class = LocationForm
     template_name = "org/simple_form.html"
     page_title = "ویرایش محل استقرار"
-    active_menu = "org"
+    active_menu = "locations"
     success_url = reverse_lazy("org:location_list")
 
     def get_queryset(self):
@@ -203,7 +203,7 @@ class ContractorListView(AdminItRequiredMixin, BaseListView):
     model = Contractor
     template_name = "org/contractor_list.html"
     page_title = "پیمانکاران"
-    active_menu = "org"
+    active_menu = "contractors"
 
     def get_queryset(self):
         user = self.request.user
@@ -233,7 +233,7 @@ class ContractorCreateView(ProvinceAdminRequiredMixin, BaseCreateView):
     form_class = ContractorForm
     template_name = "org/contractor_form.html"
     page_title = "افزودن پیمانکار"
-    active_menu = "org"
+    active_menu = "contractors"
     success_url_name = "org:contractor_detail"
     success_message = "پیمانکار ثبت شد."
 
@@ -243,7 +243,7 @@ class ContractorUpdateView(ProvinceAdminRequiredMixin, BaseUpdateView):
     form_class = ContractorForm
     template_name = "org/contractor_form.html"
     page_title = "ویرایش پیمانکار"
-    active_menu = "org"
+    active_menu = "contractors"
     success_url_name = "org:contractor_detail"
 
     def get_queryset(self):
@@ -255,7 +255,7 @@ class ContractorDetailView(AdminItRequiredMixin, BaseDetailView):
     model = Contractor
     template_name = "org/contractor_detail.html"
     page_title = "پرونده پیمانکار"
-    active_menu = "org"
+    active_menu = "contractors"
 
     def get_queryset(self):
         contracts = _visible_contracts_for_user(self.request.user)
@@ -461,7 +461,7 @@ class ContractCenterAssignmentListView(ProvinceAdminRequiredMixin, BaseListView)
     model = ContractCenterAssignment
     template_name = "org/assignment_list.html"
     page_title = "انتساب پیمانکار رسمی به مراکز"
-    active_menu = "contracts"
+    active_menu = "assignments"
     paginate_by = 30
 
     def get_queryset(self):
@@ -479,7 +479,7 @@ class ContractCenterAssignmentCreateView(ProvinceAdminRequiredMixin, PageContext
     form_class = ContractCenterAssignmentForm
     template_name = "org/assignment_form.html"
     page_title = "انتساب پیمانکار به مرکز"
-    active_menu = "contracts"
+    active_menu = "assignments"
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()

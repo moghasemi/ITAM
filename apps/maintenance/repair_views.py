@@ -98,7 +98,7 @@ def repairer_list(request):
         "page_title": "تعمیرکاران مستقل",
         "kind": "repairers",
         "rows": rows,
-        "active_menu": "repairs",
+        "active_menu": "repairers",
         "can_create": True,
     })
 
@@ -131,7 +131,7 @@ def repairer_create(request):
         messages.success(request, "تعمیرکار مستقل ثبت شد.")
         return redirect("maintenance:repairer_list")
     return render(request, "maintenance/workflow_form.html", {
-        "page_title": "ثبت تعمیرکار مستقل", "form": form, "active_menu": "repairs",
+        "page_title": "ثبت تعمیرکار مستقل", "form": form, "active_menu": "repairers",
     })
 
 
@@ -158,7 +158,7 @@ def repairer_update(request, pk: int):
         messages.success(request, "مشخصات تعمیرکار ذخیره شد؛ نسخه قبلی و جدید در تاریخچه ممیزی حفظ شد.")
         return redirect("maintenance:repairer_list")
     return render(request, "maintenance/workflow_form.html", {
-        "page_title": "ویرایش تعمیرکار مستقل", "form": form, "active_menu": "repairs",
+        "page_title": "ویرایش تعمیرکار مستقل", "form": form, "active_menu": "repairers",
     })
 
 
@@ -347,7 +347,7 @@ def feedback_list(request):
         "page_title": "ارزیابی و بازخورد تعمیرکاران استان",
         "kind": "feedback",
         "rows": rows,
-        "active_menu": "repairs",
+        "active_menu": "repair_feedback",
         "can_create": False,
     })
 
