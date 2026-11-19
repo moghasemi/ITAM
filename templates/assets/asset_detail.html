@@ -84,7 +84,7 @@
   <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">ارتباطات این دارایی</h2></div>
   <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول ارتباطات دارایی">
     <table class="table compact kt-table itam-ops-table">
-      <th scope="col"ead><tr><th scope="col">دارایی مرتبط</th><th scope="col">نوع ارتباط</th><th scope="col">روش اتصال</th><th scope="col">مرکز</th></tr></thead>
+      <thead><tr><th scope="col">دارایی مرتبط</th><th scope="col">نوع ارتباط</th><th scope="col">روش اتصال</th><th scope="col">مرکز</th></tr></thead>
       <tbody>
         {% for relation in asset_relationships %}
           <tr>
@@ -127,7 +127,7 @@
       </div>
       <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول اقلام سخت‌افزاری">
         <table class="table kt-table itam-ops-table">
-          <th scope="col"ead>
+          <thead>
             <tr><th scope="col">قطعه</th><th scope="col">برند</th><th scope="col">مدل</th><th scope="col">سریال</th><th scope="col">ظرفیت</th><th scope="col">تعداد</th><th scope="col">اسلات</th><th scope="col">وضعیت قلم</th></tr>
           </thead>
           <tbody>
@@ -176,7 +176,7 @@
       </div>
       <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول تاریخچه اسنپ‌شات">
         <table class="table kt-table itam-ops-table">
-          <th scope="col"ead>
+          <thead>
             <tr><th scope="col">نسخه</th><th scope="col">نوع</th><th scope="col">وضعیت</th><th scope="col">ثبت‌کننده</th><th scope="col">زمان ثبت</th>
                 <th scope="col">تغییرات</th><th scope="col">تایید کارشناس IT</th><th scope="col">پلمب</th><th scope="col" aria-label="عملیات"></th></tr>
           </thead>
@@ -217,7 +217,7 @@
       </div>
       <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول درخواست‌های خرابی دارایی">
         <table class="table compact kt-table itam-ops-table">
-          <th scope="col"ead>
+          <thead>
             <tr><th scope="col">شماره</th><th scope="col">عنوان</th><th scope="col">اولویت</th><th scope="col">وضعیت</th><th scope="col">اعلام</th><th scope="col">حضور</th>
                 <th scope="col">اعلام رفع</th><th scope="col">رعایت SLA</th><th scope="col" aria-label="عملیات"></th></tr>
           </thead>
@@ -252,7 +252,7 @@
       <div class="card-head kt-card-header itam-ops-card-header"><h2 class="card-title">سابقه بازدیدهای دوره‌ای</h2></div>
       <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول بازدیدهای دوره‌ای دارایی">
         <table class="table compact kt-table itam-ops-table">
-          <th scope="col"ead><tr><th scope="col">بازدید</th><th scope="col">قرارداد</th><th scope="col">تاریخ بازدید</th><th scope="col">بازدیدکننده</th><th scope="col">وضعیت تجهیز</th><th scope="col">خدمات انجام‌شده</th><th scope="col" aria-label="عملیات"></th></tr></thead>
+          <thead><tr><th scope="col">بازدید</th><th scope="col">قرارداد</th><th scope="col">تاریخ بازدید</th><th scope="col">بازدیدکننده</th><th scope="col">وضعیت تجهیز</th><th scope="col">خدمات انجام‌شده</th><th scope="col" aria-label="عملیات"></th></tr></thead>
           <tbody>
           {% for check in visits %}
             <tr>
@@ -283,7 +283,7 @@
       </div>
       <div class="table-wrap itam-ops-table-wrap" role="region" tabindex="0" aria-label="جدول پیوست‌های دارایی">
         <table class="table compact kt-table itam-ops-table">
-          <th scope="col"ead><tr><th scope="col">نوع</th><th scope="col">عنوان</th><th scope="col">فایل</th><th scope="col">بارگذارنده</th><th scope="col">زمان</th><th scope="col" aria-label="عملیات"></th></tr></thead>
+          <thead><tr><th scope="col">نوع</th><th scope="col">عنوان</th><th scope="col">فایل</th><th scope="col">بارگذارنده</th><th scope="col">زمان</th><th scope="col" aria-label="عملیات"></th></tr></thead>
           <tbody>
           {% for attachment in attachments %}
             <tr>
