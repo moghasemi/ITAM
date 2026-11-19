@@ -478,7 +478,7 @@ class MetronicAssetDetailAccessibilityTests(SimpleTestCase):
         self.assertEqual(self.source.count('role="tab"'), 5)
         self.assertEqual(self.source.count('role="tabpanel"'), 5)
         self.assertEqual(self.source.count('aria-selected="true"'), 1)
-        self.assertEqual(self.source.count('tabindex="0"'), 6)
+        self.assertEqual(self.source.count('tabindex="0" data-tab-target='), 1)
         self.assertEqual(self.source.count(' hidden data-tab-panel='), 4)
         js = Path(__file__).resolve().parents[2].joinpath("static", "js", "itam.js").read_text(encoding="utf-8")
         for token in ('event.key==="ArrowRight"', 'event.key==="ArrowLeft"', 'event.key==="Home"', 'event.key==="End"', 'panel.hidden=!selected'):
