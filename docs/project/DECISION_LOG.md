@@ -284,3 +284,24 @@
   4. PR #31 پیش از ورود به زنجیره اصلی باید با ترتیب و branch ancestry بررسی شود؛ rebase/force push انجام نشود.
   5. برای main، Required Checks حداقل شامل test 3.11، test 3.12، postgres-test، production-settings-check و deploy-script-validation باشد.
 - **محدودیت:** تنظیم Branch Protection، بستن PRهای قدیمی و هر نوع Merge بدون اجازه صریح انجام نمی‌شود.
+
+
+---
+
+## D-2026-11-19-018 — اتمیک بودن ایجاد مدیریت درمان و مرکز
+- **تاریخ:** 2026-11-19
+- **وضعیت:** Implemented در PR Draft #32؛ CI 5/5 موفق؛ UAT محلی باز.
+- **یافته:** `Center.save()` ممکن بود TreatmentManagement را با `get_or_create` بسازد و سپس درج Center به علت constraint شکست بخورد؛ بدون تراکنش واحد، رکورد مدیریت درمان یتیم باقی می‌ماند.
+- **تصمیم:** کل مسیر Center.save در `transaction.atomic` اجرا شود تا مدیریت درمان خودکار و Center با هم commit یا rollback شوند.
+- **تست:** ایجاد Center تکراری در استان فاقد TreatmentManagement باید IntegrityError بدهد و هیچ TreatmentManagement یتیمی برای آن استان باقی نماند.
+- **پاک‌سازی:** decorator تکراری `transaction.atomic` در `assign_contractor_to_center` حذف شد.
+- **مرجع:** PR #32، head `60c7337e12d235c56c3925e56422f0fa5618bd7b`، run `44543874381` با 5/5 job موفق.
+- **محدودیت:** این تغییر به‌تنهایی race بین تغییر county و ایجاد Center را اثباتاً حل نمی‌کند؛ concurrency UAT PostgreSQL باز است.
+
+## D-2026-11-19-019 — همسانی فیلتر فهرست و چاپ برچسب دارایی
+- **تاریخ:** 2026-11-19
+- **وضعیت:** Implemented در PR Draft #33؛ CI در حال اجرا در snapshot اولیه؛ پذیرش چاپ واقعی باز.
+- **یافته:** query string بدون `?` به مسیر چاپ چسبانده می‌شد و view نیز فیلترهای فهرست را اعمال نمی‌کرد.
+- **تصمیم:** یک queryset مشترک scope-aware برای فهرست و چاپ استفاده شود؛ query string معتبر منتقل و فیلترها روی چاپ نیز اعمال شوند.
+- **تست:** جستجوی یکتا در فهرست باید در خروجی چاپ فقط همان دارایی را برگرداند؛ URL چاپ دارای query string معتبر باشد.
+- **مرجع:** PR #33، head `f04726b4273466dae9f1df0c932639da0c177b67`، run `44544201157`.

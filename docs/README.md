@@ -3,7 +3,9 @@
 این پوشه مرجع مستندات محصول، معماری، امنیت، عملیات و توسعه ITAM است.
 
 ## نقطه شروع
-- [سند جامع پروژه — نسخه 2.2](project/PROJECT_MASTER_CONTEXT_v2.2_2026-11-19.md)
+- [سند جامع پروژه — نسخه 2.3](project/PROJECT_MASTER_CONTEXT_v2.3_2026-11-19.md)
+- [Runbook پذیرش محلی سه‌ساعته](project/18_LOCAL_UAT_RUNBOOK_2026-11-19.md)
+- [سند جامع پروژه — نسخه 2.2 (سابقه)](project/PROJECT_MASTER_CONTEXT_v2.2_2026-11-19.md)
 - [سند جامع پروژه — نسخه 2.1 (سابقه)](project/PROJECT_MASTER_CONTEXT_v2.1_2026-11-19.md)
 - [سند جامع پروژه — نسخه 2.0 (سابقه)](project/PROJECT_MASTER_CONTEXT_v2.0_2026-11-19.md)
 - [سند جامع پروژه — نسخه 1.9 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.9_2026-11-19.md)

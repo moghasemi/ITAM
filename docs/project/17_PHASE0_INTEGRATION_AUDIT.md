@@ -206,3 +206,35 @@ PR #31 با 8 فایل تغییرکرده، بدون Migration یا تغییر U
 - در Production با فعال بودن proxy SSL header، HSTS پیش‌فرض یک‌ساله می‌شود؛ `SECURE_SSL_REDIRECT` به‌صورت پیش‌فرض خاموش است و TLS termination باید در proxy درست تنظیم شود.
 - `ITAM_HSTS_INCLUDE_SUBDOMAINS` و `ITAM_HSTS_PRELOAD` پیش‌فرض True هستند؛ قبل از استقرار باید اطمینان حاصل شود تمام subdomainها HTTPS معتبر دارند.
 - CI مربوط به production settings موفق است؛ صحت IP پراکسی، TLS واقعی، host/origin و رفتار redirect/HSTS فقط در UAT محلی/محیط استقرار قابل تأیید است.
+
+
+---
+
+## 14. به‌روزرسانی snapshot پس از ادامه ممیزی — 2026-11-19، ساعت 14:30 UTC
+
+این بخش بر اطلاعات snapshotهای قبلی اولویت زمانی دارد؛ بخش‌های قبلی برای حفظ سابقه دست‌نخورده مانده‌اند.
+
+### وضعیت PRهای باز
+- تعداد PRهای باز در API فهرست‌شده: 26 (از #7 تا #33 به‌جز #10).
+- PR #32: https://github.com/moghasemi/ITAM/pull/32 — Draft، stacked بر #31، head `60c7337e12d235c56c3925e56422f0fa5618bd7b`.
+- PR #33: https://github.com/moghasemi/ITAM/pull/33 — Draft، stacked بر #30، head `f04726b4273466dae9f1df0c932639da0c177b67`.
+- PR #32 در run `44543874381` هر پنج job را موفق گذراند: test 3.11، test 3.12، postgres-test، production-settings-check و deploy-script-validation.
+- PR #33 در run `44544201157` هنگام ثبت این snapshot در حال اجرا بود؛ نتیجه نهایی هنوز تأیید نشده است.
+- از 24 PR قبلی، #14 آخرین وضعیت شناخته‌شده CI قرمز و #15 تا #31 سبز بودند؛ #32 سبز و #33 در حال اجراست. این گزارش وضعیت #33 را success فرض نمی‌کند.
+
+### اصلاحات تکمیلی
+- در PR #32، `Center.save()` با `transaction.atomic` پوشانده شد تا ایجاد خودکار TreatmentManagement و ذخیره Center یک تراکنش باشند؛ regression test شکست درج مرکز و rollback مدیریت درمانی یتیم را می‌سنجد.
+- decorator تکراری `transaction.atomic` در `assign_contractor_to_center` حذف شد؛ یک مرز تراکنش حفظ شده است.
+- در PR #33، منطق فیلتر فهرست دارایی به queryset مشترک منتقل شد؛ فهرست و چاپ از یک فیلتر scope-aware استفاده می‌کنند. query string چاپ اصلاح و تست فیلتر چاپ اضافه شد.
+- هیچ Migration، Seed، reconciliation، DB mutation، Outbox dispatch، Merge یا Deploy انجام نشده است.
+
+### Branch Protection
+- endpoint مربوط به Branch Protection در بررسی مجدد با 403 `Resource not accessible by integration` پاسخ داد؛ بنابراین وضعیت مستقیم protection در این نوبت قابل تأیید مجدد نبود.
+- endpoint فهرست Repository Rulesets آرایه خالی برگرداند.
+- آخرین مشاهده مستقیم قبلی در همین تاریخ `protected=false` و Required Checks خالی بود؛ این نتیجه را به‌عنوان آخرین snapshot شناخته‌شده نگه دارید، نه تأیید تازه.
+- هیچ تنظیم Branch Protection یا Ruleset تغییر نکرد.
+
+### موارد باقیمانده
+- بررسی race هم‌زمان بین تغییر county و ایجاد/ویرایش center هنوز به تست concurrency روی PostgreSQL و تصمیم نهایی نیاز دارد؛ atomicity PR #32 فقط rollback ایجاد TreatmentManagement را پوشش می‌دهد.
+- ماتریس endpoint×role هنوز نمونه‌ای است و باید برای تمام mutationها تکمیل شود.
+- UAT محلی و تست چاپ واقعی طبق Runbook بخش 10 و سند `18_LOCAL_UAT_RUNBOOK_2026-11-19.md` باقی است.

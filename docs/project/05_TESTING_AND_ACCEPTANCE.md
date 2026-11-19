@@ -82,3 +82,12 @@ branch/SHA، محیط، نسخه Python/DB، فرمان، pass/fail/skip، CI ی
 - viewportهای 1365، 1024، 768 و 390 پیکسل؛ RTL و dark/light.
 - keyboard-only، focus order، sidebar drawer، reduced motion، dropdownها، form validation، filter و pagination.
 - console بدون خطای JavaScript و Network بدون 404 برای assetها.
+
+
+## Runbook پذیرش محلی سه‌ساعته — 2026-11-19
+- مرجع اجرایی: `18_LOCAL_UAT_RUNBOOK_2026-11-19.md`.
+- PR #32 روی شاخه جداگانه شامل PR #31 است؛ تست rollback مرکز و suiteهای notification/private media/ticket اجرا شوند.
+- PR #33 روی زنجیره UI و worktree جدا اجرا شود؛ تست فیلتر چاپ و سپس مرورگر/PDF.
+- هر دو PR فاقد migration هستند؛ اجرای migrate لازم نیست.
+- ابتدا وضعیت Git و مسیر DB محلی فقط‌خواندنی بررسی شود؛ هیچ switch در صورت working tree کثیف انجام نشود.
+- هیچ Seed، reconciliation apply، Outbox dispatch یا تغییر داده واقعی اجرا نشود.

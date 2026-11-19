@@ -381,3 +381,27 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - هیچ Migration، Seed، reconciliation، تغییر داده یا Outbox dispatch اجرا نشده است.
 
 **مرجع تفصیلی:** `17_PHASE0_INTEGRATION_AUDIT.md`.
+
+
+---
+
+## Snapshot جدید — 2026-11-19، ادامه فاز صفر
+
+### اصلاحات جدید
+- [x] PR #32 atomicity ذخیره مرکز و regression rollback؛ CI 5/5 موفق.
+- [x] PR #33 اصلاح query string و فیلتر چاپ برچسب؛ CI در snapshot اولیه در حال اجرا بود.
+- [ ] CI نهایی PR #33 و بررسی کامل diff.
+- [ ] تست هدفمند PR #32 روی سیستم کاربر، بدون Migration.
+- [ ] تست هدفمند PR #33 و چاپ واقعی/PDF روی سیستم کاربر.
+
+### ریسک‌های باز
+- race هم‌زمان تغییر county و ذخیره center هنوز با تست concurrency PostgreSQL پوشش داده نشده است.
+- ماتریس endpoint×role کامل نیست؛ مرورهای قبلی نمونه‌ای بوده‌اند.
+- Branch Protection endpoint در بررسی جدید 403 داد؛ Repository Rulesets خالی بود. آخرین snapshot مستقیم قبلی main را unprotected نشان می‌داد؛ وضعیت فعلی مجدداً قابل تأیید نبود.
+- PR #14 قرمز، #13 diverged و #12 هم‌پوشان باقی‌اند؛ ادغام مستقل توصیه نمی‌شود.
+
+### UAT
+- Runbook: `docs/project/18_LOCAL_UAT_RUNBOOK_2026-11-19.md`.
+- قبل از هر switch، خروجی `git status --short`، branch و HEAD سیستم محلی دریافت شود.
+- دو PR جدید در دو worktree جدا تست شوند؛ هیچ stash/reset/rebase لازم نیست.
+- Migration/Seed/DB mutation/Outbox dispatch/Deploy انجام نشود.

@@ -287,3 +287,34 @@
 - متادیتای تمام 24 PR باز بررسی شد؛ Review Submission و Inline Review Thread وجود ندارد. conversation comments در #26 تا #31 نیز صفر بود.
 - 23/24 PR باز CI سبز دارند؛ تنها #14 قرمز است.
 - تنظیمات Production و Trusted Proxy نیز static review شد: PostgreSQL اجباری، Secret Key/Allowed Hosts صریح، کوکی Secure، sanitize کردن forwarding headers و HSTS یک‌ساله پیش‌فرض. UAT پراکسی/TLS همچنان محلی است.
+
+
+---
+
+## 2026-11-19 — ادامه ممیزی فاز صفر و آماده‌سازی UAT
+
+### درخواست مالک
+مالک پروژه مجوز ادامه کارهای remote را صادر کرد و اعلام کرد حدود سه ساعت بعد به یک سیستم برای تست محلی دسترسی خواهد داشت.
+
+### ممیزی و یافته‌ها
+- PR #31 و diff کامل آن دوباره بررسی شد: private media، owner-only signature، ticket mutation و POST+CSRF اعلان.
+- در `Center.save()` ایجاد خودکار TreatmentManagement پیش از ذخیره Center و بدون مرز تراکنش واحد مشاهده شد؛ در شکست درج Center امکان باقی‌ماندن TreatmentManagement یتیم وجود داشت.
+- در `assign_contractor_to_center` دو decorator متوالی `transaction.atomic` مشاهده شد.
+- در فهرست دارایی، URL چاپ `request.GET.urlencode` را بدون `?` به مسیر اضافه می‌کرد؛ view نیز فیلترهای فهرست را در خروجی چاپ اعمال نمی‌کرد.
+
+### تغییرات remote
+- PR #32: https://github.com/moghasemi/ITAM/pull/32 — شاخه `fix/center-save-atomicity`، base=PR #31، head `60c7337e12d235c56c3925e56422f0fa5618bd7b`.
+  - `Center.save()` اتمیک شد.
+  - regression test rollback افزوده شد.
+  - decorator تکراری assignment حذف شد.
+  - CI run `44543874381`: 5/5 job موفق.
+- PR #33: https://github.com/moghasemi/ITAM/pull/33 — شاخه `fix/asset-label-print-filters`، base=PR #30، head `f04726b4273466dae9f1df0c932639da0c177b67`.
+  - queryset مشترک فیلترهای فهرست/چاپ.
+  - اصلاح query string و regression test.
+  - CI run `44544201157` در زمان ثبت این ورودی در حال اجرا بود.
+
+### آماده‌سازی تست
+- Runbook سه‌ساعته `18_LOCAL_UAT_RUNBOOK_2026-11-19.md` ایجاد شد.
+- دو شاخه به‌صورت جداگانه تست می‌شوند؛ PR #32 و #33 ancestry متفاوت دارند و نباید در یک checkout با هم ترکیب شوند.
+- هیچ checkout/switch روی سیستم کاربر انجام نشده؛ وضعیت working tree و DB محلی هنوز نامعلوم است.
+- هیچ migration، seed، reconciliation apply، DB mutation، Outbox dispatch، merge یا deploy انجام نشده است.
