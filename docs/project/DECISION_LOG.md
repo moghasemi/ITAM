@@ -223,3 +223,13 @@
 - **یافته‌های مشترک:** badgeهای legacy، th بدون scope، ستون عملیات بدون نام و table wrapper فاقد keyboard-focus/accessible region.
 - **یافته بازدید:** stat-grid/stat-card از لایه قدیمی استفاده می‌کند و باید از نظر تناسب با Metronic بررسی شود.
 - **اقدام:** اصلاح صفحه‌محور با تست رگرسیون؛ URL، workflow و permissionها حفظ شوند.
+
+
+## D-2026-11-19-009 — همسان‌سازی Metronic در فهرست تیکت و بازدید
+- **تاریخ:** 2026-11-19
+- **وضعیت:** Implemented در PR Draft؛ CI/browser acceptance: Open
+- **دامنه:** `tickets/ticket_list.html` و `maintenance/visit_list.html`.
+- **تصمیم:** badgeهای وضعیت و SLA با kt-badge، جدول‌ها با scope و region قابل فوکوس، CTAها با kt-btn/Keenicons و کارت‌های خلاصه بازدید با kt-card پیاده‌سازی شوند. progress بازدید با kt-progress و ARIA ارائه شود.
+- **پیاده‌سازی:** PR #29، branch `ui/ticket-visit-list-ux`، head `1af7dc3baca79e50a30421538bdbb375114e6af8`، base PR #28.
+- **تست:** تست‌های قراردادی برای badge/table/stat/progress اضافه شده؛ CI run `44511550010` در حال اجرا هنگام ثبت.
+- **مرز ایمنی:** URL، model، permission، workflow و DB تغییر نکرده‌اند؛ browser UAT باز است.
