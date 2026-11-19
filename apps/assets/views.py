@@ -194,7 +194,7 @@ class AssetCreateView(AdminItRequiredMixin, BaseCreateView):
     form_class = AssetForm
     template_name = "assets/asset_form.html"
     page_title = "ثبت دارایی جدید"
-    active_menu = "assets"
+    active_menu = "assets_new"
     success_url_name = "assets:detail"
     success_message = "دارایی ثبت شد."
 
@@ -619,7 +619,7 @@ class CategoryListView(CountryAdminRequiredMixin, BaseListView):
     model = AssetCategory
     template_name = "assets/category_list.html"
     page_title = "گونه‌های دارایی"
-    active_menu = "settings"
+    active_menu = "asset_categories"
     paginate_by = 30
 
     def get_queryset(self):
@@ -631,7 +631,7 @@ class CategoryCreateView(CountryAdminRequiredMixin, BaseCreateView):
     form_class = CategoryForm
     template_name = "assets/simple_form.html"
     page_title = "افزودن گونه دارایی"
-    active_menu = "settings"
+    active_menu = "asset_categories"
     success_url = reverse_lazy("assets:category_list")
     success_message = "گونه دارایی ثبت شد."
 
@@ -641,7 +641,7 @@ class CategoryUpdateView(CountryAdminRequiredMixin, BaseUpdateView):
     form_class = CategoryForm
     template_name = "assets/simple_form.html"
     page_title = "ویرایش گونه دارایی"
-    active_menu = "settings"
+    active_menu = "asset_categories"
     success_url = reverse_lazy("assets:category_list")
 
 
@@ -649,7 +649,7 @@ class ComponentTypeListView(CountryAdminRequiredMixin, BaseListView):
     model = ComponentType
     template_name = "assets/component_type_list.html"
     page_title = "گونه‌های قطعه سخت‌افزاری"
-    active_menu = "settings"
+    active_menu = "component_types"
     paginate_by = 40
 
     def get_queryset(self):
@@ -663,7 +663,7 @@ class ComponentTypeCreateView(CountryAdminRequiredMixin, BaseCreateView):
     form_class = ComponentTypeForm
     template_name = "assets/simple_form.html"
     page_title = "افزودن گونه قطعه"
-    active_menu = "settings"
+    active_menu = "component_types"
     success_url = reverse_lazy("assets:component_type_list")
     success_message = "گونه قطعه ثبت شد."
 
@@ -673,7 +673,7 @@ class ComponentTypeUpdateView(CountryAdminRequiredMixin, BaseUpdateView):
     form_class = ComponentTypeForm
     template_name = "assets/simple_form.html"
     page_title = "ویرایش گونه قطعه"
-    active_menu = "settings"
+    active_menu = "component_types"
     success_url = reverse_lazy("assets:component_type_list")
 
 
@@ -833,7 +833,7 @@ def hwagent_batch_import(request):
                 "centers": scoped_centers,
                 "selected_center": center,
                 "page_title": "نتیجه بارگذاری دسته‌ای HWAgent",
-                "active_menu": "assets",
+                "active_menu": "hwagent",
             },
         )
 
@@ -847,7 +847,7 @@ def hwagent_batch_import(request):
                 if request.user.center_id else None
             ),
             "page_title": "بارگذاری دسته‌ای فایل‌های HWAgent",
-            "active_menu": "assets",
+            "active_menu": "hwagent",
         },
     )
 
