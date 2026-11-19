@@ -984,6 +984,33 @@ class AssetScopeAndRelationshipTests(TestCase):
             relation.full_clean()
 
 
+    def test_label_print_uses_the_same_filters_as_asset_list(self):
+        printer = Asset.objects.create(
+            asset_tag="SCOPE-PRN-FILTERED",
+            category=self.printer_category,
+            center=self.center_a,
+            title="چاپگر ویژه برای چاپ برچسب",
+        )
+        self.client.force_login(self.user)
+
+        list_response = self.client.get(reverse("assets:list"), {"q": "چاپگر ویژه"})
+        self.assertEqual(list_response.status_code, 200)
+        self.assertContains(
+            list_response,
+            f'{reverse("assets:label_print")}?q=',
+        )
+
+        print_response = self.client.get(
+            reverse("assets:label_print"),
+            {"q": "چاپگر ویژه"},
+        )
+        self.assertEqual(print_response.status_code, 200)
+        self.assertEqual(
+            [row["asset"].pk for row in print_response.context["rows"]],
+            [printer.pk],
+        )
+
+
 class OrganizationFormScopeTests(TestCase):
     def test_department_and_location_forms_only_offer_the_users_centers(self):
         from apps.org.forms import DepartmentForm, LocationForm
