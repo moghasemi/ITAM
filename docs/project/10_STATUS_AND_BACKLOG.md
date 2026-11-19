@@ -161,3 +161,8 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - فایل‌های یکسان: org/forms.py، org/load_iran_geography.py، org/services.py، org/tests_center_form.py، org/tests_iran_geography.py، reports/forms.py، reports/tests_scope.py، reports/views.py، tickets/views.py، config/urls.py و دو template مرکز/درخواست.
 - فایل‌های متفاوت شامل assets views/tests، core seed/private-media/security tests، maintenance services/views/tests، org/views و tickets/tests هستند.
 - نتیجه: PR #13 یک duplicate کامل نیست؛ یک شاخه partially overlapping و diverged است. هیچ تصمیم بستن یا حذف آن گرفته نشده؛ 13 فایل متفاوت باید از نظر رفتار/امنیت مقایسه شوند.
+### تکمیل ancestry — PRهای #10 تا #14
+- head بسته‌شده #10 ancestor شاخه #11 است (ahead 142 / behind 0)؛ بنابراین commitهای #10 در شاخه #11 و فرزند آن #14 حفظ شده‌اند و برای حفظ آن‌ها نیازی به re-open #10 نیست.
+- PR #12 در مقایسه با #14، 12/19 فایل با محتوای دقیقاً یکسان دارد و 7 فایل متفاوت؛ بخش‌هایی از تغییرات #12 جذب شده اما branch کامل redundant نیست.
+- PR #13 در مقایسه با #14، 12/25 فایل دقیقاً یکسان و 13 فایل متفاوت دارد؛ duplicate کامل نیست و mergeable=false/dirty باقی می‌ماند.
+- مسیر محتمل mainline از نظر ancestry: #7 → #8 → #9 → #11 → #14 → #15 → #16؛ #10 ancestor #11 است. #12/#13 فقط پس از reconcile کردن deltaهای مفقود قابل تعیین تکلیف‌اند.

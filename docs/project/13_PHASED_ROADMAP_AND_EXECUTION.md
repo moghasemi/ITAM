@@ -336,3 +336,25 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 بنابراین PR #13 را نباید duplicate کامل یا قابل حذف تلقی کرد. توصیف دقیق‌تر: شاخه‌ای diverged و partially overlapping است؛ 12 فایل دقیقاً جذب شده‌اند، اما 13 فایل نیازمند diff معنایی و تصمیم درباره نسخه مرجع هستند. تا پایان این تطبیق، #13 نه قابل Merge است و نه می‌توان آن را بدون ریسک بست.
 
 این اصلاحیه، برداشت اولیه «duplicate/stale candidate» را محدود می‌کند: فقط هم‌پوشانی قابل اثبات است؛ duplicate بودن کل PR اثبات نشده است.
+## تکمیل بررسی ancestry و هم‌پوشانی زنجیره #10 تا #14 — 2026-11-19
+
+### وضعیت واقعی PR #10
+- مقایسه commit نشان داد head PR #10 (cf7dcfc8f2cb79ad770cbd17dcf8dd1b2de7b832) ancestor مستقیم شاخه PR #11 است: مقایسه #10 → #11 برابر ahead 142 / behind 0 و merge-base همان head #10 است.
+- شاخه PR #14 نیز فرزند #11 است؛ بنابراین commitهای PR #10 در ancestry شاخه اصلی‌تر #11 → #14 حضور دارند. برای حفظ آن سه commit، بازکردن دوباره PR #10 لازم نیست؛ باید مراقب بود در بازتنظیم baseها از تاریخچه حذف نشوند.
+- فایل‌های CI، README-fa و SECURITY_OPERATIONS در #11 نسبت به #10 تغییرات تکمیلی دارند؛ محتوای آن‌ها یکسان نیست، اما commitهای #10 در تاریخچه حفظ شده‌اند.
+
+### میزان جذب تغییرات PR #12 در PR #14
+- از 19 فایل تغییرکرده PR #12، محتوای 12 فایل در head PR #14 دقیقاً یکسان است: assets/tests_access_control.py، core/tests_access_control.py، core/tests_seed_demo.py، core/tests_seed_sistan_demo.py، integrations/tests_access_control.py، integrations/views.py، org/tests_access_control.py، templates/base.html و چهار template قرارداد/پیمانکار.
+- 7 فایل در دو head متفاوت‌اند: apps/assets/views.py، apps/core/tests_private_media.py، apps/core/views.py، apps/maintenance/repair_services.py، apps/maintenance/tests.py، apps/maintenance/tests_repair_workflows.py و apps/org/views.py.
+- نتیجه: PR #14 بخش قابل توجهی از کد/تست #12 را جذب کرده، اما #12 کاملاً در #14 حل نشده است. هفت فایل متفاوت باید از نظر semantics، permission و workflow مقایسه شوند؛ PR #12 فعلاً نباید جداگانه Merge شود.
+
+### میزان جذب تغییرات PR #13 در PR #14
+- از 25 فایل PR #13، 12 فایل در دو head دقیقاً یکسان و 13 فایل متفاوت‌اند (فهرست تفصیلی در اصلاحیه قبلی همین سند آمده است).
+- نتیجه: #13 نیز به‌طور کامل duplicate نیست؛ 13 فایل متفاوت آن نیازمند diff معنایی است. به علت 7 commit عقب‌ماندگی و dirty بودن، Merge مستقیم آن ممنوع است.
+
+### مسیر محتمل ادغام پس از تکمیل ممیزی
+- مسیر اصلی فعلی از نظر ancestry: main → #7 → #8 → #9 → #11 → #14 → #15 → #16.
+- #10 به‌عنوان ancestor در شاخه #11 حفظ شده است.
+- تغییرات اختصاصی #12 و #13 باید با مسیر #14 تطبیق داده شوند؛ فقط deltaهای واقعاً مفقود و مورد تأیید به مسیر اصلی منتقل شوند، نه اینکه هر سه PR به شکل کور پشت سر هم Merge شوند.
+- #17 و #18 پس از #16 شاخه‌های موازی‌اند؛ زنجیره #19 تا #25 پس از #16 مسیر UI جداگانه را تشکیل می‌دهد.
+- این مسیر هنوز برنامه نهایی Merge نیست؛ ابتدا 7 فایل اختلاف #12/#14 و 13 فایل اختلاف #13/#14 و CI/required checks باید تعیین تکلیف شوند.
