@@ -174,3 +174,10 @@ run 44161472256 روی head PR #16: 5/5 job موفق؛ 375 تست Python 3.11/3.
 - بازدید: 12 header/12 cell و colspan درست؛ stat-card قدیمی، badge legacy، th بدون scope، action header بی‌نام و table wrapper فاقد keyboard focus باقی است.
 - لینک چاپ دارایی query string را بدون `?` به path می‌چسباند؛ view فقط ids/new را می‌خواند و فیلترهای دیگر را اعمال نمی‌کند. follow-up لازم است.
 - این‌ها static review هستند؛ browser acceptance و آزمون عملی responsive انجام نشده است.
+
+
+### پیاده‌سازی فهرست تیکت و بازدید — PR #29 (2026-11-19)
+- ticket list و visit list از badgeهای legacy به kt-badge منتقل شدند؛ جدول‌ها scope، action header label و keyboard-focus region گرفتند.
+- visit list: stat-cardهای قدیمی با kt-card و Keenicons جایگزین شدند؛ progress bar با `kt-progress` قابل‌دسترس جایگزین شد.
+- رنگ‌های آماری در dark mode به تفکیک معنا حفظ شده‌اند.
+- PR #29 head `1af7dc3baca79e50a30421538bdbb375114e6af8`؛ CI run `44511550010` در حال اجرا؛ browser acceptance باز.

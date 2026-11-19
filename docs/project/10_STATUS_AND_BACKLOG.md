@@ -311,3 +311,12 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - [x] تیکت و بازدید list به‌صورت static first-pass بررسی شدند.
 - [ ] اصلاح legacy badges و table accessibility در ticket/visit lists.
 - [ ] اصلاح link/query رفتار چاپ برچسب و آزمون واقعی چاپ.
+
+
+## وضعیت جدید UX/UI — 2026-11-19
+- [x] PR #26 منو: CI 5/5 موفق.
+- [x] PR #27 داشبورد: CI 5/5 موفق.
+- [x] PR #28 فهرست دارایی: CI 5/5 موفق؛ browser acceptance و query-count runtime باز.
+- [x] PR #29 تیکت/بازدید: ایجاد شد؛ CI در حال اجرا.
+- [ ] Browser acceptance، dark mode، responsive و keyboard برای صفحات اصلاح‌شده.
+- [ ] اصلاح جریان چاپ برچسب و حفظ فیلترها.

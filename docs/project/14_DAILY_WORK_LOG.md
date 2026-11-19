@@ -129,3 +129,25 @@
 - لینک چاپ برچسب در template، `request.GET.urlencode` را بدون علامت `?` به مسیر می‌چسباند؛ ضمن اینکه `label_print` فعلاً فقط `ids` و `new` را مصرف می‌کند و سایر فیلترهای فهرست را اعمال نمی‌کند. برای جلوگیری از ادعای چاپ فهرست فیلترشده، این رفتار باید جداگانه اصلاح و مستند شود.
 
 هیچ مرورگر واقعی، چاپ فیزیکی یا UAT نقش‌محور در این جلسه انجام نشد.
+
+
+### PR #28 و #29 — ادامه پیاده‌سازی UX/UI (2026-11-19)
+
+#### نتایج CI
+- PR #26 منو: 5/5 success.
+- PR #27 داشبورد: head `f5003339bff2f692d8177926ea9ddbedbfc75ced`، run `44509732686`، 5/5 success.
+- PR #28 فهرست دارایی: head `e974dc79ee17fa368d31ff3ce2453d676e415a7a`، run `44510515229`، 5/5 success؛ PR باز، Draft، mergeable=true.
+- آخرین CI مستندات پیش از این ثبت: run `44510837380`، 5/5 success.
+- PR #29 فهرست تیکت و بازدید: head `1af7dc3baca79e50a30421538bdbb375114e6af8`، run `44511550010` هنگام ثبت در حال اجرا؛ PR باز، Draft و mergeable=true.
+
+#### پیاده‌سازی PR #29
+- تبدیل badgeهای تیکت، SLA و بازدید به kt-badgeهای Metronic.
+- افزودن scope، نام ستون عملیات و table region قابل فوکوس در صفحه تیکت و بازدید.
+- تبدیل کارت‌های آماری بازدید به kt-card و آیکون‌های Keenicons؛ dark-mode رنگ‌های معنایی حفظ شده‌اند.
+- جایگزینی progress bar قدیمی در بازدید با component بومی kt-progress همراه با role و aria-valuenow.
+- تست‌های قراردادی برای table، badge، stat card و progress component افزوده شد.
+
+#### محدودیت‌ها
+- هیچ PR Merge نشده است.
+- browser/visual/responsive/keyboard acceptance واقعی انجام نشده است.
+- چاپ برچسب دارایی هنوز فیلترهای صفحه را به‌درستی اعمال نمی‌کند و URL query قبلی نیز نیازمند اصلاح است.

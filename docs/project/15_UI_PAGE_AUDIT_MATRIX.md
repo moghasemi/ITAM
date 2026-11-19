@@ -18,17 +18,17 @@
 | پوسته | sidebar | Metronic KT Menu و partial مستقل | CI verified در PR #26؛ browser open | آزمون نقش‌ها، active state، collapse و mobile drawer |
 | پوسته | header/footer/base | پوسته Metronic | Not reviewed در این دور | بررسی header search، notification dropdown، user menu، center selector |
 | داشبورد | `core/dashboard.html` | kt-card، kt-btn، ApexCharts و CSS ترکیبی | CI verified در PR #27؛ browser open | role gating، native badge، table regions، chart text alternative؛ visual acceptance باقی است |
-| دارایی | `assets/asset_list.html` | Metronic migration contract | PR #28 in progress | 12 سرستون/11 سلول؛ مرکز غایب، colspan اشتباه، badge legacy، scope و N+1 احتمالی؛ PR28 اصلاح اولیه را انجام می‌دهد |
+| دارایی | `assets/asset_list.html` | Metronic kt-table/kt-badge/kt-btn | CI verified در PR #28؛ browser open | 12 ستون هم‌تراز، مرکز اضافه، colspan=12، badge native، region و prefetch؛ query-count runtime و browser acceptance باز |
 | دارایی | `assets/asset_detail.html` | Metronic migration contract | Not reviewed | تب‌ها، timeline، پیوست، snapshot، action permissions |
 | دارایی | `assets/asset_form.html` | Metronic migration contract | Not reviewed | گروه‌بندی فرم، validation، dependent fields |
 | دارایی | `assets/category_list.html` و `assets/component_type_list.html` | Metronic migration contract | Not reviewed | taxonomy، search، empty state |
 | دارایی | `assets/attachment_form.html` | Metronic migration contract | Not reviewed | upload feedback، file constraints |
 | دارایی | snapshot detail/form/pending/start | Metronic migration contract | Not reviewed | تفاوت نقش مشاهده/تأیید، diff و state |
 | دارایی | hardware report و HWAgent upload/batch import | Metronic migration contract | Not reviewed | پیام خطا، batch progress، نتیجه import |
-| تیکت | `tickets/ticket_list.html` | Metronic migration contract | Static reviewed (first pass) | 12 ستون هم‌تراز؛ badge legacy، th scope و table region هنوز لازم است |
+| تیکت | `tickets/ticket_list.html` | Metronic kt-table/kt-badge/kt-btn | PR #29 in progress | scope، region، badge native و CTAهای Metronic؛ browser acceptance باز |
 | تیکت | `tickets/ticket_detail.html` | Metronic migration contract | Not reviewed | گردش‌کار، timeline، تأییدها، قطعه و پیوست |
 | تیکت | `tickets/ticket_form.html` و `tickets/my_tickets.html` | Metronic migration contract | Not reviewed | فرم و کارتابل کاربر |
-| نگهداری | visit list/detail/form و my visits | Metronic migration contract | Static reviewed (visit list first pass) | 12 ستون هم‌تراز؛ stat-card و badge legacy، th scope و table region لازم است |
+| نگهداری | visit list/detail/form و my visits | Metronic kt-card/kt-progress/kt-badge | PR #29 in progress (visit list) | کارت آماری و progress native؛ scope/region و badgeها اصلاح شده؛ browser acceptance باز |
 | نگهداری | IT request، repair، workflow list/form، check form | Metronic migration contract | Not reviewed | تفکیک کارتابل‌ها، action permissions و فرم‌های گردش‌کار |
 | سازمان | center list، department list، location list، simple form | Metronic migration contract | Not reviewed | سلسله‌مراتب، فیلتر و فرم‌های وابسته |
 | قرارداد | contract list/detail/form، contractor list/detail/form، assignment list/form | Metronic migration contract | Not reviewed | تاریخ اعتبار، وضعیت قرارداد، انتساب و دسترسی |
@@ -71,3 +71,11 @@
 - PR #27 head `f5003339bff2f692d8177926ea9ddbedbfc75ced`: 5/5 job success؛ browser acceptance open.
 - PR #28 head `e974dc79ee17fa368d31ff3ce2453d676e415a7a`: CI run `44510515229` در حال اجرا.
 - Ticket list و visit list static first-pass شدند؛ هر دو 12 ستون هم‌تراز دارند، اما badgeهای legacy و accessibility جدول‌ها نیازمند اصلاح‌اند.
+
+
+### وضعیت CI و PRها — 2026-11-19
+- PR #26: 5/5 success.
+- PR #27: 5/5 success.
+- PR #28: 5/5 success.
+- PR #29: CI run `44511550010` در حال اجرا؛ browser acceptance همه صفحات باز است.
+- Docs run `44510837380`: 5/5 success.
