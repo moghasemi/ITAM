@@ -415,6 +415,9 @@ class MetronicAssetListUXTests(SimpleTestCase):
     def test_asset_list_columns_are_aligned_and_accessible(self):
         source = Path(get_template("assets/asset_list.html").origin.name).read_text(encoding="utf-8")
         self.assertEqual(source.count('<th scope="col"'), 12)
+        row = re.search(r"{% for asset in object_list %}(.*?)</tr>", source, re.S)
+        self.assertIsNotNone(row)
+        self.assertEqual(row.group(1).count("<td"), 12)
         self.assertIn('{{ asset.center.name|default:"—" }}', source)
         self.assertIn('{{ asset.department.name|default:"—" }}', source)
         self.assertIn('colspan="12"', source)

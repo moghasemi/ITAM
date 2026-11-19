@@ -49,8 +49,8 @@
           <td><span class="kt-badge kt-badge-sm kt-badge-{{ asset.tickets_total|yesno:'warning,neutral'|metronic_badge_variant }}">{{ asset.tickets_total|fa }}</span></td>
           <td><span class="kt-badge kt-badge-sm kt-badge-{{ asset.status_css|metronic_badge_variant }}">{{ asset.get_status_display }}</span></td>
           <td class="table-actions">
-            <a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'assets:detail' asset.pk %}">شناسنامه</a>
-            <a class="btn kt-btn kt-btn-light btn-ghost btn-sm" href="{% url 'tickets:create' %}?asset={{ asset.pk }}">اعلام خرابی</a>
+            <a class="kt-btn kt-btn-light kt-btn-sm" href="{% url 'assets:detail' asset.pk %}"><i class="ki-filled ki-eye" aria-hidden="true"></i> شناسنامه</a>
+            <a class="kt-btn kt-btn-light kt-btn-sm" href="{% url 'tickets:create' %}?asset={{ asset.pk }}"><i class="ki-filled ki-plus-circle" aria-hidden="true"></i> اعلام خرابی</a>
           </td>
         </tr>
       {% empty %}
