@@ -23,6 +23,8 @@
 - [راهنمای عامل هوش مصنوعی](project/11_AI_AGENT_RULES.md)
 - [استاندارد مشارکت و کدنویسی](project/12_CONTRIBUTING_AND_CODING_STANDARDS.md)
 
+- [دفتر ثبت روزانه فعالیت‌ها](project/14_DAILY_WORK_LOG.md)
+
 ## اسناد تخصصی موجود
 - [معماری سازمانی و امنیت](ENTERPRISE_ARCHITECTURE_AND_SECURITY.md)
 - [عملیات امنیتی](SECURITY_OPERATIONS.md)

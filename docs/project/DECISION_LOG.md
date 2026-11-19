@@ -161,3 +161,20 @@
 - **دامنه:** endpointهای تعمیر مستقل، feedback/referral/general IT request، maintenance visits، asset snapshot/attachments/HWAgent، contract assignment، user management و reports.
 - **نتیجه مثبت:** در endpointهای مرورشده، کنترل‌های نقش/دامنه یا service-level checks برای عملیات حساس مشاهده شد؛ از جمله resolve referral، manager decision، assign/resolve general IT، تعمیر مستقل، بازدید، snapshot و مدیریت کاربر. گزارش‌های بررسی‌شده از StaffRequiredMixin و querysets محدودشده به scope استفاده می‌کنند.
 - **محدودیت:** بررسی static و نمونه‌ای بود؛ تمام endpointها، role combinations، export columns، URL methods، CSRF، rate limits و runtime behavior پوشش داده نشدند. نتیجه مثبت، تأیید جامع امنیت نیست.
+
+
+## D-2026-11-19-004 — دفتر روزانه و استاندارد اجباری UX/UI و اولویت بازطراحی منو
+- **تاریخ:** 2026-11-19
+- **وضعیت:** Accepted برای فرایند و مستندسازی؛ پیاده‌سازی منو و پذیرش صفحات: Open
+- **تصمیم‌گیرنده:** مالک پروژه
+- **زمینه:** نیاز به ثبت قابل ردیابی فعالیت‌های روزانه، ارتقای کیفیت UX/UI و رفع گروه‌بندی نامنسجم منوی اصلی.
+- **تصمیم‌ها:**
+  1. دفتر روزانه append-only در `docs/project/14_DAILY_WORK_LOG.md` ایجاد شود و پس از هر جلسه کاری معنادار به‌روز شود.
+  2. هر صفحه پیش از/حین تغییر، با معیارهای UX/UI و تناسب قابلیت‌های Metronic ارزیابی شود؛ صرف وجود یک کامپوننت یا تعداد زیاد کامپوننت معیار کیفیت نیست.
+  3. بازطراحی منوی اصلی در اولویت P0 فاز یک قرار گیرد؛ ابتدا ماتریس نقش/URL/permission/active_menu استخراج شود، سپس گروه‌بندی و active state اصلاح شود.
+  4. تغییر منو نباید URL، authorization، queryset scope یا workflow را تغییر دهد؛ هر تغییر با regression test و CI همراه باشد.
+  5. گزارش‌ها باید static review، پیاده‌سازی، CI و browser acceptance را از هم تفکیک کنند.
+- **شواهد اولیه:** بازبینی static `templates/base.html` در branch `ui/metronic9-django-rtl`، SHA فایل `d5c0bdab5cf7c3d7a8c8d3439909a8fb5249735f` در 2026-11-19. گروه‌بندی چند حوزه ناهمگون و کلیدهای تکراری `active_menu='repairs'` مشاهده شد.
+- **دامنه مجاز:** مستندسازی و ایجاد شاخه/PR برای تغییرات مستند و آزمون‌پذیر.
+- **خارج از دامنه:** Merge، Deploy، Migration، Seed، reconciliation apply، DB mutation و تغییر مجوزهای backend بدون تصمیم جداگانه.
+- **پیامد:** بازبینی UX/UI و نظم منو از این پس معیار Definition of Done تغییرات UI خواهد بود.
