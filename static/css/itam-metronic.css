@@ -281,7 +281,7 @@ body.itam-sidebar-collapsed .itam-sidebar-collapse i{transform:rotate(180deg)}
 .itam-dashboard-table{width:100%;min-width:520px}
 .itam-dashboard-table th,.itam-dashboard-table td{white-space:nowrap;vertical-align:middle}
 .itam-dashboard-table td{font-size:10px}
-.itam-dashboard-table .badge{display:inline-flex;align-items:center;white-space:nowrap}
+.itam-dashboard-table .kt-badge{display:inline-flex;align-items:center;white-space:nowrap}
 .itam-dashboard-link{color:#2866c7;font-weight:750}
 .itam-dashboard-link:hover{color:#174b9c;text-decoration:underline}
 .itam-dashboard-mono{font-variant-numeric:tabular-nums}
