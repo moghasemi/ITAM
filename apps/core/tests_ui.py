@@ -10,7 +10,7 @@ from unittest.mock import Mock
 from django.test import SimpleTestCase
 
 from apps.core.context_processors import site_context
-from apps.core.templatetags.itam_tags import filter_metronic_badge_variant
+from apps.core.templatetags.itam_tags import filter_metronic_badge_variant, metronic_progress_bar
 
 
 class MetronicTemplateCompilationTests(SimpleTestCase):
@@ -434,3 +434,36 @@ class MetronicAssetListUXTests(SimpleTestCase):
         view_source = Path(__file__).resolve().parents[1].joinpath("assets", "views.py").read_text(encoding="utf-8")
         self.assertIn("asset.components_count", source)
         self.assertIn('.prefetch_related("current_snapshot__items")', view_source)
+
+
+class MetronicTicketAndVisitListUXTests(SimpleTestCase):
+    def test_ticket_list_uses_accessible_metronic_table_and_badges(self):
+        source = Path(get_template("tickets/ticket_list.html").origin.name).read_text(encoding="utf-8")
+        self.assertIn('role="region" tabindex="0" aria-label="جدول درخواست‌های خرابی', source)
+        self.assertEqual(source.count('<th scope="col"'), 12)
+        self.assertIn('aria-label="عملیات"', source)
+        self.assertIn('kt-badge kt-badge-sm', source)
+        self.assertNotIn('class="badge', source)
+
+    def test_visit_list_uses_metronic_stat_cards_and_accessible_table(self):
+        source = Path(get_template("maintenance/visit_list.html").origin.name).read_text(encoding="utf-8")
+        self.assertIn('class="kt-card itam-ops-stat-card', source)
+        self.assertIn('role="region" tabindex="0" aria-label="جدول بازدیدهای دوره‌ای', source)
+        self.assertEqual(source.count('<th scope="col"'), 12)
+        self.assertIn('aria-label="عملیات"', source)
+        self.assertIn('kt-badge kt-badge-sm', source)
+        self.assertNotIn('class="badge', source)
+
+
+class MetronicProgressComponentTests(SimpleTestCase):
+    def test_visit_progress_uses_accessible_metronic_component(self):
+        html = str(metronic_progress_bar(3, 4, "پیشرفت بازدید"))
+        self.assertIn('class="kt-progress kt-progress-primary"', html)
+        self.assertIn('role="progressbar"', html)
+        self.assertIn('aria-valuenow="75"', html)
+        self.assertIn('aria-label="پیشرفت بازدید"', html)
+        self.assertIn('width:75.0%', html)
+
+    def test_zero_total_progress_is_safe(self):
+        html = str(metronic_progress_bar(0, 0))
+        self.assertIn('aria-valuenow="0"', html)
