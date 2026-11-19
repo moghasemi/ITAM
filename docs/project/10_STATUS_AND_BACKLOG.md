@@ -302,3 +302,12 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - [x] ثبت gapهای badge، scope و table accessibility.
 - [ ] اصلاح در PR مستقل stacked بر PR #27.
 - [ ] تست هم‌ترازی ستون‌ها و query count برای جلوگیری از N+1.
+
+
+## وضعیت PRهای UX/UI و ممیزی صفحات — 2026-11-19
+- [x] PR #26 منو: CI 5/5 success؛ browser acceptance باز.
+- [x] PR #27 داشبورد: CI 5/5 success روی head `f5003339bff2f692d8177926ea9ddbedbfc75ced`؛ browser acceptance باز.
+- [x] PR #28 فهرست دارایی: ایجاد شد؛ CI run `44510515229` در حال اجرا.
+- [x] تیکت و بازدید list به‌صورت static first-pass بررسی شدند.
+- [ ] اصلاح legacy badges و table accessibility در ticket/visit lists.
+- [ ] اصلاح link/query رفتار چاپ برچسب و آزمون واقعی چاپ.

@@ -166,3 +166,11 @@ run 44161472256 روی head PR #16: 5/5 job موفق؛ 375 تست Python 3.11/3.
 - جدول باید center و department/location را در دو سلول مستقل نشان دهد، 12 ستون را در empty state حفظ کند، th scope و action label داشته باشد و table region برای صفحه‌کلید نام‌گذاری شود.
 - احتمال N+1 در شمارش قطعات دارایی به علت property `components_count` و نبود prefetch برای `current_snapshot__items`؛ هنوز runtime query count اندازه‌گیری نشده است.
 - وضعیت: Static reviewed؛ کد هنوز تغییر نکرده است.
+
+
+### ادامه بازبینی صفحه‌به‌صفحه — فهرست دارایی، تیکت و بازدید (2026-11-19)
+- فهرست دارایی: 12 header/11 cell و empty colspan=11؛ PR #28 ستون مرکز، هم‌ترازی، badge بومی Metronic، table region و prefetch را اصلاح می‌کند.
+- تیکت: 12 header/12 cell و colspan درست؛ badgeهای legacy، th بدون scope، action header بی‌نام و table wrapper فاقد keyboard focus باقی است.
+- بازدید: 12 header/12 cell و colspan درست؛ stat-card قدیمی، badge legacy، th بدون scope، action header بی‌نام و table wrapper فاقد keyboard focus باقی است.
+- لینک چاپ دارایی query string را بدون `?` به path می‌چسباند؛ view فقط ids/new را می‌خواند و فیلترهای دیگر را اعمال نمی‌کند. follow-up لازم است.
+- این‌ها static review هستند؛ browser acceptance و آزمون عملی responsive انجام نشده است.

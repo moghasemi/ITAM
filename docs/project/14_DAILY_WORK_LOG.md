@@ -110,3 +110,22 @@
 - **یافته consistency/accessibility:** badgeهای وضعیت هنوز legacy هستند؛ thها scope ندارند و ستون عملیات نام ندارد.
 - **ریسک کارایی احتمالی:** `visible_assets`، category/contract/department/location/custodian/center را select_related می‌کند اما current_snapshot/items را prefetch نمی‌کند؛ `components_count` برای هر ردیف از related manager count می‌گیرد. این یک N+1 محتمل است و باید با query-count test تأیید شود.
 - **اقدام بعدی:** PR مستقل برای اصلاح ساختار ستون‌ها، native Metronic badges، accessibility و prefetch بهینه؛ هیچ کدی در این بازبینی تغییر نکرد.
+
+
+### نتیجه CI و ادامه ممیزی صفحات — 2026-11-19
+
+#### CI و PRها
+- PR #26 head `4abb2a2d86ea2c90a14663f8c204e22fb0059e16`: push و pull_request هر دو 5/5 success.
+- PR #27 head فعلی `f5003339bff2f692d8177926ea9ddbedbfc75ced`: push run `44509732686`، 5/5 success؛ PR باز، Draft و mergeable=true.
+- PR #28: https://github.com/moghasemi/ITAM/pull/28، branch `ui/asset-list-alignment-ux`، head `e974dc79ee17fa368d31ff3ce2453d676e415a7a`، base PR #27؛ CI run `44510515229` هنگام ثبت در حال اجرا.
+- آخرین commit مستندات تا این لحظه `e5edbad6c9331ca546257517e56b7e55a1c85253`: CI run `44510194516`، 5/5 success.
+
+#### صفحات تیکت و بازدید — مرور ایستا اولیه
+- `templates/tickets/ticket_list.html`: 12 header، 12 cell در ردیف، colspan=12؛ mismatch ساختاری مشابه asset list مشاهده نشد. badgeهای legacy، th بدون scope، header عملیات بدون نام و table wrapper بدون keyboard region باقی‌اند.
+- `templates/maintenance/visit_list.html`: 12 header و 12 cell و colspan=12؛ stat-grid/stat-card قدیمی، badgeهای legacy، th بدون scope، header عملیات بدون نام و table wrapper بدون keyboard region.
+- filter bar و pagination مشترک استفاده می‌شوند؛ بررسی کامل widget styling، فیلترها و browser behavior هنوز باز است.
+
+#### یافته تکمیلی فهرست دارایی
+- لینک چاپ برچسب در template، `request.GET.urlencode` را بدون علامت `?` به مسیر می‌چسباند؛ ضمن اینکه `label_print` فعلاً فقط `ids` و `new` را مصرف می‌کند و سایر فیلترهای فهرست را اعمال نمی‌کند. برای جلوگیری از ادعای چاپ فهرست فیلترشده، این رفتار باید جداگانه اصلاح و مستند شود.
+
+هیچ مرورگر واقعی، چاپ فیزیکی یا UAT نقش‌محور در این جلسه انجام نشد.
