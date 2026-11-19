@@ -402,3 +402,12 @@ PRهای #17 (مستندات) و #18 (private media و scope انتساب پیم
 - GitHub Reviews، inline review comments و conversation comments برای PRهای #7 تا #25 بررسی شدند؛ در snapshot هیچ‌کدام رکوردی نداشتند.
 - نبود review یا comment، به معنی تأیید کد نیست و جایگزین بازبینی مستقل diffها نمی‌شود.
 - آخرین commit handbook در این دور `d54eba7b8cbd505723bd1ff14ea63e15e6c7b8a9` است؛ push run `44496497082` و pull_request run `44496504493` هر دو 5/5 job موفق دارند.
+
+
+### 25. مرور تکمیلی endpointها و اعلان‌ها — 2026-11-19
+
+- endpointهای تعمیر مستقل، بازخورد، ارجاع، درخواست عمومی IT، بازدید، snapshot، پیوست دارایی، HWAgent، انتساب پیمانکار، مدیریت کاربران و گزارش‌ها به‌صورت static مرور شدند.
+- در عملیات حساس مرورشده، کنترل‌های نقش/دامنه یا service-level authorization وجود داشتند؛ این یک نتیجه محدود به endpointهای بررسی‌شده است و ادعای پوشش کامل نیست.
+- گزارش‌های مرورشده از StaffRequiredMixin و querysetهای scope-aware استفاده می‌کنند.
+- یافته P3: `notification_read` با GET اجرا و state را با `mark_read()` تغییر می‌دهد؛ لینک template نیز anchor/GET است. باید به POST+CSRF منتقل شود و تست GET-no-mutation اضافه شود.
+- این دور فقط بررسی ایستا و مستندسازی بود؛ هیچ endpoint عملیاتی، migration، seed، DB یا reconciliation اجرا نشد.

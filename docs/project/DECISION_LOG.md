@@ -145,3 +145,19 @@
 - **یافته:** PRهای #17 و #18 با زنجیره #19 تا #25 هیچ مسیر فایل تغییرکرده مشترکی ندارند. هم‌پوشانی فایل در PRهای #20 تا #25 و #19/#24 در مسیر UI ناشی از تغییرات حمل‌شده در ancestry شاخه‌های فرزند است.
 - **تصمیم:** #17 و #18 از نظر path-level conflict با زنجیره UI برخورد مستقیمی ندارند؛ اما base/ancestry، compare commit و CI باید پیش از retarget یا merge مجدداً بررسی شوند.
 - **محدودیت:** اسکن filename به‌تنهایی نبود conflict معنایی یا dependency را ثابت نمی‌کند.
+
+
+## D-2026-11-19-013 — تغییر وضعیت اعلان از طریق GET
+- **تاریخ:** 2026-11-19
+- **وضعیت:** یافته code review؛ اصلاح Open
+- **شواهد:** `apps/core/views.py::notification_read` با `@login_required` محافظت می‌شود، اما محدودیت متد ندارد و پس از resolve کردن اعلان متعلق به همان کاربر، `notification.mark_read()` را اجرا می‌کند. لینک `templates/core/notification_list.html` نیز از طریق anchor و GET به این مسیر می‌رود.
+- **اثر:** crawler، browser prefetch یا link preview ممکن است وضعیت اعلان را بدون قصد کاربر تغییر دهد. این مورد در درجه اول تمامیت/رفتار HTTP است و شدت اولیه P3.
+- **تصمیم اصلاحی:** عملیات mark-read با POST و CSRF انجام شود؛ یا GET فقط redirect/display کند و POST جداگانه تغییر وضعیت را انجام دهد. تست GET-no-mutation و POST-success اضافه شود.
+- **محدودیت:** اجرای واقعی crawler/prefetch آزمایش نشده است؛ ریسک از semantics متد و کد فعلی استنتاج شده است.
+
+## D-2026-11-19-014 — مرور تکمیلی endpointهای عملیاتی و گزارش‌ها
+- **تاریخ:** 2026-11-19
+- **وضعیت:** زیرکار static review تکمیل شد؛ پوشش جامع Open
+- **دامنه:** endpointهای تعمیر مستقل، feedback/referral/general IT request، maintenance visits، asset snapshot/attachments/HWAgent، contract assignment، user management و reports.
+- **نتیجه مثبت:** در endpointهای مرورشده، کنترل‌های نقش/دامنه یا service-level checks برای عملیات حساس مشاهده شد؛ از جمله resolve referral، manager decision، assign/resolve general IT، تعمیر مستقل، بازدید، snapshot و مدیریت کاربر. گزارش‌های بررسی‌شده از StaffRequiredMixin و querysets محدودشده به scope استفاده می‌کنند.
+- **محدودیت:** بررسی static و نمونه‌ای بود؛ تمام endpointها، role combinations، export columns، URL methods، CSRF، rate limits و runtime behavior پوشش داده نشدند. نتیجه مثبت، تأیید جامع امنیت نیست.

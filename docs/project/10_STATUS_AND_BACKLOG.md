@@ -227,3 +227,16 @@ Windows HWAgent، backup/restore، TLS/reverse proxy، private media، monitorin
 - [x] Conversation comments در issue thread PRهای #7 تا #25: صفر مورد.
 - [x] CI آخرین commit handbook `d54eba7b8cbd505723bd1ff14ea63e15e6c7b8a9`: push run `44496497082` و pull_request run `44496504493`، هر دو 5/5 job success.
 - **تفسیر:** نبود reviewها نشانه تأیید کد نیست؛ تمام PRها هنوز به review مستقل محتوایی و تعیین ترتیب merge نیاز دارند.
+
+
+## ممیزی endpointهای عملیاتی — 2026-11-19
+
+- [x] بررسی static مسیرهای maintenance، assets/HWAgent، org/contract assignments، accounts، reports و notifications.
+- [x] تایید وجود service-level checks برای عملیات اصلی تعمیر مستقل، بازخورد، ارجاع، درخواست عمومی IT، بازدید و snapshot در مسیرهای مرورشده.
+- [x] بررسی exportها: گزارش‌های مرورشده از StaffRequiredMixin و querysets scope-aware مانند visible_assets، visible_tickets، visible_visits، visible_repair_requests استفاده می‌کنند.
+- **P3 باز:** `notification_read` از طریق لینک GET اجرا می‌شود و `mark_read()` را صدا می‌زند؛ GET باعث تغییر وضعیت می‌شود. اصلاح با POST+CSRF و تست عدم تغییر در GET پیشنهاد می‌شود.
+- [ ] اصلاح P3 notification state change.
+- [ ] اصلاح سه یافته P2 ثبت‌شده در D-009 و D-010 و D-011.
+- [ ] ادامه بررسی همه exportها و ماتریس نقش‌ها؛ بررسی فعلی نمونه‌ای/ایستا است.
+
+**نتیجه:** در مسیرهای مرورشده شکاف P1 جدیدی مشاهده نشد؛ این گزاره جایگزین ممیزی کامل یا تست اجرایی نیست.

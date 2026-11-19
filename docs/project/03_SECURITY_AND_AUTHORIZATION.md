@@ -84,3 +84,12 @@ superuser بودن مجوز حذف شواهد یا bypass قواعد محصول 
 ### نتیجه file-path overlap شاخه‌ها
 
 اسکن filenameهای تغییرکرده نشان داد PR #17 و #18 با PRهای #19 تا #25 مسیر مشترک ندارند. هم‌پوشانی #20 تا #25 و #19/#24 در زنجیره UI از ancestry شاخه‌های فرزند ناشی می‌شود. این بررسی به‌تنهایی نبود conflict معنایی یا مجوز merge را ثابت نمی‌کند.
+
+
+## یافته تکمیلی: متد HTTP اعلان‌ها — P3
+
+در `apps/core/views.py::notification_read`، endpoint پس از اطمینان از تعلق اعلان به کاربر جاری، `mark_read()` را اجرا می‌کند؛ اما متد HTTP را به POST محدود نمی‌کند. template فهرست اعلان‌ها نیز آن را با anchor/GET فراخوانی می‌کند. تغییر state از طریق GET با semantics امن HTTP سازگار نیست و ممکن است با prefetch یا link preview رخ دهد. اصلاح: POST+CSRF و تست عدم تغییر با GET.
+
+### نتایج مثبت از مرور static endpointها
+
+در مسیرهای مرورشده در maintenance، assets/HWAgent، org، accounts و reports، کنترل‌های scope/role و service-level checks برای بسیاری از عملیات حساس مشاهده شد. این نتیجه صرفاً به دامنه بررسی‌شده محدود است؛ ممیزی جامع exportها، همه ترکیب نقش‌ها و UAT اجرایی همچنان باز است.
