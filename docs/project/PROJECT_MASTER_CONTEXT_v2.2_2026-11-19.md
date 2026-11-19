@@ -532,3 +532,17 @@ PRهای #17 (مستندات) و #18 (private media و scope انتساب پیم
 - بستن کامل فاز صفر هنوز منوط به تصمیم ادغام #14/#15، تعیین تکلیف #12/#13، مجوز Branch Protection و مرور P3های باقیمانده است.
 - پذیرش محلی شامل مرورگر، چاپ، HWAgent ویندوز، Reverse Proxy/TLS و Backup/Restore مستقل باقی می‌ماند.
 - مرجع تفصیلی: `docs/project/17_PHASE0_INTEGRATION_AUDIT.md`.
+
+
+### 26.1. تکمیل CI و بازبینی Review metadata
+- commit مستندات در PR #17: `720a8456b3694504a40866dd87ed3c08b7745afb`؛ CI run `44541718233` با 5/5 job موفق.
+- متادیتای هر 24 PR باز بررسی شد: هیچ Review Submission و هیچ Inline Review Thread وجود ندارد؛ بنابراین هیچ PRی approval رسمی ثبت‌شده ندارد.
+- در PRهای #26 تا #31 نیز conversation comments صفر بود.
+- نتیجه CI جاری: 23 از 24 PR باز سبز؛ فقط PR #14 قرمز است.
+
+### 26.2. تنظیمات امنیتی Production و Proxy
+- Production نیازمند `DEBUG=False`، `ITAM_SECRET_KEY` تصادفی حداقل 50 نویسه، `ITAM_ALLOWED_HOSTS` صریح و بدون wildcard و PostgreSQL است.
+- کوکی‌های Session و CSRF به‌صورت پیش‌فرض Secure هستند؛ Session HttpOnly است و CSRF cookie عمداً برای خواندن توکن توسط JS، HttpOnly نیست.
+- `TrustedProxyHeadersMiddleware` قبل از SecurityMiddleware هدرهای Forwarded را از peerهای غیر trusted حذف می‌کند؛ اعتماد بر اساس `ITAM_TRUSTED_PROXY_IPS` و استخراج client IP از سمت راست زنجیره XFF است.
+- HSTS در Production پشت proxy SSL به‌صورت پیش‌فرض یک‌ساله فعال می‌شود؛ SSL redirect پیش‌فرض خاموش است. IncludeSubDomains و Preload پیش‌فرض فعال‌اند و باید با دامنه واقعی تطبیق داده شوند.
+- Production settings CI موفق است؛ تست عملی proxy/TLS/HSTS همچنان محلی است.

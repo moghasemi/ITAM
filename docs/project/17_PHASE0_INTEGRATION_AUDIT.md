@@ -185,3 +185,24 @@ PR #31 با 8 فایل تغییرکرده، بدون Migration یا تغییر U
 **محلی:** تمام موارد بخش 10.
 
 مرجع نقشه‌راه: `13_PHASED_ROADMAP_AND_EXECUTION.md`؛ دفتر روزانه: `14_DAILY_WORK_LOG.md`؛ وضعیت: `10_STATUS_AND_BACKLOG.md`.
+
+
+## 12. بررسی نهایی CI مستندات و متادیتای Review
+
+- commit مستندات: `720a8456b3694504a40866dd87ed3c08b7745afb`.
+- PR #17 head جدید CI run `44541718233` هر پنج job را با موفقیت گذراند.
+- متادیتای تمام 24 PR باز بررسی شد: هیچ Review Submission و هیچ Inline Review Thread ثبت نشده است؛ بنابراین هیچ PRی از این مسیر approval رسمی ندارد.
+- conversation comments در PRهای #26 تا #31 نیز صفر بود.
+- نتیجه: 23 از 24 PR باز CI سبز دارند؛ تنها PR #14 قرمز است. PR #31 و head فعلی PR #17 سبز هستند.
+
+## 13. تنظیمات امنیتی Production و Reverse Proxy
+
+بازبینی static `config/settings.py` و `apps/core/middleware.py`:
+- در Production، `DEBUG=False`، `ITAM_SECRET_KEY` تصادفی با حداقل 50 نویسه و `ITAM_ALLOWED_HOSTS` صریح و بدون wildcard اجباری‌اند.
+- Production فقط PostgreSQL را می‌پذیرد؛ SQLite برای توسعه/دمو است.
+- کوکی‌های Session و CSRF به‌صورت پیش‌فرض Secure هستند؛ Session کوکی HttpOnly است. CSRF cookie عمداً HttpOnly نیست تا JS بتواند توکن را برای Fetch/AJAX بخواند.
+- `TrustedProxyHeadersMiddleware` قبل از `SecurityMiddleware` قرار دارد و هدرهای Forwarded را از peerهای غیرمجاز حذف می‌کند.
+- اعتماد به proxy بر اساس `ITAM_TRUSTED_PROXY_IPS` است؛ زنجیره X-Forwarded-For از راست به چپ پیمایش می‌شود و proxyهای trusted رد می‌شوند.
+- در Production با فعال بودن proxy SSL header، HSTS پیش‌فرض یک‌ساله می‌شود؛ `SECURE_SSL_REDIRECT` به‌صورت پیش‌فرض خاموش است و TLS termination باید در proxy درست تنظیم شود.
+- `ITAM_HSTS_INCLUDE_SUBDOMAINS` و `ITAM_HSTS_PRELOAD` پیش‌فرض True هستند؛ قبل از استقرار باید اطمینان حاصل شود تمام subdomainها HTTPS معتبر دارند.
+- CI مربوط به production settings موفق است؛ صحت IP پراکسی، TLS واقعی، host/origin و رفتار redirect/HSTS فقط در UAT محلی/محیط استقرار قابل تأیید است.

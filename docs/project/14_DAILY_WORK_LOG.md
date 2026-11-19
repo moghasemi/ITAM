@@ -279,3 +279,11 @@
 - [ ] تصمیم درباره راهبرد ادغام #14/#15 و تعیین تکلیف #12/#13.
 - [ ] تصمیم مالک درباره Branch Protection و Required Checks.
 - [ ] ادامه بررسی‌های P3 و آزمون نقش × عملیات؛ سپس UAT محلی.
+
+
+### الحاقیه 2026-11-19 — تأیید CI مستندات و بازبینی Review
+- آخرین commit PR #17: `720a8456b3694504a40866dd87ed3c08b7745afb`.
+- CI run `44541718233` هر پنج job را با موفقیت گذراند.
+- متادیتای تمام 24 PR باز بررسی شد؛ Review Submission و Inline Review Thread وجود ندارد. conversation comments در #26 تا #31 نیز صفر بود.
+- 23/24 PR باز CI سبز دارند؛ تنها #14 قرمز است.
+- تنظیمات Production و Trusted Proxy نیز static review شد: PostgreSQL اجباری، Secret Key/Allowed Hosts صریح، کوکی Secure، sanitize کردن forwarding headers و HSTS یک‌ساله پیش‌فرض. UAT پراکسی/TLS همچنان محلی است.
