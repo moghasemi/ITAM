@@ -1,0 +1,95 @@
+# امنیت و مجوزدهی
+
+## مدل تهدید
+تهدیدهای کلیدی: IDOR، scope bypass، role escalation، workflow bypass از Admin/API، تغییر Snapshot تأییدشده، حذف audit/outbox، پیمانکار خارج از قرارداد، افشای HWAgent token، SSRF و نشت private media.
+
+## Fail-closed
+هر عملیات باید بررسی کند:
+1. کاربر authenticated و active است.
+2. role مجاز است.
+3. سازمان/مرکز active و در scope است.
+4. رکورد متعلق به همان scope است.
+5. قرارداد و assignment معتبرند، اگر عملیات پیمانکاری است.
+6. workflow اجازه transition می‌دهد.
+
+scope نامعلوم، واحد inactive، قرارداد منقضی یا رابطه ناسازگار نباید به دسترسی منجر شود.
+
+## Queryset و object access
+- list/search فقط رکوردهای مجاز.
+- detail/update/delete از lookup scoped.
+- form choices فقط گزینه‌های مجاز؛ POST دوباره server-side validate.
+- export/dashboard/chart/notification/autocomplete همان scope.
+- ID معتبر به‌تنهایی مجوز نیست.
+- رکورد خارج از حوزه ترجیحاً 404؛ عملیات نامجاز در endpoint مجاز 403.
+
+## RBAC و سازمان
+برای تغییر role، permission یا get_scoped_centers():
+- ماتریس فعلی را از کد بخوانید.
+- empty scope و inactive unit را تست کنید.
+- cross-province و cross-county را پوشش دهید.
+- roleهای admin_province، admin_county، admin_it، manager، technician و requester را در سناریوهای مناسب بیازمایید.
+- menu visibility را با authorization backend اشتباه نگیرید.
+
+## Workflow و تمامیت
+- manager decision و assignment state مستقل.
+- user confirmation و IT final approval مستقل.
+- stale/duplicate transition رد شود.
+- approved snapshot immutable.
+- Ticket، MaintenanceVisit، Snapshot، Outbox و audit از Admin قابل دور زدن نباشند.
+- mutation و audit event atomic باشند.
+
+## HWAgent
+credential به asset active و hostname متناظر bind شود؛ legacy بدون binding fail-closed. token خام فقط یک‌بار نمایش داده شود و hash در سرور بماند. nonce/timestamp ضد replay. token در localStorage/log/Git/issue/screenshot قرار نگیرد.
+
+## Private media
+فایل private از view مجوزمحور عبور کند. debug media serving امن نیست. Nginx/Apache proxy و internal redirect در مقصد باید جداگانه تست شود.
+
+## Outbox و SSRF
+hostname allowlist دقیق، DNS/IP validation، منع redirect، header validation، HMAC، idempotency key، retry مستقل و redaction. receiver باید deduplicate کند؛ exactly-once فرض نشود. dispatch واقعی در DB محلی ممنوع مگر endpoint تست و اجازه صریح.
+
+## Admin
+superuser بودن مجوز حذف شواهد یا bypass قواعد محصول نیست. workflow/event باید read-only یا break-glass محدود، دلیل‌دار و ممیزی‌شده باشد.
+
+## گزارش آسیب‌پذیری
+دارایی/endpoint، نقش، پیش‌شرط، گام بازتولید غیرمخرب، expected/actual، اثر، ریسک، شواهد، اصلاح، regression test و ریسک باقیمانده را ثبت کنید. token/password و داده شخصی در issue عمومی ننویسید.
+
+
+## یافته ممیزی: پیوست ارجاع‌ها و هم‌ترازی مجوزها (2026-11-19)
+
+در head شاخه PR #18 (`130bb091caf7c751f0ca6d406d93afa83528259a`) یک ناهماهنگی بین مجوز فهرست ارجاع و دانلود فایل مشاهده شد:
+
+- `referral_list` برای نقش‌های غیرمدیر کشوری/استانی و غیرکارشناس IT فقط `recipient_user=request.user` را نمایش می‌دهد.
+- `private_media` در شاخه `referrals/` علاوه بر سازنده و گیرنده، به هر کاربری که `get_scoped_centers()` او مرکز ارجاع را شامل شود (یا مرکز او در استان ارجاع باشد) اجازه دانلود می‌دهد.
+- `get_scoped_centers()` برای نقش‌های manager و requester نیز مرکز فعال را برمی‌گرداند؛ بنابراین دسترسی مستقیم با مسیر فایل می‌تواند از محدودیت فهرست عبور کند.
+
+**ریسک اولیه P2:** افشای محرمانگی فایل پیوست ارجاع برای manager/requester غیرگیرنده در همان scope، مشروط به دانستن مسیر فایل.
+
+**الگوی اصلاح:** سیاست visibility ارجاع را در یک service/queryset واحد تعریف کنید و در فهرست، resolve و private media دوباره استفاده کنید؛ مجوز فایل نباید از مجوز مشاهده/دریافت خود رکورد گسترده‌تر باشد. تست منفی برای manager/requester غیرگیرنده در ارجاع مرکزدار و استانیِ بدون مرکز، و تست مثبت برای گیرنده و نقش‌های مجاز اضافه شود.
+
+تست‌های فعلی private media دسترسی same-center برای admin_it و منع مرکز دیگر را پوشش می‌دهند؛ نقش‌های manager/requester غیرگیرنده را در این مسیر پوشش نمی‌دهند. این یافته code-review است و UAT محیط وب‌سرور یا ممیزی کامل همه فایل‌ها محسوب نمی‌شود.
+
+
+## تکمیل ممیزی: امضاها و endpointهای افزودن Ticket — 2026-11-19
+
+### امضاهای کاربران — P2، نیازمند تعیین سیاست
+
+شاخه `signatures/` در `private_media` به owner، مدیر کشوری و هر کاربر هم‌مرکز دسترسی می‌دهد؛ اما endpoint اختصاصی `signature_file` و تست `apps/accounts/tests_signature.py` مرز owner-only را بیان می‌کنند. template نمایه از endpoint اختصاصی استفاده می‌کند و در templateهای بررسی‌شده نیاز عملیاتی برای دیدن امضای دیگران در همان مرکز مشاهده نشد. اگر سیاست موردنظر owner-only است، شاخه `private_media` باید هم‌راستا شود؛ اگر دسترسی هم‌مرکز لازم است، آن را در policy و تست‌ها صریح کنید.
+
+### افزودن قطعه و پیوست Ticket — P2
+
+در `apps/tickets/views.py`، توابع `ticket_add_part` و `ticket_add_attachment` تیکت را از `visible_tickets` دریافت می‌کنند، اما مجوز عملیاتی `can_manage_ticket` را بررسی نمی‌کنند. فرم‌های متناظر در `templates/tickets/ticket_detail.html` فقط برای `is_manager_side` نمایش داده می‌شوند؛ این صرفاً کنترل UX است و direct POST را مسدود نمی‌کند. نقش requester می‌تواند تیکت‌های خودش را در queryset ببیند؛ بنابراین backend باید permission را enforce کند.
+
+**اصلاح پیشنهادی:** کنترل permission در server-side هر دو endpoint و regression tests برای direct POST نقش‌های requester/manager فاقد مجوز و مسیر مثبت IT/technician مجاز. برای پیوست، اعتبارسنجی نوع/محتوا و audit trail موجود نیز حفظ شود.
+
+### نتیجه file-path overlap شاخه‌ها
+
+اسکن filenameهای تغییرکرده نشان داد PR #17 و #18 با PRهای #19 تا #25 مسیر مشترک ندارند. هم‌پوشانی #20 تا #25 و #19/#24 در زنجیره UI از ancestry شاخه‌های فرزند ناشی می‌شود. این بررسی به‌تنهایی نبود conflict معنایی یا مجوز merge را ثابت نمی‌کند.
+
+
+## یافته تکمیلی: متد HTTP اعلان‌ها — P3
+
+در `apps/core/views.py::notification_read`، endpoint پس از اطمینان از تعلق اعلان به کاربر جاری، `mark_read()` را اجرا می‌کند؛ اما متد HTTP را به POST محدود نمی‌کند. template فهرست اعلان‌ها نیز آن را با anchor/GET فراخوانی می‌کند. تغییر state از طریق GET با semantics امن HTTP سازگار نیست و ممکن است با prefetch یا link preview رخ دهد. اصلاح: POST+CSRF و تست عدم تغییر با GET.
+
+### نتایج مثبت از مرور static endpointها
+
+در مسیرهای مرورشده در maintenance، assets/HWAgent، org، accounts و reports، کنترل‌های scope/role و service-level checks برای بسیاری از عملیات حساس مشاهده شد. این نتیجه صرفاً به دامنه بررسی‌شده محدود است؛ ممیزی جامع exportها، همه ترکیب نقش‌ها و UAT اجرایی همچنان باز است.

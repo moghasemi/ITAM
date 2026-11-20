@@ -1,0 +1,61 @@
+# مستندات پروژه ITAM
+
+این پوشه مرجع مستندات محصول، معماری، امنیت، عملیات و توسعه ITAM است.
+
+## نقطه شروع
+- [سند جامع پروژه — نسخه 2.3](project/PROJECT_MASTER_CONTEXT_v2.3_2026-11-19.md)
+- [Runbook پذیرش محلی سه‌ساعته](project/18_LOCAL_UAT_RUNBOOK_2026-11-19.md)
+- [سند جامع پروژه — نسخه 2.2 (سابقه)](project/PROJECT_MASTER_CONTEXT_v2.2_2026-11-19.md)
+- [سند جامع پروژه — نسخه 2.1 (سابقه)](project/PROJECT_MASTER_CONTEXT_v2.1_2026-11-19.md)
+- [سند جامع پروژه — نسخه 2.0 (سابقه)](project/PROJECT_MASTER_CONTEXT_v2.0_2026-11-19.md)
+- [سند جامع پروژه — نسخه 1.9 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.9_2026-11-19.md)
+- [سند جامع پروژه — نسخه 1.8 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.8_2026-11-19.md)
+- [سند جامع پروژه — نسخه 1.7 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.7_2026-11-19.md)
+- [سند جامع پروژه — نسخه 1.6 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.6_2026-11-19.md)
+- [سند جامع پروژه — نسخه 1.5 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.5_2026-11-19.md)
+- [نقشه‌راه اجرایی و فازبندی پروژه](project/13_PHASED_ROADMAP_AND_EXECUTION.md)
+- [گزارش ممیزی فاز صفر و آمادگی یکپارچه‌سازی](project/17_PHASE0_INTEGRATION_AUDIT.md)
+- [سند جامع پروژه — نسخه 1.4 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.4_2026-11-18.md)
+- [سند جامع پروژه — نسخه 1.3 (سابقه)](project/PROJECT_MASTER_CONTEXT_v1.3_2026-11-17.md)
+- [ورود سریع توسعه‌دهنده جدید](project/00_ONBOARDING.md)
+- [محصول و قواعد کسب‌وکار](project/01_PRODUCT_AND_DOMAIN.md)
+- [معماری و نقشه کد](project/02_ARCHITECTURE_AND_CODE_MAP.md)
+- [امنیت و مجوزدهی](project/03_SECURITY_AND_AUTHORIZATION.md)
+- [گردش توسعه و Git](project/04_DEVELOPMENT_WORKFLOW.md)
+- [تست و پذیرش](project/05_TESTING_AND_ACCEPTANCE.md)
+- [ایمنی دیتابیس و داده](project/06_DATABASE_AND_DATA_SAFETY.md)
+- [UI و Metronic](project/07_UI_UX_AND_METRONIC.md)
+- [HWAgent و یکپارچه‌سازی](project/08_INTEGRATIONS_AND_HWAGENT.md)
+- [قواعد مستندسازی و تصمیم‌ها](project/09_DOCUMENTATION_AND_DECISION_RULES.md)
+- [دفتر ثبت تصمیم‌ها](project/DECISION_LOG.md)
+- [وضعیت و Backlog](project/10_STATUS_AND_BACKLOG.md)
+- [راهنمای عامل هوش مصنوعی](project/11_AI_AGENT_RULES.md)
+- [استاندارد مشارکت و کدنویسی](project/12_CONTRIBUTING_AND_CODING_STANDARDS.md)
+
+- [دفتر ثبت روزانه فعالیت‌ها](project/14_DAILY_WORK_LOG.md)
+
+## اسناد تخصصی موجود
+- [معماری سازمانی و امنیت](ENTERPRISE_ARCHITECTURE_AND_SECURITY.md)
+- [عملیات امنیتی](SECURITY_OPERATIONS.md)
+- [انتساب قرارداد به مرکز](CONTRACT_CENTER_ASSIGNMENTS.md)
+- [داده نمونه](DEMO_DATA.md)
+- [مدل سازمانی و جغرافیا](architecture/ORGANIZATION_AND_GEOGRAPHY.md)
+- [داده جغرافیایی و نمونه](development/TEST_DATA_AND_IRAN_GEOGRAPHY.md)
+- [رابط Metronic 9](UI_UX_METRONIC9.md)
+- [مجوز Metronic](licenses/metronic9-license-notice.txt)
+- [راهنمای HWAgent](../HWAgent/README.md)
+
+## برچسب وضعیت
+- **Implemented:** در commit مشخص وجود دارد؛ به معنی پذیرش دستی یا Production-ready نیست.
+- **CI verified:** تست خودکار روی commit مشخص موفق شده است.
+- **Locally verified:** فقط با شواهد اجرای واقعی در محیط محلی.
+- **Accepted:** سناریوی پذیرش با نقش و داده مناسب تأیید شده است.
+- **Planned / Open / Deferred:** برنامه‌ریزی‌شده، نیازمند بررسی یا خارج از مرحله جاری.
+
+در اختلاف اسناد، وضعیت کد و GitHub را از نیازمندی محصول جدا کنید. اختلاف را بی‌صدا حل نکنید؛ آن را به‌عنوان Gap یا Decision ثبت کنید.
+
+---
+
+## نیازمندی‌های محصول ثبت‌شده
+
+- [بازطراحی چرخه بازدیدها و سرویس‌های دوره‌ای قرارداد](project/16_PERIODIC_VISIT_LIFECYCLE.md) — ایجاد دستی/خودکار/ترکیبی، تولید تعهد برای هر مرکز، زمان‌بندی پیمانکار و تأیید مرحله‌ای مرکز و استان.
