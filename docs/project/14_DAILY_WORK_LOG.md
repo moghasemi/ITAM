@@ -324,3 +324,30 @@
 - [x] run `44544201157` روی head `f04726b4273466dae9f1df0c932639da0c177b67` با 5/5 job موفق شد.
 - [x] PR #32 نیز run `44543874381` را با 5/5 job موفق گذراند.
 - [ ] UAT محلی، تست فیلتر در مرورگر و چاپ واقعی/PDF همچنان باز است.
+
+---
+
+## 2026-11-20 — بازبینی زنده فاز صفر
+
+### دامنه و شواهد
+- فهرست زنده PRهای مخزن دریافت شد: 26 PR باز (#7 تا #33 به‌جز #10)، همگی Draft.
+- آخرین workflow run مرتبط با head هر 26 PR بررسی شد: 25 موفق، یک ناموفق (#14).
+- PR #14: run 43704669403؛ Python 3.11، Python 3.12 و PostgreSQL در Test Suite شکست دارند. production settings و deploy-script validation موفق‌اند. لاگ‌ها خطاهای گردش تأیید مدیر/تخصیص درخواست عمومی را نشان می‌دهند.
+- PR #15: head 4ce9e0d96a8446622a4bf2c5fc7c1da405cd76ad، 43 commit بعد از head PR #14 و CI موفق (44156606115). diff افزایشی آن هنوز نیازمند review است.
+- PR #13: head 9c054fa8c2a9aad182890fba61699bc543af1731؛ در مقایسه با head جاری PR #12 (e081d454d6680dbbe84fe705ece6e3bbb621ab63) واگرا، 40 ahead / 7 behind؛ mergeable=false، هرچند CI آن موفق است.
+- PR #10 بسته و unmerged است؛ head آن (cf7dcfc8f2cb79ad770cbd17dcf8dd1b2de7b832) دقیقاً base PR #12 است و در ancestry حفظ شده.
+- CI موفق headهای #17، #31، #32 و #33 نیز تأیید شد؛ PR #17 run 44544853119، #31 run 44540345588، #32 run 44543874381 و #33 run 44643911053.
+- PR #17 فقط مستندات را تغییر می‌دهد؛ این به‌روزرسانی نیز صرفاً روی شاخه docs/itam-project-handbook-v1.3 ثبت می‌شود.
+
+### اقدامات انجام‌شده
+- به‌روزرسانی گزارش ممیزی فاز صفر، نقشه‌راه و دفتر روزانه با snapshot مورخ 20 نوامبر.
+- هیچ PR ادغام نشد؛ هیچ branch بازنویسی نشد؛ هیچ deploy، migration، seed، reconciliation apply، Outbox dispatch یا DB mutation اجرا نشد.
+
+### موارد باز
+- بازبینی محتوایی diff و review metadata تمام PRهای باقیمانده.
+- تعیین راهبرد امن #14/#15؛ عدم ادغام #14 به‌تنهایی.
+- رفع divergence #13.
+- بررسی مستقیم Branch Protection/Rulesets و Required Checks با دسترسی معتبر.
+- تکمیل ماتریس endpoint × role و بررسی concurrencyهای باقیمانده.
+- دریافت خروجی git branch --show-current، git log -1 --oneline و git status --short از checkout محلی پیش از هر sync/checkout.
+- UAT محلی و مرورگر/چاپ/HWAgent/Proxy/Backup-restore مستقل از فاز صفر باقی می‌ماند.
