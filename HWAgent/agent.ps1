@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 #  Hardware Snapshot Agent - Local HTTP Server (ASCII-safe)
 # ============================================================
 $Port        = 8765
@@ -52,6 +52,53 @@ function Get-ComponentHashes($snap) {
         $result[$k] = Get-Sha256 ($parts[$k] | ConvertTo-Json -Depth 10 -Compress)
     }
     return $result
+}
+
+# ---------- Physical network adapters (connected and disconnected) ----------
+function Get-PhysicalNetworkAdapters {
+    $netAdapters = @()
+    try {
+        # Enumerate hidden/disconnected adapters too, then trust the
+        # HardwareInterface flag as the sole inclusion criterion.
+        $netAdapters = @(Get-NetAdapter -IncludeHidden -ErrorAction Stop |
+            Where-Object { $_.HardwareInterface -eq $true })
+    } catch {
+        $netAdapters = @()
+    }
+
+    $cimAdapters = @(Get-CimInstance Win32_NetworkAdapter -ErrorAction SilentlyContinue |
+        Where-Object { $_.PhysicalAdapter -eq $true })
+
+    $result = @()
+    foreach ($adapter in $netAdapters) {
+        # Keep the physical-only guarantee; never include software/virtual NICs.
+        if ($adapter.PSObject.Properties.Name -contains "HardwareInterface" -and
+            $adapter.HardwareInterface -ne $true) { continue }
+
+        $index = $adapter.InterfaceIndex
+        $cim = $null
+        if ($null -ne $index) {
+            $cim = $cimAdapters | Where-Object { $_.InterfaceIndex -eq $index } | Select-Object -First 1
+        }
+
+        $manufacturer = ""
+        if ($cim) { $manufacturer = "$($cim.Manufacturer)" }
+
+        $result += [ordered]@{
+            name              = "$($adapter.Name)"
+            model             = "$($adapter.InterfaceDescription)"
+            manufacturer      = $manufacturer
+            mac               = "$($adapter.MacAddress)"
+            status            = "$($adapter.Status)"
+            linkSpeed         = "$($adapter.LinkSpeed)"
+            interfaceIndex    = $index
+            physical          = $true
+        }
+    }
+
+    # Do not append CIM-only adapters: this can reintroduce VPN and virtual NICs.
+
+    return @($result | Sort-Object name)
 }
 
 # ---------- Collect hardware info ----------
@@ -132,13 +179,7 @@ function Get-HardwareSnapshot {
                 driverVersion = "$($_.DriverVersion)"
             }
         })
-        network = @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue |
-                    Where-Object Status -eq "Up" | ForEach-Object {
-            [ordered]@{
-                name = "$($_.Name)"
-                mac  = "$($_.MacAddress)"
-            }
-        })
+        network = @(Get-PhysicalNetworkAdapters)
     }
 
     $snap.hashes = [ordered]@{

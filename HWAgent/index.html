@@ -37,6 +37,29 @@ td{padding:9px;border-bottom:1px solid #edf1f6;direction:ltr;text-align:left;ove
 @media(max-width:700px){body{padding:10px}.header{border-radius:14px}.btns{width:100%}.btns .btn{flex:1 1 145px}.tabs{gap:6px}.tab{flex:1 1 auto}.card{padding:14px}.row{gap:8px}.meter-row{grid-template-columns:minmax(65px,1fr) minmax(60px,1.5fr) auto}}
 @media(prefers-color-scheme:dark){:root{color-scheme:dark;--agent-bg:#0b1220;--agent-surface:#111c2d;--agent-soft:#17253a;--agent-border:#26364c;--agent-text:#e5edf7;--agent-muted:#a9bad0;--agent-shadow:0 8px 28px rgba(0,0,0,.18)}.card{color:var(--agent-text)}.row{border-color:#26364c}.mono{color:#b8c7da}.tab{background:#111c2d;color:#a9bad0;border-color:#26364c}.tab.active{background:#172f52;color:#bfdbfe;border-color:#315c91}.status{color:#a9bad0}.meter-track{background:#26364c}table{color:#dbe5f2}th{background:#17253a;color:#c3d2e4;border-color:#26364c}td{border-color:#26364c}#itamSync input{background:#0b1220;color:#e5edf7;border-color:#3a4b63}.banner.ok{background:#123322;color:#bbf7d0;border-color:#166534}.banner.warn{background:#3b2d12;color:#fde68a;border-color:#854d0e}.banner.crit{background:#3b1720;color:#fecdd3;border-color:#9f1239}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* Metronic-inspired HWAgent workspace */
+:root{--agent-bg:#f3f6f9;--agent-primary:#009ef7;--agent-border:#e4e6ef;--agent-shadow:0 4px 18px rgba(15,23,42,.045)}
+body{background:linear-gradient(180deg,#eef3f8 0,#f7f9fc 260px);font-size:13px}
+.header{position:relative;overflow:hidden;border-radius:16px;background:linear-gradient(112deg,#071437 0%,#123b78 52%,#009ef7 100%);box-shadow:0 12px 28px rgba(9,30,66,.16)}
+.header:after{content:"";position:absolute;width:330px;height:330px;border:1px solid rgba(255,255,255,.10);border-radius:50%;inset-inline-start:-95px;top:-205px;box-shadow:0 0 0 35px rgba(255,255,255,.035),0 0 0 75px rgba(255,255,255,.025);pointer-events:none}
+.header>div{position:relative;z-index:1}.header h1{letter-spacing:-.25px}.header small{font-size:12px;color:rgba(255,255,255,.82)}
+.btn{border-radius:9px;padding:9px 13px;box-shadow:0 1px 2px rgba(0,0,0,.06)}.btn:hover{transform:translateY(-1px);box-shadow:0 5px 12px rgba(0,0,0,.12)}
+.tabs{border:0;margin-top:20px;padding:0;gap:6px}.tab{border:0;background:transparent;border-radius:8px 8px 0 0;padding:11px 16px;color:#7e8299}.tab.active{background:#fff;color:#009ef7;box-shadow:inset 0 -3px #009ef7}
+.pane{background:transparent}.grid{gap:16px;margin-top:16px}.card{border:1px solid #edf0f5;border-radius:12px;box-shadow:0 3px 14px rgba(15,23,42,.035);padding:18px;transition:box-shadow .18s ease,transform .18s ease}.card:hover{box-shadow:0 8px 24px rgba(15,23,42,.07);transform:translateY(-1px)}
+.card h2{font-size:13px;color:#3f4254;border-bottom:1px solid #f0f1f5;padding-bottom:12px}.row{font-size:12px;padding:9px 0}.label{color:#a1a5b7}.value{color:#3f4254}.chip{background:#f1faff;color:#009ef7;border-radius:6px}
+.system-overview{grid-column:1/-1;background:linear-gradient(110deg,#fff 0%,#f8fbff 100%);border-color:#dceaf7;display:grid;grid-template-columns:minmax(220px,1.5fr) repeat(3,minmax(130px,1fr));gap:16px;align-items:center}
+.system-host{min-width:0}.system-host .eyebrow{font-size:11px;color:#a1a5b7;font-weight:800}.system-host .hostname{font-size:clamp(19px,2.3vw,27px);font-weight:900;direction:ltr;text-align:right;overflow-wrap:anywhere;color:#181c32;line-height:1.4}.system-host .subline{font-size:11px;color:#7e8299;margin-top:4px}
+.system-metric{border-inline-start:1px solid #e8edf4;padding-inline-start:15px;min-width:0}.system-metric .metric-label{font-size:10px;color:#a1a5b7;font-weight:700}.system-metric .metric-value{font-size:12px;color:#3f4254;font-weight:800;overflow-wrap:anywhere}
+.network-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px}.network-adapter{border:1px solid #edf0f5;border-radius:10px;padding:12px;background:#fbfcfe;min-width:0}
+.network-adapter-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}.network-adapter-name{font-size:12px;font-weight:850;color:#3f4254;overflow-wrap:anywhere}.network-adapter-model{font-size:10px;color:#a1a5b7;margin-top:3px;overflow-wrap:anywhere}
+.network-state{font-size:10px;font-weight:800;border-radius:6px;padding:3px 8px;white-space:nowrap;background:#fff4de;color:#b58105}.network-state.up{background:#e8fff3;color:#50cd89}.network-state.disabled{background:#fff1f2;color:#f1416c}
+.network-meta{display:grid;grid-template-columns:1fr 1fr;gap:7px}.network-meta div{min-width:0;background:#fff;border-radius:7px;padding:7px}.network-meta small{display:block;color:#a1a5b7;font-size:9px}.network-meta strong{display:block;color:#3f4254;font-size:10px;direction:ltr;text-align:right;overflow-wrap:anywhere}
+.meter-track{background:#f1f1f4}.banner{border-radius:9px}
+@media(max-width:850px){.system-overview{grid-template-columns:1fr 1fr}.system-host{grid-column:1/-1}.system-metric{border-inline-start:0;border-top:1px solid #e8edf4;padding:10px 0 0}}
+@media(max-width:520px){.system-overview{grid-template-columns:1fr 1fr;gap:12px}.system-host{grid-column:1/-1}.network-meta{grid-template-columns:1fr 1fr}.header{padding:18px}.tabs{overflow-x:auto;flex-wrap:nowrap}.tab{white-space:nowrap;flex:0 0 auto}}
+@media(prefers-color-scheme:dark){body{background:#0b1220}.system-overview{background:linear-gradient(110deg,#111c2d,#14253b);border-color:#26364c}.system-host .hostname,.system-metric .metric-value,.card h2,.value{color:#e5edf7}.system-metric{border-color:#26364c}.network-adapter{background:#142136;border-color:#26364c}.network-adapter-name,.network-meta strong{color:#e5edf7}.network-meta div{background:#111c2d}.network-state{background:#3b2d12;color:#fde68a}.network-state.up{background:#123322;color:#bbf7d0}.network-state.disabled{background:#3b1720;color:#fecdd3}.tab.active{background:#111c2d;color:#50cdff}.card{border-color:#26364c}}
+
 </style>
 </head>
 <body>
@@ -231,10 +254,21 @@ function render(d) {
   const totalDisk = d.disks.reduce((s,x) => s + x.sizeGB, 0);
 
   document.getElementById("machineInfo").textContent =
-    `${escapeHtml(d.computerName)} | ${escapeHtml(d.userName)} | ${escapeHtml(d.timestamp)}`;
+    `رایانه: ${d.computerName || "—"} | کاربر: ${d.userName || "—"} | ${d.timestamp || "—"}`;
 
   document.getElementById("content").innerHTML = `
     <div class="grid">
+
+      <section class="card system-overview" aria-label="مشخصات سیستم">
+        <div class="system-host">
+          <div class="eyebrow">نام رایانه / HOSTNAME</div>
+          <div class="hostname">${escapeHtml(d.computerName || "—")}</div>
+          <div class="subline">کاربر جاری: <b>${escapeHtml(d.userName || "—")}</b></div>
+        </div>
+        <div class="system-metric"><div class="metric-label">سازنده سیستم</div><div class="metric-value">${escapeHtml(d.system.manufacturer || "—")}</div></div>
+        <div class="system-metric"><div class="metric-label">مدل دستگاه</div><div class="metric-value">${escapeHtml(d.system.model || "—")}</div></div>
+        <div class="system-metric"><div class="metric-label">زمان ثبت اسنپ‌شات</div><div class="metric-value">${escapeHtml(d.timestamp || "—")}</div></div>
+      </section>
 
       <div class="card">
         <h2>⚙️ پردازنده</h2>
@@ -281,11 +315,26 @@ function render(d) {
       </div>
 
       <div class="card">
-        <h2>🌐 کارت شبکه</h2>
-        ${d.network.map(n => `<div class="row">
-          <span class="label">${escapeHtml(n.name)}</span>
-          <span class="value">${escapeHtml(n.mac)}</span>
-        </div>`).join("") || '<div class="row">—</div>'}
+        <h2>🌐 کارت‌های شبکه فیزیکی <span class="chip">${(d.network || []).length} دستگاه</span></h2>
+        <div class="network-list">
+          ${(d.network || []).map(n => {
+            const state = String(n.status || "Unknown");
+            const stateClass = state === "Up" ? "up" : (state === "Disabled" || state === "Not Present" ? "disabled" : "");
+            const stateLabel = state === "Up" ? "متصل" : state === "Disconnected" ? "قطع اتصال" : state === "Disabled" ? "غیرفعال" : state === "Not Present" ? "در دسترس نیست" : "نامشخص";
+            return `<article class="network-adapter">
+              <div class="network-adapter-head">
+                <div><div class="network-adapter-name">${escapeHtml(n.name || "کارت شبکه")}</div><div class="network-adapter-model">${escapeHtml(n.model || "مدل نامشخص")}</div></div>
+                <span class="network-state ${stateClass}">${stateLabel}</span>
+              </div>
+              <div class="network-meta">
+                <div><small>MAC Address</small><strong>${escapeHtml(n.mac || "—")}</strong></div>
+                <div><small>سازنده</small><strong>${escapeHtml(n.manufacturer || "—")}</strong></div>
+                <div><small>سرعت لینک</small><strong>${escapeHtml(n.linkSpeed || "—")}</strong></div>
+                <div><small>شماره رابط</small><strong>${escapeHtml(n.interfaceIndex == null ? "—" : n.interfaceIndex)}</strong></div>
+              </div>
+            </article>`;
+          }).join("") || '<div class="status">کارت شبکه فیزیکی شناسایی نشد.</div>'}
+        </div>
       </div>
 
       <div class="card" style="grid-column:1/-1">
