@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 #  Hardware Snapshot Agent - Local HTTP Server (ASCII-safe)
 # ============================================================
 $Port        = 8765
@@ -52,6 +52,76 @@ function Get-ComponentHashes($snap) {
         $result[$k] = Get-Sha256 ($parts[$k] | ConvertTo-Json -Depth 10 -Compress)
     }
     return $result
+}
+
+# ---------- Physical network adapters (connected and disconnected) ----------
+function Get-PhysicalNetworkAdapters {
+    $netAdapters = @()
+    try {
+        # IncludeHidden makes disconnected/hidden hardware interfaces visible.
+        $netAdapters = @(Get-NetAdapter -Physical -IncludeHidden -ErrorAction Stop)
+    } catch {
+        try {
+            $netAdapters = @(Get-NetAdapter -Physical -ErrorAction Stop)
+        } catch {
+            $netAdapters = @()
+        }
+    }
+
+    $cimAdapters = @(Get-CimInstance Win32_NetworkAdapter -ErrorAction SilentlyContinue |
+        Where-Object { $_.PhysicalAdapter -eq $true })
+
+    $result = @()
+    foreach ($adapter in $netAdapters) {
+        # Keep the physical-only guarantee; never include software/virtual NICs.
+        if ($adapter.PSObject.Properties.Name -contains "HardwareInterface" -and
+            $adapter.HardwareInterface -ne $true) { continue }
+
+        $index = $adapter.InterfaceIndex
+        $cim = $null
+        if ($null -ne $index) {
+            $cim = $cimAdapters | Where-Object { $_.InterfaceIndex -eq $index } | Select-Object -First 1
+        }
+
+        $result += [ordered]@{
+            name              = "$($adapter.Name)"
+            model             = "$($adapter.InterfaceDescription)"
+            manufacturer      = if ($cim) { "$($cim.Manufacturer)" } else { "" }
+            mac               = "$($adapter.MacAddress)"
+            status            = "$($adapter.Status)"
+            linkSpeed         = "$($adapter.LinkSpeed)"
+            interfaceIndex    = $index
+            physical          = $true
+        }
+    }
+
+    # CIM fallback for physical devices not surfaced by the NetAdapter cmdlet.
+    foreach ($cim in $cimAdapters) {
+        $index = $cim.InterfaceIndex
+        $alreadyAdded = $false
+        if ($null -ne $index) {
+            $alreadyAdded = @($result | Where-Object { $_.interfaceIndex -eq $index }).Count -gt 0
+        }
+        if ($alreadyAdded) { continue }
+
+        $status = if ($cim.NetEnabled -eq $true) { "Up" } elseif ($cim.NetEnabled -eq $false) { "Disabled" } else { "Unknown" }
+        $speed = ""
+        if ($cim.Speed -and [double]$cim.Speed -gt 0) {
+            $speed = "{0:N0} Mbps" -f ([double]$cim.Speed / 1000000)
+        }
+        $result += [ordered]@{
+            name              = "$($cim.NetConnectionID)"
+            model             = "$($cim.Name)"
+            manufacturer      = "$($cim.Manufacturer)"
+            mac               = "$($cim.MACAddress)"
+            status            = $status
+            linkSpeed         = $speed
+            interfaceIndex    = $index
+            physical          = $true
+        }
+    }
+
+    return @($result | Sort-Object name)
 }
 
 # ---------- Collect hardware info ----------
@@ -132,13 +202,7 @@ function Get-HardwareSnapshot {
                 driverVersion = "$($_.DriverVersion)"
             }
         })
-        network = @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue |
-                    Where-Object Status -eq "Up" | ForEach-Object {
-            [ordered]@{
-                name = "$($_.Name)"
-                mac  = "$($_.MacAddress)"
-            }
-        })
+        network = @(Get-PhysicalNetworkAdapters)
     }
 
     $snap.hashes = [ordered]@{
