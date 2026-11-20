@@ -603,3 +603,16 @@ Snapshot تازه: 18 PR باز (همگی Draft) و 7 PR بسته. PRهای #1،
 - [ ] آزمون Backup/Restore و rehearsal مهاجرت روی نسخه کپی‌شده از دیتابیس واقعی.
 
 **وضعیت:** ممیزی ریموت فاز صفر تا حد زیادی تکمیل شده است؛ بستن نهایی آن منوط به تصمیم‌های ادغام/Branch Protection و تکمیل CI هر تغییر تازه است. UAT محلی مستقل باقی می‌ماند. جزئیات در `17_PHASE0_INTEGRATION_AUDIT.md` ثبت شده است.
+
+---
+
+## Snapshot تکمیلی فاز صفر — 2026-11-20
+
+- تعداد PRهای باز: 26؛ همه Draft. CI روی head هرکدام بررسی شد: 25 success و یک failure (#14).
+- PR #14 روی Python 3.11، Python 3.12 و PostgreSQL در تست‌های workflow شکست دارد؛ PR #15 فرزند مستقیم آن با 43 commit افزوده و CI موفق است. #14 به‌تنهایی ادغام نشود؛ diff افزایشی #15 باید بازبینی شود.
+- PR #13 با وجود CI موفق، نسبت به head فعلی PR #12 واگراست: 40 ahead / 7 behind و mergeable=false. از صف ادغام خارج بماند تا ancestry اصلاح شود.
+- PR #10 بسته و unmerged است، ولی head آن دقیقاً base PR #12 است؛ تغییرات آن در ancestry حفظ شده‌اند.
+- زنجیره UI از #16 تا #33 و زنجیره hardening از #15 به #31 و #32 در metadata به‌صورت stacked قابل ردیابی‌اند؛ هر دو باید با gateهای مستقل و به ترتیب ancestry بررسی شوند.
+- PR #17 head فعلی CI سبز دارد. این فقط صحت مستندات روی همان commit است، نه پذیرش محلی.
+- Branch Protection امروز از connector قابل تأیید مستقیم نبود؛ snapshot تاریخی protected=false و پاسخ 403 به‌عنوان سابقه نگهداری می‌شود، نه وضعیت قطعی امروز.
+- **فاز صفر هنوز باز است.** باقی‌مانده‌ها: بازبینی diff/reviewها، تصمیم #14/#15، رفع divergence #13، تأیید Branch Protection، تکمیل ماتریس endpoint×role و دریافت وضعیت checkout محلی.
