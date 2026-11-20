@@ -58,14 +58,12 @@ function Get-ComponentHashes($snap) {
 function Get-PhysicalNetworkAdapters {
     $netAdapters = @()
     try {
-        # IncludeHidden makes disconnected/hidden hardware interfaces visible.
-        $netAdapters = @(Get-NetAdapter -Physical -IncludeHidden -ErrorAction Stop)
+        # Enumerate hidden/disconnected adapters too, then trust the
+        # HardwareInterface flag as the sole inclusion criterion.
+        $netAdapters = @(Get-NetAdapter -IncludeHidden -ErrorAction Stop |
+            Where-Object { $_.HardwareInterface -eq $true })
     } catch {
-        try {
-            $netAdapters = @(Get-NetAdapter -Physical -ErrorAction Stop)
-        } catch {
-            $netAdapters = @()
-        }
+        $netAdapters = @()
     }
 
     $cimAdapters = @(Get-CimInstance Win32_NetworkAdapter -ErrorAction SilentlyContinue |
@@ -98,31 +96,7 @@ function Get-PhysicalNetworkAdapters {
         }
     }
 
-    # CIM fallback for physical devices not surfaced by the NetAdapter cmdlet.
-    foreach ($cim in $cimAdapters) {
-        $index = $cim.InterfaceIndex
-        $alreadyAdded = $false
-        if ($null -ne $index) {
-            $alreadyAdded = @($result | Where-Object { $_.interfaceIndex -eq $index }).Count -gt 0
-        }
-        if ($alreadyAdded) { continue }
-
-        $status = if ($cim.NetEnabled -eq $true) { "Up" } elseif ($cim.NetEnabled -eq $false) { "Disabled" } else { "Unknown" }
-        $speed = ""
-        if ($cim.Speed -and [double]$cim.Speed -gt 0) {
-            $speed = "{0:N0} Mbps" -f ([double]$cim.Speed / 1000000)
-        }
-        $result += [ordered]@{
-            name              = "$($cim.NetConnectionID)"
-            model             = "$($cim.Name)"
-            manufacturer      = "$($cim.Manufacturer)"
-            mac               = "$($cim.MACAddress)"
-            status            = $status
-            linkSpeed         = $speed
-            interfaceIndex    = $index
-            physical          = $true
-        }
-    }
+    # Do not append CIM-only adapters: this can reintroduce VPN and virtual NICs.
 
     return @($result | Sort-Object name)
 }
