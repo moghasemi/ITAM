@@ -351,3 +351,17 @@
 - تکمیل ماتریس endpoint × role و بررسی concurrencyهای باقیمانده.
 - دریافت خروجی git branch --show-current، git log -1 --oneline و git status --short از checkout محلی پیش از هر sync/checkout.
 - UAT محلی و مرورگر/چاپ/HWAgent/Proxy/Backup-restore مستقل از فاز صفر باقی می‌ماند.
+
+
+## 2026-11-20 — ادامه ممیزی زنده فاز صفر
+
+- فهرست زنده 27 PR باز دریافت شد؛ 26 CI موفق و PR #14 ناموفق است.
+- CI headهای #7 تا #33 (به‌جز #10 بسته) بررسی شد؛ #17 روی head جدید `cb083a737a5c86e0dfaab59521855210966b1bde` با run `44708074055` سبز است.
+- GitHub Reviews، Inline Threads و Conversation Comments برای تمام 27 PR باز بررسی شد؛ هیچ Review/Thread/Comment ثبت نشده است.
+- PR #13 در برابر #12 همچنان 40 ahead / 7 behind و diverged است.
+- PR #18 و #31 در مسیرهای امنیتی هم‌پوشانی دارند ولی patchها یکسان نیستند؛ ادغام هر دو بدون consolidation توصیه نمی‌شود.
+- PR #31→#32 زنجیره امنیتی سالم و CI سبز است؛ PR #33 نیز head جدید و CI سبز دارد.
+- main بدون Branch Protection و Required Checks است؛ Rulesets خالی است.
+- گزارش تفصیلی و ترتیب پیشنهادی integration در `17_PHASE0_INTEGRATION_AUDIT.md` ثبت شد.
+- هیچ Merge، Deploy، Migration، Seed، تغییر DB، reconciliation apply یا Outbox dispatch انجام نشد.
+- موارد خارج از توان پذیرش ریموت (مرورگر/چاپ/HWAgent Windows/TLS/Backup-Restore و concurrency واقعی) باز باقی می‌مانند.
