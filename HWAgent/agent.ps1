@@ -83,10 +83,13 @@ function Get-PhysicalNetworkAdapters {
             $cim = $cimAdapters | Where-Object { $_.InterfaceIndex -eq $index } | Select-Object -First 1
         }
 
+        $manufacturer = ""
+        if ($cim) { $manufacturer = "$($cim.Manufacturer)" }
+
         $result += [ordered]@{
             name              = "$($adapter.Name)"
             model             = "$($adapter.InterfaceDescription)"
-            manufacturer      = if ($cim) { "$($cim.Manufacturer)" } else { "" }
+            manufacturer      = $manufacturer
             mac               = "$($adapter.MacAddress)"
             status            = "$($adapter.Status)"
             linkSpeed         = "$($adapter.LinkSpeed)"
